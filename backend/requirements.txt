@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+alembic
+pydantic
+pydantic-settings
+celery
+redis
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+cantera
+pandas
+openpyxl
+plotly
