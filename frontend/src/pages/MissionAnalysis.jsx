@@ -75,26 +75,58 @@ export default function MissionAnalysis() {
         return () => clearTimeout(t)
     }, [aircraftData, runAnalysis])
 
+    // Calculate Feasible Region (Maximum T/W requirement at each W/S)
+    const feasibleTW = data ? data.ws.map((_, i) => {
+        return Math.max(...data.series.map(s => s.values[i]))
+    }) : []
+
     const plotTraces = data ? [
+        // Transparent upper boundary for filling (Target T/W limit)
+        {
+            x: data.ws,
+            y: data.ws.map(() => 1.2),
+            showlegend: false,
+            mode: 'none',
+            hoverinfo: 'skip'
+        },
+        // Feasible Region Shading (Area satisfying all requirements)
+        {
+            x: data.ws,
+            y: feasibleTW,
+            name: 'FEASIBLE_REGION',
+            fill: 'tonexty',
+            fillcolor: 'rgba(255,255,255,0.03)',
+            type: 'scatter',
+            mode: 'none',
+            hoverinfo: 'skip',
+            showlegend: true
+        },
         ...data.series.map((s, idx) => ({
             x: data.ws,
             y: s.values,
-            name: s.label,
+            name: s.label.toUpperCase(),
             type: 'scatter',
             mode: 'lines',
-            line: { color: `rgba(255,255,255,${0.1 + (idx/data.series.length)*0.6})`, width: 1.5 },
-            hovertemplate: `${s.label}<br>W/S: %{x}<br>T/W: %{y}<extra></extra>`
+            line: { 
+                color: idx === 0 ? '#fff' : `rgba(255,255,255,${0.1 + (idx/data.series.length)*0.4})`, 
+                width: idx === 0 ? 2.5 : 1.5,
+                dash: idx === 0 ? 'solid' : 'dash'
+            },
+            hovertemplate: `<b>${s.label.toUpperCase()}</b><br>W/S: %{x}<br>T/W: %{y}<extra></extra>`
         })),
         {
             x: [data.optimum?.ws],
             y: [data.optimum?.tw],
-            name: 'OPTIMUM_DESIGN_POINT',
-            mode: 'markers+text',
-            text: ['DESIGN_CORNER'],
-            textposition: 'top center',
-            marker: { color: '#fff', size: 12, symbol: 'cross-thin' },
+            name: 'DESIGN_CORNER',
+            mode: 'markers',
+            marker: { 
+                color: '#fff', 
+                size: 15, 
+                symbol: 'cross-thin',
+                line: { width: 2, color: '#fff' }
+            },
             type: 'scatter',
-            hovertemplate: `OPTIMUM_CORNER<br>W/S: %{x}<br>T/W: %{y}<extra></extra>`
+            hovertemplate: `<b>OPTIMUM_CORNER</b><br>W/S: %{x} PA<br>T/W: %{y}<extra></extra>`
         }
     ] : []
 

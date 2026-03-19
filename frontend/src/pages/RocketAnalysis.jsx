@@ -36,46 +36,130 @@ function SliderControl({ label, value, unit, min, max, onChange, disabled, step 
 }
 
 function MocVisualization({ mocData }) {
+  const traces = []
+  
+  if (mocData) {
+    // 1. Wall Contour
+    traces.push({
+      x: mocData.x,
+      y: mocData.y,
+      name: 'NOZZLE_WALL',
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: '#fff', width: 3 },
+      hovertemplate: 'WALL_NODE<br>X: %{x}m<br>R: %{y}m<extra></extra>'
+    })
+    
+    // Lower wall (Symmetry)
+    traces.push({
+      x: mocData.x,
+      y: mocData.y.map(v => -v),
+      name: 'WALL_LOWER',
+      type: 'scatter',
+      mode: 'lines',
+      line: { color: 'rgba(255,255,255,0.2)', width: 1, dash: 'dash' },
+      showlegend: false,
+      hoverinfo: 'skip'
+    })
+
+    // 2. Wave Mesh (C+ and C-)
+    if (mocData.mesh) {
+        mocData.mesh.forEach((wave, i) => {
+            traces.push({
+                x: wave.x,
+                y: wave.y,
+                name: i === 0 ? 'WAVE_REFLECTIONS' : '',
+                legendgroup: 'waves',
+                showlegend: i === 0,
+                type: 'scatter',
+                mode: 'lines',
+                line: { 
+                    color: wave.type === 'C+' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.15)', 
+                    width: 0.8 
+                },
+                hovertemplate: `${wave.type}_WAVE<br>MACH: ${wave.mach}<extra></extra>`
+            })
+            
+            // Lower symmetry waves
+            traces.push({
+                x: wave.x,
+                y: wave.y.map(v => -v),
+                legendgroup: 'waves',
+                showlegend: false,
+                type: 'scatter',
+                mode: 'lines',
+                line: { 
+                    color: 'rgba(255,255,255,0.05)', 
+                    width: 0.5 
+                },
+                hoverinfo: 'skip'
+            })
+        })
+    }
+    
+    // 3. Centerline
+    traces.push({
+        x: [0, Math.max(...mocData.x) * 1.1],
+        y: [0, 0],
+        name: 'CENTER_LINE',
+        mode: 'lines',
+        line: { color: 'rgba(255,255,255,0.05)', width: 1, dash: 'dot' },
+        hoverinfo: 'skip'
+    })
+  }
+
   return (
-    <div className="flex-1 bg-surface-container-lowest border border-white/10 relative overflow-hidden flex flex-col group min-h-[500px]">
+    <div className="flex-1 bg-surface-container-lowest border border-white/10 relative overflow-hidden flex flex-col group min-h-[550px]">
       <div className="panel-accent"></div>
       
-      <div className="absolute top-12 left-12 z-10 space-y-3">
+      <div className="absolute top-12 left-12 z-20 space-y-3 pointer-events-none">
         <h2 className="text-[14px] font-black tracking-[0.3em] text-white">NOZZLE_EXPANSION_MESH</h2>
         <p className="mono text-[11px] text-white/30 uppercase underline tracking-widest">
-            {mocData ? `NODE_COUNT: ${mocData.x?.length || 0} // REF_MOC_01A` : 'Awaiting Design Initialization...'}
+            {mocData ? `NODE_COUNT: ${mocData.x?.length || 0} // SOLVER: MOC_RADIAL_SYM` : 'Awaiting Design Initialization...'}
         </p>
       </div>
 
-      <div className="flex-1 w-full flex items-center justify-center p-20">
-        <div className="relative w-full h-full flex items-center justify-center">
-            {mocData ? (
-                <svg className="w-full h-auto max-w-4xl text-white/90" fill="none" stroke="currentColor" strokeWidth="0.5" viewBox="0 0 1000 450">
-                    <line className="opacity-10" strokeDasharray="4 8" x1="50" x2="950" y1="225" y2="225"></line>
-                    {/* Simplified MoC Paths */}
-                    <path className="text-white" d="M 50 180 Q 200 180 250 210 T 600 140 T 950 40" strokeWidth="1.2"></path>
-                    <path className="text-white" d="M 50 270 Q 200 270 250 240 T 600 310 T 950 410" strokeWidth="1.2"></path>
-                    <g className="opacity-15" strokeWidth="0.5">
-                        <path d="M 250 210 L 350 180 M 250 240 L 350 270"></path>
-                        <path d="M 350 185 L 600 130 M 350 265 L 600 320"></path>
-                        <path d="M 600 140 L 950 70 M 600 310 L 950 380"></path>
-                    </g>
-                    <g className="text-[12px] font-black mono fill-white/40 tracking-[0.1em]">
-                        <text x="50" y="160">ENTRY_V0</text>
-                        <text x="250" y="225" textAnchor="middle" dy="-10">SONIC_THROAT</text>
-                        <text x="950" y="225" textAnchor="end" dy="-10">EXP_PSI_EXIT</text>
-                    </g>
-                </svg>
-            ) : (
+      <div className="flex-1 w-full bg-black/20">
+        {mocData ? (
+            <Plot 
+                data={traces}
+                layout={{
+                    plot_bgcolor: 'transparent',
+                    paper_bgcolor: 'transparent',
+                    autosize: true,
+                    margin: { t: 40, b: 60, l: 60, r: 60 },
+                    xaxis: { 
+                        gridcolor: 'rgba(255,255,255,0.03)',
+                        tickfont: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.3)' },
+                        showline: true, linecolor: 'rgba(255,255,255,0.1)',
+                        zeroline: false,
+                        scaleanchor: 'y'
+                    },
+                    yaxis: { 
+                        gridcolor: 'rgba(255,255,255,0.03)',
+                        tickfont: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.3)' },
+                        showline: true, linecolor: 'rgba(255,255,255,0.1)',
+                        zeroline: false
+                    },
+                    showlegend: true,
+                    legend: { font: { family: 'JetBrains Mono', size: 10, color: 'white' }, y: 0.95, x: 0.95, xanchor: 'right' },
+                    hovermode: 'closest',
+                    font: { family: 'Inter', color: '#fff' }
+                }}
+                className="w-full h-full"
+                config={{ displayModeBar: false, responsive: true }}
+            />
+        ) : (
+            <div className="w-full h-full flex items-center justify-center">
                 <div className="text-white/10 uppercase tracking-[0.5em] text-[14px] font-black animate-pulse">Design_Record_Pending</div>
-            )}
-        </div>
+            </div>
+        )}
       </div>
 
       <div className="p-12 border-t border-white/10 flex items-center justify-between bg-black/40 relative z-20">
         <div className="flex gap-x-16 text-[12px] mono text-white/40 uppercase tracking-[0.2em]">
-          <span className="flex items-center gap-4"><div className="w-2 h-2 bg-white opacity-40"></div> X_AXIS: 0.00 {"->"} 14.50 M</span>
-          <span className="flex items-center gap-4"><div className="w-2 h-2 bg-white opacity-40"></div> R_EXIT: 2.12 M</span>
+          <span className="flex items-center gap-4"><div className="w-2 h-2 bg-white opacity-40"></div> X_DOMAIN: 0.00 {"->"} {(mocData?.x[mocData.x.length-1] || 0.0).toFixed(2)} M</span>
+          <span className="flex items-center gap-4"><div className="w-2 h-2 bg-white opacity-40"></div> R_EXIT: {(mocData?.y[mocData.y.length-1] || 0.0).toFixed(2)} M</span>
         </div>
         <div className="flex gap-6">
           <button className="w-14 h-14 border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all flex items-center justify-center">

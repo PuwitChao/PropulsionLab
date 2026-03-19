@@ -71,20 +71,51 @@ export default function PerformanceMap() {
     const buildMapTraces = () => {
         if (!mapData) return []
         const traces = []
+        
+        // 1. Speed Lines
         mapData.speed_lines.forEach((sl, idx) => {
             traces.push({
                 x: sl.flow, y: sl.pr, mode: 'lines', name: sl.label,
-                line: { color: `rgba(255,255,255,${0.1 + (idx/mapData.speed_lines.length)*0.6})`, width: 1.5 },
-                hovertemplate: `W_corr: %{x}<br>PR: %{y}<extra></extra>`
+                line: { color: `rgba(255,255,255,${0.05 + (idx/mapData.speed_lines.length)*0.5})`, width: 1.2 },
+                hovertemplate: `W_corr: %{x}<br>PR: %{y}<br>ETA: ${sl.eta[0]}<extra></extra>`
             })
         })
+        
+        // 2. Surge Line
         if (mapData.surge_line) {
             traces.push({ 
                 x: mapData.surge_line.flow, y: mapData.surge_line.pr, mode: 'lines', name: 'SURGE_LIMIT', 
-                line: { color: 'rgba(255,255,255,0.4)', width: 2, dash: 'dash' },
-                hovertemplate: `SURGE_POINT<extra></extra>`
+                line: { color: 'rgba(255, 68, 68, 0.4)', width: 2, dash: 'dash' },
+                hovertemplate: `SURGE_LIMIT<extra></extra>`
             })
         }
+
+        // 3. Operating Line (from throttle sweep)
+        if (throttleData && throttleData.length > 0) {
+            traces.push({
+                x: throttleData.map(r => r.N_corr_norm ** 1.4), // Approx flow
+                y: throttleData.map(r => r.pr),
+                name: 'OPERATING_LINE',
+                mode: 'lines+markers',
+                marker: { size: 4, color: '#fff' },
+                line: { color: '#fff', width: 2.5 },
+                hovertemplate: `OP_POINT<br>Throttle: %{text}%<extra></extra>`,
+                text: throttleData.map(r => r.throttle_pct)
+            })
+        }
+
+        // 4. Design Point Marker
+        if (mapData.design_point) {
+            traces.push({
+                x: [mapData.design_point.flow],
+                y: [mapData.design_point.pr],
+                name: 'ANCHOR_DESIGN_POINT',
+                mode: 'markers',
+                marker: { color: '#fff', size: 12, symbol: 'star-triangle-up' },
+                hovertemplate: `DESIGN_POINT<br>W_corr: 1.0<br>PR: ${mapData.design_point.pr}<extra></extra>`
+            })
+        }
+
         return traces
     }
 

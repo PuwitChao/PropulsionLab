@@ -236,6 +236,8 @@ async def offdesign_map(request: OffDesignMapRequest):
             n_speed_lines=request.n_speed_lines,
             n_flow_points=request.n_flow_points,
         )
+        # Add DP reference for visualization
+        map_data['design_point'] = {'flow': 1.0, 'pr': solver.dp_pr}
         return map_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

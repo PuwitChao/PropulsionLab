@@ -212,6 +212,62 @@ export default function ParametricCycle() {
                     </div>
                 </div>
 
+                <div className="absolute bottom-12 left-12 right-12 h-[200px] z-20">
+                    {result && (
+                        <Plot 
+                            data={[
+                                {
+                                    x: stations.map(s => s.id),
+                                    y: stations.map(s => s.tt),
+                                    name: 'TEMP_TOT',
+                                    type: 'scatter',
+                                    mode: 'lines+markers',
+                                    line: { color: 'rgba(255,255,255,0.8)', width: 2 },
+                                    marker: { size: 8, color: '#fff' },
+                                    yaxis: 'y1'
+                                },
+                                {
+                                    x: stations.map(s => s.id),
+                                    y: stations.map(s => s.pt),
+                                    name: 'PRES_TOT',
+                                    type: 'scatter',
+                                    mode: 'lines+markers',
+                                    line: { color: 'rgba(255,255,255,0.3)', width: 2, dash: 'dot' },
+                                    marker: { size: 6, color: 'rgba(255,255,255,0.4)' },
+                                    yaxis: 'y2'
+                                }
+                            ]}
+                            layout={{
+                                plot_bgcolor: 'transparent',
+                                paper_bgcolor: 'transparent',
+                                autosize: true,
+                                margin: { t: 0, b: 40, l: 60, r: 60 },
+                                showlegend: false,
+                                xaxis: { 
+                                    gridcolor: 'rgba(255,255,255,0.05)',
+                                    tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' },
+                                    showline: false
+                                },
+                                yaxis: { 
+                                    title: { text: 'T [K]', font: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
+                                    gridcolor: 'rgba(255,255,255,0.05)',
+                                    tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' },
+                                    side: 'left'
+                                },
+                                yaxis2: { 
+                                    title: { text: 'P [PA]', font: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
+                                    overlaying: 'y',
+                                    side: 'right',
+                                    tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.1)' },
+                                    showgrid: false
+                                }
+                            }}
+                            className="w-full h-full"
+                            config={{ displayModeBar: false, responsive: true }}
+                        />
+                    )}
+                </div>
+
                 <StationDiagram />
             </div>
 
