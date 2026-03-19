@@ -9,259 +9,247 @@ import Settings from './pages/Settings'
 
 // ── Nav items ────────────────────────────────────────────────────────────────
 const navItems = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    description: 'System overview and performance metrics',
-  },
-  {
-    id: 'on-design',
-    label: 'Gas Turbine: On-Design',
-    description: 'Turbojet and turbofan cycle analysis',
-    category: 'GAS TURBINE',
-  },
-  {
-    id: 'off-design',
-    label: 'Gas Turbine: Off-Design',
-    description: 'Compressor matching and throttle sweep',
-    category: 'GAS TURBINE',
-  },
-  {
-    id: 'mission',
-    label: 'Mission Analysis',
-    description: 'Constraint synthesis and range modeling',
-    category: 'AIRCRAFT',
-  },
-  {
-    id: 'rocket',
-    label: 'Rocket Propulsion',
-    description: 'Chemical equilibrium and sizing',
-    category: 'ROCKET',
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
-    description: 'User preferences & interface control',
-    category: 'SYSTEM',
-  },
-]
-
-// ── Dashboard content ────────────────────────────────────────────────────────
-const MODULE_FEATURES = [
-  {
-    tab:   'on-design',
-    title: 'Gas Turbine Cycle Analysis',
-    body:  'Thermodynamic cycle solver for turbojet and separate-exhaust turbofan architectures. Supports on-design parametric sweeps with polytropic efficiency modeling and station-by-station property accounting.',
-    tags:  ['Turbojet', 'Turbofan', 'Efficiency Audit', 'T-s Path'],
-  },
-  {
-    tab:   'off-design',
-    title: 'Off-Design Mapping',
-    body:  'Component matching algorithm using parametric compressor and turbine maps. Enables throttle sweep analysis, engine deck generation, and surge margin evaluation across the operating envelope.',
-    tags:  ['Compressor Map', 'Surge Boundary', 'Throttle Sweep', 'Engine Deck'],
-  },
-  {
-    tab:   'rocket',
-    title: 'Rocket Propulsion Analysis',
-    body:  'Predictive modeling for chemical propulsion systems including equilibrium composition, Bartz heat transfer distribution, altitude performance, and Method of Characteristics nozzle contouring.',
-    tags:  ['Equilibrium', 'Heat Flux', 'Engine Sizing', 'MoC Nozzle'],
-  },
-  {
-    tab:   'mission',
-    title: 'Mission Constraint Synthesis',
-    body:  'Multi-point constraint analysis evaluating thrust-to-weight and wing-loading requirements for aircraft mission profiles including takeoff, climb, cruise, and sustained maneuvers.',
-    tags:  ['T/W Constraints', 'W/S Sizing', 'Mission Profile', 'Design Point'],
-  },
+  { id: 'dashboard', label: 'Mainframe', icon: 'grid_view', category: '_ROOT' },
+  { id: 'on-design', label: 'Cycle_Solver', icon: 'cyclone', category: 'THERMODYNAMICS' },
+  { id: 'off-design', label: 'Map_Matching', icon: 'schema', category: 'THERMODYNAMICS' },
+  { id: 'rocket', label: 'Chamber_CEA', icon: 'rocket', category: 'PROPULSION' },
+  { id: 'mission', label: 'Size_Synth', icon: 'analytics', category: 'OPERATIONS' },
+  { id: 'settings', label: 'Environment', icon: 'settings', category: 'SYSTEM' },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
 function App() {
-  const [activeTab,      setActiveTab]      = useState('dashboard')
-  const [backendStatus,  setBackendStatus]  = useState('CHECKING')
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [backendStatus, setBackendStatus] = useState('CHECKING')
+  const [uptime, setUptime] = useState('000.0H')
+  const [time, setTime] = useState(new Date().toLocaleTimeString('en-GB', { hour12: false }))
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date().toLocaleTimeString('en-GB', { hour12: false })), 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res  = await fetch(`${API_BASE_URL}/health`)
+        const res = await fetch(`${API_BASE_URL}/health`)
         const data = await res.json()
-        setBackendStatus(data.status === 'healthy' ? 'ONLINE' : 'ERROR')
+        setBackendStatus(data.status === 'healthy' ? 'STABLE' : 'DEGRADED')
       } catch {
         setBackendStatus('OFFLINE')
       }
     }
     checkHealth()
+    setUptime('142.8H')
     const interval = setInterval(checkHealth, 30000)
     return () => clearInterval(interval)
   }, [])
 
-  const online = backendStatus === 'ONLINE'
-
-  const groups = {}
-  navItems.forEach(item => {
-    const g = item.category || '_top'
-    if (!groups[g]) groups[g] = []
-    groups[g].push(item)
-  })
-
   const renderContent = () => {
     switch (activeTab) {
-      case 'on-design':  return <ParametricCycle />
+      case 'on-design': return <ParametricCycle />
       case 'off-design': return <PerformanceMap />
-      case 'mission':    return <MissionAnalysis />
-      case 'rocket':     return <RocketAnalysis />
-      case 'settings':   return <Settings />
-      default:           return <Dashboard status={backendStatus} onNavigate={setActiveTab} />
+      case 'mission': return <MissionAnalysis />
+      case 'rocket': return <RocketAnalysis />
+      case 'settings': return <Settings />
+      default: return <Dashboard status={backendStatus} onNavigate={setActiveTab} />
     }
   }
 
   return (
-    <div style={{ display: 'flex', width: '100%', minHeight: '100vh', background: 'var(--bg-color)' }}>
+    <div className="flex w-full min-h-screen bg-surface selection:bg-white selection:text-black">
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <aside className="sidebar" style={{ width: sidebarCollapsed ? '56px' : undefined }}>
-        <div>
-          <div className="logo" style={{ marginBottom: '3rem', cursor: 'pointer' }} onClick={() => setActiveTab('dashboard')}>
-            {!sidebarCollapsed && 'PROPULSION_LAB'}
-            {sidebarCollapsed && 'PL'}
+      <nav className="fixed left-0 top-0 h-full w-[280px] z-50 flex flex-col pt-12 bg-surface border-r border-white/10">
+        <div className="px-12 mb-16">
+          <div className="flex items-center gap-4">
+             <div className="w-2 h-2 bg-white"></div>
+             <h1 className="text-[15px] font-black tracking-[0.4em] text-white font-headline">PROPULSION</h1>
           </div>
-
-          <nav className="nav-links">
-            {Object.entries(groups).map(([groupKey, items]) => (
-              <div key={groupKey}>
-                {groupKey !== '_top' && !sidebarCollapsed && (
-                  <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.15em',
-                    textTransform: 'uppercase', padding: '1.25rem 1rem 0.5rem', borderTop: '1px solid var(--surface-border)', marginTop: '0.5rem' }}>
-                    {groupKey}
-                  </div>
-                )}
-                {items.map(item => (
-                  <div
-                    key={item.id}
-                    className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                    onClick={() => setActiveTab(item.id)}
-                    title={sidebarCollapsed ? item.label : ''}>
-                    {!sidebarCollapsed && <span>{item.label}</span>}
-                    {sidebarCollapsed && <span>{item.label.charAt(0)}</span>}
-                  </div>
+          <p className="text-[10px] tracking-[0.3em] text-white/30 mt-4 font-mono border-l border-white/20 pl-4">SYSTEMS_INTEGRATED_V2</p>
+        </div>
+        
+        <div className="flex flex-col flex-grow px-6 space-y-2">
+          {['_ROOT', 'THERMODYNAMICS', 'PROPULSION', 'OPERATIONS', 'SYSTEM'].map(cat => (
+            <div key={cat} className="mb-8">
+                <span className="text-[10px] font-bold text-white/20 tracking-[0.3em] px-6 mb-4 block uppercase">{cat}</span>
+                {navItems.filter(i => i.category === cat).map(item => (
+                    <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`w-full flex items-center gap-6 px-6 py-4 transition-all group relative ${
+                            activeTab === item.id 
+                            ? 'text-white' 
+                            : 'text-white/40 hover:text-white'
+                        }`}
+                        >
+                        {activeTab === item.id && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-white"></div>}
+                        <span className={`material-symbols-outlined !text-[20px] ${activeTab === item.id ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'}`}>{item.icon}</span>
+                        <span className="uppercase tracking-[0.2em] text-[11px] font-bold font-headline">{item.label}</span>
+                    </button>
                 ))}
-              </div>
-            ))}
-          </nav>
-        </div>
-
-        <div style={{ marginTop: 'auto', borderTop: '1px solid var(--surface-border)', paddingTop: '1.5rem' }}>
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            style={{ width: '100%', background: 'transparent', border: 'none', color: 'var(--text-muted)',
-              fontFamily: 'var(--font-family)', fontSize: '0.65rem', cursor: 'pointer', textAlign: 'left',
-              padding: '0.5rem 0', marginBottom: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            {sidebarCollapsed ? 'Expand' : 'Collapse View'}
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%',
-              background: online ? '#4ade80' : '#f87171' }} />
-            {!sidebarCollapsed && (
-              <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                API {backendStatus}
-              </span>
-            )}
-          </div>
-
-          {!sidebarCollapsed && (
-            <div style={{ borderTop: '1px solid var(--surface-border)', paddingTop: '1rem' }}>
-              <div style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Resources</div>
-              <a href="/DOCUMENTATION.md" target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '0.72rem', color: 'var(--accent-color)', textDecoration: 'none', marginBottom: '0.4rem', fontWeight: 600 }}>Documentation Guide</a>
-              <a href="/ARCHITECTURE_WIKI.md" target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '0.72rem', color: 'var(--accent-color)', textDecoration: 'none', fontWeight: 600 }}>Technical Wiki</a>
             </div>
-          )}
+          ))}
         </div>
-      </aside>
 
-      <main className="main-content">
-        {renderContent()}
+        <div className="px-12 py-10 border-t border-white/10">
+          <div className="space-y-5">
+             <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-white/20">Uptime</span>
+                <span className="font-mono text-[11px] text-white/60">{uptime}</span>
+             </div>
+             <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-white/20">Session</span>
+                <span className="font-mono text-[11px] text-white/60">04:22:15</span>
+             </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <header className="fixed top-0 right-0 left-[280px] h-20 z-40 flex items-center justify-between px-12 bg-surface/90 backdrop-blur-xl border-b border-white/10">
+        <div className="flex items-center gap-14">
+          <span className="uppercase tracking-[0.4em] text-[12px] font-black text-white font-headline flex items-center gap-6">
+            <span className="w-6 h-[1px] bg-white opacity-30"></span>
+            {activeTab === 'dashboard' ? 'MAIN_TERMINAL_INTERFACE' : `${activeTab.replace('-', '_').toUpperCase()}_NODE`}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-12">
+          <div className="flex gap-14 items-center">
+             <div className="flex flex-col items-end">
+                <span className="text-[10px] font-mono tracking-widest text-white/40 uppercase">System_Time</span>
+                <span className="text-[12px] font-mono text-white mt-1">{time}</span>
+             </div>
+             <div className="h-8 w-[1px] bg-white/10"></div>
+             <div className="flex flex-col items-end pr-6">
+              <span className="text-[10px] font-mono tracking-widest text-white/40 uppercase">Status</span>
+              <div className="flex items-center gap-3 mt-1">
+                <div className={`w-2 h-2 ${backendStatus === 'STABLE' ? 'bg-white' : 'bg-red-500'}`}></div>
+                <span className="text-[11px] font-mono text-white tracking-widest uppercase">{backendStatus}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Main Content Area ──────────────────────────────────────────── */}
+      <main className="ml-[280px] mt-20 p-16 w-[calc(100%-280px)] h-[calc(100vh-80px)] overflow-y-auto scrollbar-hide grid-bg">
+        <div className="max-w-[1400px] mx-auto">
+            {renderContent()}
+        </div>
       </main>
+
+      {/* ── Footer Status ─────────────────────────────────────────────── */}
+      <footer className="fixed bottom-0 right-0 left-[280px] h-12 bg-surface border-t border-white/10 flex items-center px-12 justify-between z-40">
+        <div className="flex gap-20 items-center">
+            <div className="flex gap-4 items-center">
+                <span className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">KERNEL</span>
+                <span className="mono text-[11px] text-white/60 font-medium">CANTERA_V3.0.4</span>
+            </div>
+            <div className="flex gap-4 items-center">
+                <span className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">LOCATION</span>
+                <span className="mono text-[11px] text-white font-medium uppercase tracking-[0.1em]">SEC_04 // LAB_B</span>
+            </div>
+        </div>
+        <div className="flex gap-12 items-center">
+            <span className="mono text-[11px] text-white/20 tracking-[0.2em]">45.4215 N // 75.6972 W</span>
+            <div className="flex gap-1.5">
+                <div className="w-1.5 h-1.5 bg-white opacity-40"></div>
+                <div className="w-1.5 h-1.5 bg-white opacity-20"></div>
+                <div className="w-1.5 h-1.5 bg-white opacity-5"></div>
+            </div>
+        </div>
+      </footer>
     </div>
   )
 }
 
 function Dashboard({ status, onNavigate }) {
-  const online = status === 'ONLINE'
+  const features = [
+    { id: 'on-design', title: 'CYCLE_SOLVER', specs: 'TURBOJET // TURBOFAN', code: 'MOD_01', desc: 'On-design parametric cycle decomposition with station-based property analysis.' },
+    { id: 'off-design', title: 'MAP_MATCHING', specs: 'THROTTLE // SURGE', code: 'MOD_02', desc: 'Non-linear component matching across the entire operating envelope.' },
+    { id: 'rocket', title: 'CHAMBER_CEA', specs: 'ROCKET // MOC', code: 'MOD_03', desc: 'Propellant synthesis and method of characteristics nozzle contouring.' },
+    { id: 'mission', title: 'SIZE_SYNTHESIS', specs: 'CONSTRAINT // MISSION', code: 'MOD_04', desc: 'Multi-point aircraft sizing and constraint visualization.' }
+  ]
 
   return (
-    <div className="animate-in">
-      <header style={{ marginBottom: '3.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1rem' }}>
-          <h1 style={{ fontSize: '2.2rem', margin: 0, letterSpacing: '-0.02em' }}>Propulsion Analysis Suite</h1>
-          <div className="status-badge" style={{ fontSize: '0.65rem', background: 'transparent', borderColor: 'var(--surface-border)' }}>
-            STATUS: {online ? 'READY' : 'CONNECTION_ERROR'}
+    <div className="space-y-20 animate-in">
+      <section className="bg-surface-container-low border border-white/10 p-20 relative overflow-hidden group">
+        <div className="panel-accent"></div>
+        <div className="relative z-10">
+          <div className="flex items-center gap-8 mb-12">
+            <div className="w-4 h-4 bg-white"></div>
+            <h2 className="text-4xl font-black tracking-[0.4em] text-white leading-none">PROPULSION_LAB</h2>
           </div>
+          <p className="text-white/50 font-mono text-[13px] leading-relaxed max-w-4xl uppercase tracking-[0.15em]">
+            A COMPUTATIONALLY RIGOROUS ENGINEERING ENVIRONMENT FOR AEROSPACE PROPULSION SYSTEMS. 
+            INTEGRATING THERMODYNAMIC CYCLE ANALYSIS, CHEMICAL EQUILIBRIUM COMBUSTION MODELING, 
+            AND MISSION-LEVEL CONSTRAINT SYNTHESIS WITHIN A UNIFIED SI FRAMEWORK.
+          </p>
         </div>
-        <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-secondary)', maxWidth: '750px', lineHeight: 1.7 }}>
-          A computationally rigorous engineering environment for aerospace propulsion systems. 
-          Integrating thermodynamic cycle analysis, chemical equilibrium combustion modeling, 
-          and mission-level constraint synthesis within a unified SI framework.
-        </p>
-      </header>
+      </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
-        {MODULE_FEATURES.map(card => (
-          <div
-            key={card.tab}
-            className="card"
-            style={{ cursor: 'pointer', padding: '1.75rem' }}
-            onClick={() => onNavigate(card.tab)}>
-            <div style={{ marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)', letterSpacing: '0.05em' }}>{card.title}</h3>
+      <div className="grid grid-cols-2 gap-12">
+        {features.map((f) => (
+          <div 
+            key={f.id}
+            onClick={() => onNavigate(f.id)}
+            className="group bg-surface-container-low border border-white/10 hover:border-white/30 hover:bg-surface-container-high transition-all p-16 cursor-pointer flex flex-col justify-between h-[360px] relative"
+          >
+            <div className="relative z-10">
+              <div className="flex justify-between items-start mb-14">
+                 <div>
+                    <span className="text-[11px] font-mono text-white/30 tracking-widest mb-2 block">{f.code}</span>
+                    <h3 className="text-[16px] font-black tracking-[0.4em] text-white">{f.title}</h3>
+                 </div>
+                 <span className="material-symbols-outlined text-white/10 group-hover:text-white transition-all !text-[24px]">north_east</span>
+              </div>
+              <p className="text-white/40 font-mono text-[12px] leading-[1.8] uppercase tracking-[0.1em] mb-12 group-hover:text-white/60 transition-colors">
+                {f.desc}
+              </p>
             </div>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '1.5rem', minHeight: '3.2rem' }}>
-              {card.body}
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-              {card.tags.map(t => (
-                <span key={t} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase',
-                  padding: '0.3rem 0.6rem', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--surface-border)', borderRadius: '2px', color: 'var(--text-muted)' }}>
-                  {t}
-                </span>
-              ))}
+            <div className="pt-10 border-t border-white/10 flex justify-between items-center relative z-10">
+               <span className="text-[11px] font-mono text-white/50 uppercase tracking-widest font-bold group-hover:text-white transition-colors">{f.specs}</span>
+               <div className="w-3 h-3 border border-white/30 group-hover:bg-white group-hover:border-white transition-all"></div>
             </div>
           </div>
         ))}
       </div>
-
-      <section className="card" style={{ padding: '2rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
-          <div>
-            <h3 style={{ marginBottom: '1.5rem', fontSize: '0.9rem' }}>Technical Scope & Methodology</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '2.5rem' }}>
-              <div>
-                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem', color: 'var(--text-primary)' }}>System Modeling</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
-                  Cycle analysis is performed using component-based thermodynamic states. Polytropic efficiencies are utilized to account for aerodynamic losses.
-                </p>
-              </div>
-              <div>
-                <h4 style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem', color: 'var(--text-primary)' }}>Equilibrium Chemisty</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
-                  Rocket performance is derived from minimized Gibbs free energy solvers, integrating species distribution and shifting Isp estimations.
-                </p>
-              </div>
+      
+      <section className="border border-white/10 p-16 bg-surface-container-lowest relative">
+         <div className="flex items-center justify-between mb-16 border-b border-white/10 pb-10">
+            <div className="flex items-center gap-8">
+                <span className="material-symbols-outlined !text-[24px] text-white/60">database</span>
+                <h3 className="text-[14px] font-black tracking-[0.4em]">SYSTEM_RESOURCES</h3>
             </div>
-          </div>
-          <div style={{ borderLeft: '1px solid var(--surface-border)', paddingLeft: '3rem' }}>
-            <h3 style={{ marginBottom: '1.5rem', fontSize: '0.9rem' }}>Project Resources</h3>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-              Access deep technical documentation and the architectural roadmap for the Propulsion Analysis Suite.
-            </p>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <a href="/DOCUMENTATION.md" target="_blank" rel="noopener noreferrer" className="button-primary" style={{ textDecoration: 'none', fontSize: '0.75rem', padding: '0.6rem 1.25rem' }}>
-                View User Guide
-              </a>
-              <a href="/ARCHITECTURE_WIKI.md" target="_blank" rel="noopener noreferrer" className="button-primary" style={{ textDecoration: 'none', fontSize: '0.75rem', padding: '0.6rem 1.25rem', background: 'transparent', border: '1px solid var(--surface-border)', color: 'var(--text-primary)' }}>
-                System Wiki
-              </a>
+            <span className="text-[11px] mono text-white/20">ROOT // NODE_01</span>
+         </div>
+         <div className="grid grid-cols-3 gap-20">
+            <div className="space-y-8">
+                <h4 className="text-[11px] font-black text-white/20 tracking-[0.3em] mb-6">DOCUMENTATION</h4>
+                <div className="flex flex-col gap-4">
+                    <a href="/DOCUMENTATION.md" target="_blank" className="text-[12px] font-mono text-white/60 hover:text-white transition-all flex items-center gap-3">
+                        <div className="w-1.5 h-1.5 bg-white/20"></div> USER_GUIDE_V2.PDF
+                    </a>
+                    <a href="/API_SPEC.md" target="_blank" className="text-[12px] font-mono text-white/60 hover:text-white transition-all flex items-center gap-3">
+                         <div className="w-1.5 h-1.5 bg-white/20"></div> API_REFERENCE.JSON
+                    </a>
+                </div>
             </div>
-          </div>
-        </div>
+            <div className="space-y-8 border-l border-white/10 pl-20">
+                <h4 className="text-[11px] font-black text-white/20 tracking-[0.3em] mb-6">ARCHITECTURE</h4>
+                <a href="/ARCHITECTURE_WIKI.md" target="_blank" className="text-[12px] font-mono text-white/60 hover:text-white transition-all block">SYSTEM_WIKI_LATEST.MD</a>
+                <p className="text-[11px] mono text-white/30 uppercase leading-relaxed tracking-wider">Structural decomposition of the thermodynamic solver core.</p>
+            </div>
+            <div className="space-y-8 border-l border-white/10 pl-20">
+                <h4 className="text-[11px] font-black text-white/20 tracking-[0.3em] mb-6">ENVIRONMENT</h4>
+                <div className="flex flex-col gap-2">
+                    <span className="text-[12px] font-mono text-white/60 uppercase tracking-widest">TLS_ENCRYPTION_ACTIVE</span>
+                    <span className="text-[12px] font-mono text-white/60 uppercase tracking-widest">NODE_STATUS_STABLE</span>
+                    <span className="text-[11px] font-mono text-white/30 mt-4 uppercase font-bold text-white">Core_Temp: 312.4 K</span>
+                </div>
+            </div>
+         </div>
       </section>
     </div>
   )

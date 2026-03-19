@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PROPULSION_ANALYSIS_SUITE_V2.0</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container-highest": "#353434",
+              "tertiary": "#d4e4fa",
+              "tertiary-fixed-dim": "#39485a",
+              "on-error-container": "#ffdad6",
+              "on-surface": "#e5e2e1",
+              "primary": "#ffffff",
+              "surface": "#0E0E0E",
+              "surface-container": "#161616",
+              "surface-container-lowest": "#0e0e0e",
+              "surface-container-low": "#111111",
+              "error": "#ffb4ab",
+              "surface-container-high": "#222222",
+              "on-primary-container": "#000000",
+              "secondary-fixed-dim": "#ababab",
+              "error-container": "#93000a",
+              "inverse-primary": "#5d5f5f",
+              "on-tertiary-fixed": "#ffffff",
+              "secondary-fixed": "#c7c6c6",
+              "secondary-container": "#464747",
+              "background": "#0E0E0E",
+              "surface-bright": "#3a3939",
+              "primary-container": "#d4d4d4",
+              "surface-dim": "#0E0E0E",
+              "inverse-surface": "#e5e2e1",
+              "inverse-on-surface": "#313030",
+              "on-background": "#e5e2e1",
+              "outline": "#919191",
+              "tertiary-container": "#8392a6",
+              "on-tertiary-container": "#000000",
+              "on-primary-fixed-variant": "#e2e2e2",
+              "surface-tint": "#c6c6c7",
+              "on-secondary": "#1a1c1c",
+              "on-secondary-fixed": "#1a1c1c",
+              "secondary": "#c7c6c6",
+              "on-tertiary-fixed-variant": "#d4e4fa",
+              "on-secondary-container": "#e3e2e2",
+              "on-tertiary": "#0d1c2d",
+              "primary-fixed": "#5d5f5f",
+              "on-secondary-fixed-variant": "#3a3c3c",
+              "on-primary-fixed": "#ffffff",
+              "on-primary": "#1a1c1c",
+              "outline-variant": "#222222",
+              "primary-fixed-dim": "#454747",
+              "surface-variant": "#353434",
+              "on-error": "#690005",
+              "tertiary-fixed": "#516072",
+              "on-surface-variant": "#c6c6c6"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["JetBrains Mono"]
+            },
+            borderRadius: {"DEFAULT": "0px", "lg": "0px", "xl": "0px", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style type="text/tailwindcss">
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 20;
+        }
+        body {
+            background-color: #080808;
+            color: #FFFFFF;
+            font-family: 'Inter', sans-serif;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .station-line {
+            stroke-dasharray: 1 3;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.05);
+            height: 1px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 6px;
+            height: 6px;
+            background: #FFFFFF;
+            cursor: pointer;
+            border-radius: 0;
+            border: 1px solid black;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .technical-border {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .grid-bg {
+            background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+    </style>
+</head>
+<body class="overflow-hidden selection:bg-white selection:text-black">
+<nav class="fixed left-0 top-0 h-full w-[260px] z-50 flex flex-col py-10 bg-[#080808] border-r border-white/5">
+<div class="px-8 mb-12">
+<h1 class="text-[12px] font-bold tracking-[0.6em] text-white uppercase">PROPULSION</h1>
+<p class="text-[9px] tracking-[0.4em] text-white/40 mt-3 font-mono uppercase">ANALYSIS_SUITE_V2.0</p>
+</div>
+<div class="flex flex-col flex-grow">
+<a class="text-white/40 border-l-[3px] border-transparent pl-8 py-5 hover:text-white transition-all flex items-center gap-4 group" href="#">
+<span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+<span class="uppercase tracking-[0.3em] text-[10px] font-medium">Rocket_Analysis</span>
+</a>
+<a class="text-white border-l-[3px] border-white pl-8 py-5 bg-white/5 font-bold flex items-center gap-4" href="#">
+<span class="material-symbols-outlined text-[18px]">settings_input_component</span>
+<span class="uppercase tracking-[0.3em] text-[10px] font-bold">Gas_Turbine</span>
+</a>
+<a class="text-white/40 border-l-[3px] border-transparent pl-8 py-5 hover:text-white transition-all flex items-center gap-4 group" href="#">
+<span class="material-symbols-outlined text-[18px]">analytics</span>
+<span class="uppercase tracking-[0.3em] text-[10px] font-medium">Trace_Logs</span>
+</a>
+</div>
+<div class="mt-auto px-8 py-6 border-t border-white/5">
+<div class="flex items-center justify-between opacity-30">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[12px]">terminal</span>
+<span class="font-mono text-[9px] uppercase tracking-widest">Uptime</span>
+</div>
+<span class="font-mono text-[9px]">142.4H</span>
+</div>
+</div>
+</nav>
+<header class="fixed top-0 right-0 left-[260px] h-16 z-40 flex items-center justify-between px-10 bg-[#080808] border-b border-white/5">
+<div class="flex items-center gap-12">
+<span class="uppercase tracking-[0.4em] text-[10px] font-bold text-white/80">PARAMETRIC_EXPLORATION_INTERFACE</span>
+<div class="flex gap-8 h-full items-center">
+<button class="text-white font-bold text-[9px] tracking-[0.3em] border-b border-white pb-5 mt-5 uppercase">Turbojet</button>
+<button class="text-white/40 font-medium text-[9px] tracking-[0.3em] hover:text-white transition-all pb-5 mt-5 uppercase">Turbofan</button>
+</div>
+</div>
+<div class="flex items-center gap-10">
+<div class="relative group">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[16px] text-white/30">search</span>
+<input class="bg-white/5 border-none text-[9px] mono py-2.5 pl-10 pr-4 w-64 tracking-widest focus:ring-1 focus:ring-white/20 transition-all placeholder:text-white/20" placeholder="SEARCH_STATION_REF..." type="text"/>
+</div>
+<div class="flex gap-8 items-center">
+<span class="material-symbols-outlined text-white/40 hover:text-white cursor-pointer transition-colors text-[20px]">settings</span>
+<div class="h-6 w-[1px] bg-white/5"></div>
+<div class="flex flex-col items-end">
+<span class="text-[9px] font-mono leading-none tracking-widest text-white/60">SYS_READY</span>
+<span class="text-[8px] font-mono text-white tracking-tighter mt-1 opacity-40">4MS</span>
+</div>
+</div>
+</div>
+</header>
+<main class="ml-[260px] mt-16 p-10 h-[calc(100vh-104px)] overflow-y-auto scrollbar-hide grid-bg">
+<div class="flex flex-col gap-10">
+<!-- Main Engine Visualization -->
+<section class="bg-[#0c0c0c] technical-border relative overflow-hidden flex flex-col h-[600px] shadow-2xl">
+<div class="absolute top-8 left-10 flex items-center gap-4 z-20">
+<div class="w-1.5 h-1.5 bg-white"></div>
+<span class="uppercase tracking-[0.5em] text-[11px] font-bold text-white/90">STATION_DIAGRAM_S0_S9</span>
+</div>
+<!-- Performance Metrics - Strictly Monochromatic and Aligned -->
+<div class="absolute top-10 right-10 flex gap-20 z-20">
+<div class="flex flex-col items-end">
+<span class="text-[8px] uppercase text-white/40 tracking-[0.3em] mb-2 font-bold">NET_THRUST</span>
+<div class="mono text-4xl font-light tracking-tighter text-white">142.45<span class="text-[11px] text-white/20 ml-2 uppercase tracking-widest">kN</span></div>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[8px] uppercase text-white/40 tracking-[0.3em] mb-2 font-bold">SPEC_FUEL_CONS</span>
+<div class="mono text-4xl font-light tracking-tighter text-white">28.42<span class="text-[11px] text-white/20 ml-2 uppercase tracking-widest">mg/Ns</span></div>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-[8px] uppercase text-white/40 tracking-[0.3em] mb-2 font-bold">THERMAL_EFF</span>
+<div class="mono text-4xl font-light tracking-tighter text-white">42.8<span class="text-[11px] text-white/20 ml-2 uppercase tracking-widest">%</span></div>
+</div>
+</div>
+<!-- Refined SVG Diagram -->
+<div class="relative w-full h-full flex items-center justify-center pt-24 pb-12 px-24">
+<svg class="w-full h-full" preserveaspectratio="xMidYMid meet" viewbox="0 0 1000 350">
+<!-- Horizontal Centerline -->
+<line class="station-line" stroke="rgba(255,255,255,0.1)" stroke-width="0.5" x1="50" x2="950" y1="175" y2="175"></line>
+<!-- Inlet -->
+<path d="M 50 145 L 200 135 L 200 215 L 50 205 Z" fill="rgba(255,255,255,0.02)" opacity="0.4" stroke="white" stroke-width="0.75"></path>
+<text class="mono text-[9px]" fill="rgba(255,255,255,0.3)" x="50" y="245">S0</text>
+<text class="mono text-[9px]" fill="rgba(255,255,255,0.3)" x="200" y="245">S2</text>
+<!-- Compressor -->
+<path d="M 200 135 L 400 155 L 400 195 L 200 215 Z" fill="rgba(255,255,255,0.05)" stroke="white" stroke-width="1.2"></path>
+<text class="mono text-[9px] tracking-[0.6em]" fill="white" text-anchor="middle" x="300" y="110">COMPRESSOR</text>
+<text class="mono text-[9px]" fill="rgba(255,255,255,0.3)" x="400" y="245">S3</text>
+<!-- Combustor -->
+<rect fill="rgba(255,255,255,0.08)" height="40" opacity="0.6" stroke="white" stroke-width="0.75" width="120" x="400" y="155"></rect>
+<text class="mono text-[9px] tracking-[0.6em]" fill="white" text-anchor="middle" x="460" y="110">COMBUSTOR</text>
+<text class="mono text-[9px]" fill="rgba(255,255,255,0.3)" x="520" y="245">S4</text>
+<!-- Turbine -->
+<path d="M 520 155 L 720 135 L 720 215 L 520 195 Z" fill="rgba(255,255,255,0.05)" stroke="white" stroke-width="1.2"></path>
+<text class="mono text-[9px] tracking-[0.6em]" fill="white" text-anchor="middle" x="620" y="110">TURBINE</text>
+<text class="mono text-[9px]" fill="rgba(255,255,255,0.3)" x="720" y="245">S5</text>
+<!-- Nozzle -->
+<path d="M 720 135 L 950 165 L 950 185 L 720 215 Z" fill="rgba(255,255,255,0.02)" opacity="0.4" stroke="white" stroke-width="0.75"></path>
+<text class="mono text-[9px] tracking-[0.6em]" fill="white" text-anchor="middle" x="835" y="110">NOZZLE</text>
+<text class="mono text-[9px]" fill="rgba(255,255,255,0.3)" x="950" y="245">S9</text>
+</svg>
+<!-- Parameter Overlay - Strictly Precise -->
+<div class="absolute inset-0 pointer-events-none flex flex-col justify-end p-12">
+<div class="flex gap-8 justify-center items-end">
+<div class="w-64 pointer-events-auto bg-[#111111] p-5 technical-border">
+<div class="flex justify-between items-center text-[10px] mono uppercase tracking-widest mb-4">
+<span class="text-white/40">CPR_RATIO</span>
+<span class="text-white font-bold border-b border-white/40 pb-0.5">25.0</span>
+</div>
+<input class="w-full" max="60" min="1" type="range" value="25"/>
+<div class="flex justify-between text-[8px] mono text-white/20 font-medium mt-3">
+<span>1.0</span>
+<span>60.0</span>
+</div>
+</div>
+<div class="w-64 pointer-events-auto bg-[#111111] p-5 technical-border">
+<div class="flex justify-between items-center text-[10px] mono uppercase tracking-widest mb-4">
+<span class="text-white/40">TURBINE_INLET_T</span>
+<span class="text-white font-bold border-b border-white/40 pb-0.5">1650.0 K</span>
+</div>
+<input class="w-full" max="2200" min="1000" type="range" value="1650"/>
+<div class="flex justify-between text-[8px] mono text-white/20 font-medium mt-3">
+<span>1000 K</span>
+<span>2200 K</span>
+</div>
+</div>
+<div class="w-64 opacity-20 pointer-events-auto bg-transparent p-5 border border-white/5">
+<div class="flex justify-between items-center text-[10px] mono uppercase tracking-widest mb-4">
+<span class="text-white/40">BYPASS_RATIO</span>
+<span class="text-white/40 font-bold">0.0</span>
+</div>
+<input class="w-full grayscale" disabled="" max="15" min="0" type="range" value="0"/>
+<div class="flex justify-between text-[8px] mono text-white/20 font-medium mt-3">
+<span>0.0</span>
+<span>15.0</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="absolute bottom-8 left-10 flex items-center gap-6 z-20">
+<button class="bg-white text-black px-8 py-3 uppercase tracking-[0.25em] text-[10px] font-bold hover:bg-white/90 transition-all flex items-center gap-3">
+<span class="material-symbols-outlined text-[16px]">play_arrow</span>
+                        RECALCULATE_ENGINE_STATE
+                    </button>
+<button class="h-11 w-11 technical-border flex items-center justify-center hover:bg-white/5 transition-colors">
+<span class="material-symbols-outlined text-[20px] text-white/60">refresh</span>
+</button>
+</div>
+<div class="absolute bottom-8 right-10 text-right z-20">
+<span class="mono text-[9px] text-white/20 uppercase tracking-[0.3em]">REALTIME_SIMULATION_V4.2.0</span>
+</div>
+</section>
+<!-- Data & Logs Section -->
+<div class="grid grid-cols-12 gap-10 h-[320px]">
+<!-- Telemetry Matrix -->
+<section class="col-span-9 flex flex-col space-y-4">
+<div class="flex items-center justify-between border-b border-white/5 pb-3">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[18px] text-white/40">database</span>
+<h3 class="uppercase tracking-[0.4em] text-[11px] font-bold text-white/90">TELEMETRY_MATRIX</h3>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-1.5 h-1.5 bg-white opacity-40"></div>
+<span class="mono text-[9px] text-white/30 tracking-widest uppercase">DATA_STREAM_NOMINAL</span>
+</div>
+</div>
+<div class="flex-grow overflow-auto technical-border bg-[#0c0c0c] scrollbar-hide">
+<table class="w-full text-left mono text-[11px]">
+<thead>
+<tr class="bg-white/5 text-white/30 uppercase text-[9px] tracking-[0.2em] sticky top-0">
+<th class="px-8 py-4 font-bold">STATION_REF</th>
+<th class="px-8 py-4 font-bold border-l border-white/5">P_TOTAL [PA]</th>
+<th class="px-8 py-4 font-bold border-l border-white/5">T_TOTAL [K]</th>
+<th class="px-8 py-4 font-bold border-l border-white/5">V_ABS [M/S]</th>
+<th class="px-8 py-4 font-bold border-l border-white/5">MACH_NO</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/5">
+<tr class="hover:bg-white/[0.03] transition-colors group">
+<td class="px-8 py-3.5 font-semibold text-white/80">S0 (AMBIENT)</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">101,325.00</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">288.15</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">250.00</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white font-bold">0.73</td>
+</tr>
+<tr class="hover:bg-white/[0.03] transition-colors group">
+<td class="px-8 py-3.5 font-semibold text-white/80">S2 (INLET)</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">142,350.12</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">312.45</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">180.20</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white font-bold">0.51</td>
+</tr>
+<tr class="hover:bg-white/[0.03] transition-colors group">
+<td class="px-8 py-3.5 font-semibold text-white/80">S3 (COMP)</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">2,847,002.40</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">842.30</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">150.10</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white font-bold">0.32</td>
+</tr>
+<tr class="hover:bg-white/[0.03] transition-colors group">
+<td class="px-8 py-3.5 font-semibold text-white/80">S4 (TURB)</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">2,704,650.28</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">1,650.00</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white/40 group-hover:text-white/80">120.45</td>
+<td class="px-8 py-3.5 border-l border-white/5 text-white font-bold">0.25</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Notes Log -->
+<section class="col-span-3 flex flex-col space-y-4">
+<div class="flex items-center gap-3 border-b border-white/5 pb-3">
+<span class="material-symbols-outlined text-[18px] text-white/40">subject</span>
+<h4 class="text-[11px] uppercase tracking-[0.4em] font-bold text-white/90">NOTES_LOG</h4>
+</div>
+<div class="flex-grow p-6 bg-[#0c0c0c] technical-border">
+<p class="text-[10px] leading-[2.2] text-white/40 font-mono">
+                            // ENGINE_REF: ARP755A <br/>
+                            // COMBUST_ETA: 0.985 <br/>
+                            // OPT_EXP_P0: TRUE <br/>
+                            // COMP_POLY_EFF: 0.90 <br/>
+                            // READY_FOR_SOLVER... <br/>
+                            // LAST_CALC: 1.4MS AGO
+                        </p>
+</div>
+</section>
+</div>
+</div>
+</main>
+<footer class="fixed bottom-0 right-0 left-[260px] h-10 bg-[#080808] border-t border-white/5 flex items-center px-10 justify-between z-40">
+<div class="flex gap-12 items-center">
+<div class="flex gap-3 items-center">
+<span class="text-[8px] font-bold text-white/30 uppercase tracking-[0.2em]">ALTITUDE</span>
+<span class="mono text-[10px] text-white/80">10,500 M</span>
+</div>
+<div class="flex gap-3 items-center">
+<span class="text-[8px] font-bold text-white/30 uppercase tracking-[0.2em]">CORE_MACH</span>
+<span class="mono text-[10px] text-white/80">0.850</span>
+</div>
+<div class="h-4 w-[1px] bg-white/5 mx-2"></div>
+<div class="flex gap-3 items-center">
+<span class="text-[8px] font-bold text-white/30 uppercase tracking-[0.2em]">STATE</span>
+<span class="mono text-[10px] text-white font-bold uppercase tracking-[0.25em]">NOMINAL_STABLE</span>
+</div>
+</div>
+<div class="flex gap-8 items-center">
+<span class="mono text-[9px] text-white/20 tracking-[0.2em]">45.4215 N // 75.6972 W</span>
+<div class="w-1.5 h-1.5 bg-white opacity-60"></div>
+</div>
+</footer>
+</body></html>

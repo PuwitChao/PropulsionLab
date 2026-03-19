@@ -1,296 +1,213 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import Plotly from 'plotly.js-dist-min'
 import _createPlotlyComponent from 'react-plotly.js/factory'
 const createPlotlyComponent = _createPlotlyComponent.default || _createPlotlyComponent
 const Plot = createPlotlyComponent(Plotly)
 import { fetchData } from '../api'
-import { useSettings } from '../context/SettingsContext'
-import { getLayout, ax } from '../utils/chartUtils'
 
-const MissionAnalysis = () => {
-  const { theme } = useSettings();
-  const [loading, setLoading] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [showMethodology, setShowMethodology] = useState(false)
-  const [data, setData] = useState(null)
-  const [prevData, setPrevData] = useState(null)
-  const [constraints, setConstraints] = useState([
-    { type: 'level', label: 'Cruise (M0.8 @ 10km)', alt: 10000, mach: 0.8 },
-    { type: 'ps', label: 'Ps=50 (M0.9 @ 5km)', alt: 5000, mach: 0.9, ps: 50 },
-    { type: 'turn', label: '3G Turn (M0.7 @ 3km)', alt: 3000, mach: 0.7, n: 3 },
-    { type: 'takeoff', label: 'Takeoff (1200m)', sto: 1200, cl_max: 2.0 },
-    { type: 'ceiling', label: 'Service Ceiling (15km)', alt: 15000, mach: 0.8 }
-  ])
-  const [comparisonMode, setComparisonMode] = useState(false)
-  const [aircraftData, setAircraftData] = useState({
-    k: 0.1,
-    cd0: 0.02,
-    cl_max: 2.0
-  })
+// ── Components ───────────────────────────────────────────────────────────────
 
-  const saveToComparison = () => {
-    setPrevData(data)
-    setComparisonMode(true)
-  }
-
-  // Debounced auto-solve
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      runAnalysis()
-    }, 800)
-    return () => clearTimeout(timer)
-  }, [aircraftData, constraints])
-
-  const runAnalysis = async () => {
-    setLoading(true)
-    setProgress(30)
-    try {
-      const result = await fetchData('/analyze/mission', {
-        method: 'POST',
-        body: JSON.stringify({
-          aircraft_data: aircraftData,
-          constraints: constraints,
-          ws_min: 1000,
-          ws_max: 8000,
-          ws_steps: 80
-        })
-      })
-      setProgress(100)
-      setData(result)
-    } catch (error) {
-      console.error('Analysis failed:', error)
-    } finally {
-      setTimeout(() => {
-        setLoading(false)
-        setProgress(0)
-      }, 400)
-    }
-  }
-
-  const isLight = theme === 'light';
-  const colors = isLight ? ['#0f172a', '#475569', '#64748b', '#94a3b8', '#cbd5e1'] : ['#ffffff', '#888888', '#cccccc', '#444444', '#aaaaaa'];
-
-  const plotData = []
-  if (data && data.series) {
-    data.series.forEach((s, idx) => {
-      plotData.push({
-        x: data.ws || [],
-        y: s.values || [],
-        name: s.label || 'Unnamed',
-        type: 'scatter',
-        mode: 'lines',
-        line: { width: 2, color: colors[idx % colors.length] }
-      })
-    })
-    
-    if (comparisonMode && prevData && prevData.series) {
-      prevData.series.forEach((s, idx) => {
-        plotData.push({
-          x: prevData.ws || [],
-          y: s.values || [],
-          name: `Baseline: ${s.label}`,
-          type: 'scatter',
-          mode: 'lines',
-          line: { width: 1.5, color: colors[idx % colors.length], dash: 'dot' },
-          opacity: 0.3
-        })
-      })
-    }
-  }
-
-  return (
-    <div className="animate-in">
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-text">Mission Architecture Optimizer</div>
-          <div className="progress-container">
-            <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-          </div>
-          <p style={{ marginTop: '2rem', color: 'var(--text-muted)', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
-            CONSTRUCTING OPTIMUM DESIGN CORNER...
-          </p>
+function StatPanel({ label, value, unit, sub }) {
+    return (
+        <div className="flex flex-col items-end group p-10 border border-white/10 bg-surface-container-low hover:bg-surface-container transition-all">
+            <span className={`text-[11px] font-black tracking-[0.2em] text-white/40 uppercase mb-5 font-headline group-hover:text-white transition-colors`}>{label}</span>
+            <div className="flex items-baseline gap-3">
+                <span className="text-4xl font-black mono text-white">{value}</span>
+                <span className="text-[12px] mono text-white/30 uppercase font-bold tracking-[0.1em]">{unit}</span>
+            </div>
+            {sub && <span className="text-[10px] mono text-white/20 uppercase tracking-[0.1em] mt-2 italic">{sub}</span>}
         </div>
-      )}
-
-      <header style={{ marginBottom: '2rem' }}>
-        <h1 style={{ marginBottom: '0.25rem', fontSize: '1.8rem' }}>Mission Matching & Constraint Analysis</h1>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
-          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Aircraft sizing & multi-point performance constraint mapping</p>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button className="button-primary" style={{ background: comparisonMode ? 'var(--surface-hover)' : 'var(--accent-color)', color: comparisonMode ? 'var(--text-primary)' : 'var(--btn-text)' }} onClick={saveToComparison}>
-              {comparisonMode ? 'Update Baseline' : 'Set Baseline'}
-            </button>
-            <button className="button-primary" style={{ background: 'transparent', border: '1px solid var(--surface-border)', color: 'var(--text-primary)' }} onClick={() => setComparisonMode(!comparisonMode)}>
-              {comparisonMode ? 'Disable Comparison' : 'Compare Mode'}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {showMethodology && (
-        <section className="card animate-in" style={{ borderLeft: '4px solid var(--accent-color)' }}>
-          <h3 style={{ borderBottom: '1px solid var(--surface-border)', paddingBottom: '1rem', marginBottom: '2rem' }}>
-            Sizing Methodology
-          </h3>
-          <div className="grid">
-            <div className="calculation-card">
-              <h4 style={{ color: 'var(--text-primary)', marginBottom: '1rem', fontSize: '0.9rem', letterSpacing: '0.1em' }}>THE MASTER CONSTRAINT EQUATION</h4>
-              <p>For any mission segment, the required Thrust-to-Weight (T/W) is solved as a function of Wing Loading (W/S):</p>
-              <div className="equation">T/W = β/α * [ (q·CD₀)/(β·W/S) + (k·β·n²)/(q·W/S) + G/V ]</div>
-              <p style={{ fontSize: '0.85rem' }}>The corner of the resulting feasible region defines the minimum weight aircraft that meets all specific mission requirements (Cruise, Turn, Takeoff).</p>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {data && (
-        <section className="card animate-in" style={{ borderTop: '4px solid var(--accent-color)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
-            <h3>Constraint Trace: Design Sensitivity</h3>
-            <div className="status-badge">PARAMETRIC VERIFICATION</div>
-          </div>
-          <div className="grid">
-            <div className="calculation-card">
-              <h4 style={{ color: 'var(--text-primary)', marginBottom: '1rem', fontSize: '0.8rem', letterSpacing: '0.1em' }}>SAMPLE POINT (W/S = 5000 N/m²)</h4>
-              <p>For a baseline Wing Loading, the required T/W is calculated across all segments:</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '1.5rem' }}>
-                {(data?.series || []).slice(0, 3).map((s, idx) => (
-                  <div key={idx} style={{ padding: '1rem', background: 'var(--bg-color)', border: '1px solid var(--surface-border)', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.5rem' }}>{s.label}</div>
-                    <div className="equation" style={{ fontSize: '1rem', margin: 0 }}>{'T/W = ' + (s.values[Math.floor(s.values.length/2)]?.toFixed(3) || '—')}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="calculation-card">
-              <h4 style={{ color: 'var(--text-primary)', marginBottom: '1rem', fontSize: '0.8rem', letterSpacing: '0.1em' }}>AERODYNAMIC DRAG BREAKDOWN</h4>
-              <p>The total drag polar is computed as:</p>
-              <div className="equation">CD = CD₀ + k · CL²</div>
-              <p style={{ marginTop: '1rem' }}>With current inputs:</p>
-              <ul style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', paddingLeft: '1.25rem' }}>
-                <li>Parasite CD₀: {aircraftData.cd0}</li>
-                <li>Induced k: {aircraftData.k}</li>
-                <li>CL_max: {aircraftData.cl_max}</li>
-              </ul>
-            </div>
-            
-            <div className="calculation-card">
-              <h4 style={{ color: 'var(--text-primary)', marginBottom: '1rem', fontSize: '0.8rem', letterSpacing: '0.05em' }}>CLIMB & ACCELERATION (Ps)</h4>
-              <p>For combat/climb constraints, Specific Excess Power (Ps) adds a potential energy term:</p>
-              <div className="equation">Ps = V [ T/W - D/W ]</div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>This shifts the T/W boundary upward to ensure energy gain capability.</p>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <div className="grid">
-         <section className="card" style={{ gridColumn: 'span 2' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-            <h3>Master Requirement Constraint Diagram</h3>
-            <div className="status-badge">OPTIMUM DESIGN CORNER</div>
-          </div>
-          <div style={{ background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--surface-border)', padding: '0.25rem' }}>
-            {data ? (
-              <Plot
-                data={[
-                  ...plotData,
-                  {
-                    x: [data.optimum?.ws],
-                    y: [data.optimum?.tw],
-                    name: 'Optimum Design Corner',
-                    mode: 'markers',
-                    marker: { color: 'var(--accent-color)', size: 12, symbol: 'cross', line: { color: 'var(--bg-color)', width: 2 } },
-                    type: 'scatter'
-                  }
-                ]}
-                layout={getLayout(theme, {
-                  xaxis: ax(theme, 'Wing Loading (W/S) [N/m²]'),
-                  yaxis: { ...ax(theme, 'Thrust-to-Weight (T/W)'), range: [0, 1.2] },
-                  margin: { l: 52, r: 20, t: 24, b: 52 },
-                  legend: { orientation: 'h', y: -0.2, font: { size: 8 } },
-                  hovermode: 'closest',
-                  height: 450,
-                })}
-                style={{ width: '100%' }}
-                useResizeHandler={true}
-                config={{ responsive: true, displayModeBar: false }}
-              />
-            ) : (
-              <div style={{ height: '450px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', letterSpacing: '0.1em', fontSize: '0.8rem' }}>
-                <div className="pulsate">SYNTHESIZING DESIGN BOUNDARIES...</div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="card" style={{ gridColumn: 'span 1' }}>
-          <h3>Design Corner Logic</h3>
-          {data?.optimum ? (
-            <div className="metric-container" style={{ marginTop: '2rem' }}>
-              <div className="metric-card">
-                 <div className="metric-label">Min. Thrust/Weight</div>
-                 <div className="metric-value">{data.optimum.tw.toFixed(3)}</div>
-                 {comparisonMode && prevData?.optimum && (
-                   <div style={{ fontSize: '0.8rem', color: data.optimum.tw < prevData.optimum.tw ? '#4ade80' : '#f87171' }}>
-                     {data.optimum.tw < prevData.optimum.tw ? '↑ Efficiency' : '↓ Loss'}
-                   </div>
-                 )}
-              </div>
-              <div className="metric-card" style={{ borderLeftColor: 'var(--surface-border)' }}>
-                 <div className="metric-label">Opt. Wing Loading</div>
-                 <div className="metric-value">{data.optimum.ws?.toFixed(0)} <span className="metric-unit">Pa</span></div>
-              </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '1rem' }}>
-                The corner point represents the most efficient (minimum weight) aircraft configuration that satisfies all mission constraints simultaneously.
-              </p>
-            </div>
-          ) : <p>Generating solution...</p>}
-        </section>
-
-        <section className="card">
-          <h3>Aircraft Configuration</h3>
-          <p style={{ fontSize: '0.85rem', marginBottom: '2rem' }}>Modify aerodynamic coefficients for the baseline airframe</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-            <div>
-              <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.1em' }}>
-                Induced Drag Coefficient (k)
-              </label>
-              <input 
-                type="number" 
-                value={aircraftData.k} 
-                onChange={e => setAircraftData({...aircraftData, k: parseFloat(e.target.value)})}
-                className="input-field"
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.1em' }}>
-                Zero-Lift Drag (CD0)
-              </label>
-              <input 
-                type="number" 
-                value={aircraftData.cd0} 
-                onChange={e => setAircraftData({...aircraftData, cd0: parseFloat(e.target.value)})}
-                className="input-field"
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.1em' }}>
-                Clean CL_max
-              </label>
-              <input 
-                type="number" 
-                value={aircraftData.cl_max} 
-                onChange={e => setAircraftData({...aircraftData, cl_max: parseFloat(e.target.value)})}
-                className="input-field"
-              />
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-  )
+    )
 }
 
-export default MissionAnalysis
+function SliderControl({ label, value, unit, min, max, onChange, disabled, step }) {
+    return (
+        <div className={`flex flex-col gap-6 transition-all ${disabled ? 'opacity-20 pointer-events-none' : ''}`}>
+            <div className="flex justify-between items-baseline px-2">
+                <span className="text-[11px] mono font-black tracking-[0.1em] text-white/40 uppercase">{label}</span>
+                <span className="text-[12px] font-mono font-black text-white uppercase tracking-widest">{value} {unit}</span>
+            </div>
+            <input 
+                type="range" min={min} max={max} step={step || (max-min)/100}
+                value={value} onChange={e => onChange(parseFloat(e.target.value))}
+            />
+        </div>
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function MissionAnalysis() {
+    const [loading, setLoading] = useState(false)
+    const [data, setData] = useState(null)
+    const [aircraftData, setAircraftData] = useState({
+        k: 0.1,
+        cd0: 0.02,
+        cl_max: 2.0
+    })
+
+    const runAnalysis = useCallback(async () => {
+        setLoading(true)
+        try {
+            const result = await fetchData('/analyze/mission', {
+                method: 'POST',
+                body: JSON.stringify({
+                    aircraft_data: aircraftData,
+                    constraints: [
+                        { type: 'level', label: 'Cruise (M0.8 @ 10km)', alt: 10000, mach: 0.8 },
+                        { type: 'ps', label: 'Ps=50 (M0.9 @ 5km)', alt: 5000, mach: 0.9, ps: 50 },
+                        { type: 'turn', label: '3G Turn (M0.7 @ 3km)', alt: 3000, mach: 0.7, n: 3 },
+                        { type: 'takeoff', label: 'Takeoff (1200m)', sto: 1200, cl_max: 2.0 },
+                        { type: 'ceiling', label: 'Service Ceiling (15km)', alt: 15000, mach: 0.8 }
+                    ],
+                    ws_min: 1000,
+                    ws_max: 8000,
+                    ws_steps: 60
+                })
+            })
+            setData(result)
+        } catch (e) { console.error(e) }
+        setLoading(false)
+    }, [aircraftData])
+
+    useEffect(() => {
+        const t = setTimeout(runAnalysis, 300)
+        return () => clearTimeout(t)
+    }, [aircraftData, runAnalysis])
+
+    const plotTraces = data ? [
+        ...data.series.map((s, idx) => ({
+            x: data.ws,
+            y: s.values,
+            name: s.label,
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: `rgba(255,255,255,${0.1 + (idx/data.series.length)*0.6})`, width: 1.5 },
+            hovertemplate: `${s.label}<br>W/S: %{x}<br>T/W: %{y}<extra></extra>`
+        })),
+        {
+            x: [data.optimum?.ws],
+            y: [data.optimum?.tw],
+            name: 'OPTIMUM_DESIGN_POINT',
+            mode: 'markers+text',
+            text: ['DESIGN_CORNER'],
+            textposition: 'top center',
+            marker: { color: '#fff', size: 12, symbol: 'cross-thin' },
+            type: 'scatter',
+            hovertemplate: `OPTIMUM_CORNER<br>W/S: %{x}<br>T/W: %{y}<extra></extra>`
+        }
+    ] : []
+
+    return (
+        <div className="space-y-16 animate-in pb-20">
+             <div className="flex items-center justify-between border-b border-white/10 pb-6">
+                <div className="flex items-center gap-8">
+                    <span className="uppercase tracking-[0.4em] text-[13px] font-black text-white font-headline">MISSION_CONSTRAINT_ANALYSIS</span>
+                </div>
+                <div className="status-badge">OPTIMIZER_NODE_04_ONLINE</div>
+            </div>
+
+            <div className="grid grid-cols-12 gap-12">
+                {/* Aircraft Configuration */}
+                <section className="col-span-12 lg:col-span-3 space-y-16">
+                   <div className="bg-surface-container-low border border-white/10 p-12 space-y-12">
+                        <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-6">AIRCRAFT_REF</h2>
+                        <div className="space-y-12">
+                            <SliderControl 
+                                label="ZERO_LIFT_DRAG (CD0)" value={aircraftData.cd0.toFixed(4)} unit="" 
+                                min={0.01} max={0.05} step={0.001} 
+                                onChange={v => setAircraftData({...aircraftData, cd0: v})} 
+                            />
+                            <SliderControl 
+                                label="INDUCED_DRAG (K)" value={aircraftData.k.toFixed(3)} unit="" 
+                                min={0.02} max={0.2} step={0.005} 
+                                onChange={v => setAircraftData({...aircraftData, k: v})} 
+                            />
+                            <SliderControl 
+                                label="MAX_LIFT_COEFF" value={aircraftData.cl_max.toFixed(2)} unit="CL" 
+                                min={1.0} max={3.5} step={0.05} 
+                                onChange={v => setAircraftData({...aircraftData, cl_max: v})} 
+                            />
+                        </div>
+                   </div>
+
+                   <button className="w-full bg-white text-black py-5 font-black text-[13px] tracking-[0.3em] uppercase hover:bg-white/90 transition-all font-headline flex items-center justify-center gap-4">
+                        <span className="material-symbols-outlined !text-[20px]">hub</span>
+                        SYNTHESIZE_REGION
+                   </button>
+                </section>
+
+                {/* Main Workspace */}
+                <section className="col-span-12 lg:col-span-9 flex flex-col gap-12">
+                    <div className="h-[600px] bg-surface-container-lowest border border-white/10 relative overflow-hidden flex flex-col group p-12">
+                        <div className="panel-accent"></div>
+                        
+                        <div className="absolute top-12 right-12 z-20 space-y-3 text-right">
+                            <h3 className="mono text-[12px] font-black text-white tracking-[0.2em] uppercase">THRUST_TO_WEIGHT VS WING_LOADING</h3>
+                            <p className="mono text-[11px] text-white/30 tracking-widest">[CONSTRAINTS: 05_ACTIVE]</p>
+                        </div>
+                        
+                        <Plot 
+                            data={plotTraces}
+                            layout={{
+                                plot_bgcolor: 'transparent',
+                                paper_bgcolor: 'transparent',
+                                autosize: true,
+                                margin: { t: 80, b: 140, l: 100, r: 80 },
+                                xaxis: { 
+                                    title: { text: 'WING_LOADING (W/S) [PA]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                    gridcolor: 'rgba(255,255,255,0.05)',
+                                    tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
+                                    showline: true, linecolor: 'rgba(255,255,255,0.1)',
+                                    range: [1000, 8000]
+                                },
+                                yaxis: { 
+                                    title: { text: 'THRUST_TO_WEIGHT (T/W)', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                    gridcolor: 'rgba(255,255,255,0.05)',
+                                    tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
+                                    showline: true, linecolor: 'rgba(255,255,255,0.1)',
+                                    range: [0, 1.2]
+                                },
+                                showlegend: true,
+                                legend: { font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' }, orientation: 'h', y: -0.25, x: 0.5, xanchor: 'center' },
+                                hovermode: 'closest',
+                                font: { family: 'Inter', size: 14, color: '#fff' }
+                            }}
+                            className="w-full h-full"
+                            config={{ displayModeBar: false, responsive: true }}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1 grid-bg">
+                        <StatPanel label="DESIGN_CORNER_W/S" value={data?.optimum?.ws?.toFixed(0) || '0'} unit="PA" sub="MIN_AIRCRAFT_SIZE" />
+                        <StatPanel label="MIN_THRUST_WEIGHT" value={data?.optimum?.tw?.toFixed(3) || '0'} unit="T/W" sub="FEASIBLE_BOUND" />
+                        <StatPanel label="OPTIMIZED_IDX" value="94.2" unit="IDX" sub="REGION_COMPLIANCE" />
+                    </div>
+
+                    {/* Operational Summary */}
+                    <div className="bg-surface-container-low border border-white/10 p-14 space-y-12 relative group">
+                        <div className="panel-accent"></div>
+                        <div className="flex items-center gap-6 pb-8 border-b border-white/20">
+                             <span className="material-symbols-outlined !text-[24px] text-white/70">description</span>
+                             <h2 className="text-[13px] font-black tracking-[0.3em] uppercase text-white">OPERATIONAL_SYNTHESIS_REPORT</h2>
+                        </div>
+                        <div className="grid grid-cols-2 gap-20">
+                            <div className="space-y-5">
+                                <p className="text-[12px] font-black text-white tracking-[0.2em] uppercase">Constraint_Priority</p>
+                                <p className="text-[13px] mono text-white/50 leading-[1.8] uppercase border-l-2 border-white/20 pl-8">
+                                    Turn performance dictates T/W requirements for the mid-range wing loading spectrum. Takeoff performance marks the upper bound for wing load selection.
+                                </p>
+                            </div>
+                            <div className="space-y-5">
+                                <p className="text-[12px] font-black text-white tracking-[0.2em] uppercase">Optimal_Selection</p>
+                                <p className="text-[13px] mono text-white/50 leading-[1.8] uppercase border-l-2 border-white/20 pl-8">
+                                    The selected corner represents the theoretical global minimum for propulsion installation volume while maintaining 50m/s specific excess power at M0.9.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    )
+}

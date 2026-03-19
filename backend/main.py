@@ -107,6 +107,8 @@ class CycleRequest(BaseModel):
     burner_eta:      float = Field(0.99,  ge=0.8,  le=1.0)
     burner_dp_frac:  float = Field(0.04,  ge=0.0,  le=0.15)
     nozzle_dp_frac:  float = Field(0.02,  ge=0.0,  le=0.10)
+    phi_inlet:       float = Field(0.0,   ge=0.0,  le=0.10)
+    eta_install_nozzle: float = Field(1.0, ge=0.8, le=1.0)
 
 @app.post("/analyze/cycle")
 async def analyze_cycle(request: CycleRequest):
@@ -122,6 +124,8 @@ async def analyze_cycle(request: CycleRequest):
             burner_eta=request.burner_eta,
             burner_dp_frac=request.burner_dp_frac,
             nozzle_dp_frac=request.nozzle_dp_frac,
+            phi_inlet=request.phi_inlet,
+            eta_install_nozzle=request.eta_install_nozzle,
         )
         return result
     except Exception as e:
@@ -147,6 +151,9 @@ class TurbofanRequest(BaseModel):
     inlet_recovery:  float = Field(0.98)
     burner_eta:      float = Field(0.99)
     burner_dp_frac:  float = Field(0.04)
+    phi_inlet:       float = Field(0.0)
+    eta_install_nozzle: float = Field(1.0, ge=0.8, le=1.0)
+    mixed_exhaust: bool = False
 
 @app.post("/analyze/cycle/turbofan")
 async def analyze_turbofan(request: TurbofanRequest):
@@ -161,6 +168,9 @@ async def analyze_turbofan(request: TurbofanRequest):
             inlet_recovery=request.inlet_recovery,
             burner_eta=request.burner_eta,
             burner_dp_frac=request.burner_dp_frac,
+            phi_inlet=request.phi_inlet,
+            eta_install_nozzle=request.eta_install_nozzle,
+            mixed_exhaust=request.mixed_exhaust,
         )
         return result
     except Exception as e:
@@ -266,6 +276,8 @@ class RocketRequest(BaseModel):
     exit_half_angle_deg:  float = Field(15.0, ge=1, le=45)
     thrust_target_N:      Optional[float] = Field(None, ge=100, le=10e6)
     compute_heat_transfer: bool = True
+    impurity_species:      Optional[str]   = Field(None)
+    impurity_mass_frac:    float           = Field(0.0, ge=0.0, le=0.5)
 
 @app.post("/analyze/rocket")
 async def analyze_rocket(request: RocketRequest):
@@ -279,6 +291,8 @@ async def analyze_rocket(request: RocketRequest):
             exit_half_angle_deg=request.exit_half_angle_deg,
             thrust_target_N=request.thrust_target_N,
             compute_heat_transfer=request.compute_heat_transfer,
+            impurity_species=request.impurity_species,
+            impurity_mass_frac=request.impurity_mass_frac,
         )
         return result
     except Exception as e:
@@ -379,6 +393,7 @@ async def analyze_sizing(request: SizingRequest):
             'mass_engine_kg': result['mass_est'],
             'nozzle_dims' : result['nozzle_dims'],
             'heat_transfer': result.get('heat_transfer'),
+            'math_trace': result.get('math_trace'),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

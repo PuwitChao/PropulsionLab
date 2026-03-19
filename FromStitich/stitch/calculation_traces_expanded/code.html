@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Propulsion Analysis Suite - Comparative Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-highest": "#282828",
+                        "tertiary": "#ffffff",
+                        "on-surface": "#e5e2e1",
+                        "primary": "#ffffff",
+                        "surface": "#0a0a0a",
+                        "surface-container": "#1a1a1a",
+                        "surface-container-lowest": "#050505",
+                        "surface-container-low": "#111111",
+                        "surface-container-high": "#222222",
+                        "on-primary-container": "#000000",
+                        "secondary-container": "#333333",
+                        "background": "#0a0a0a",
+                        "outline": "#444444",
+                        "outline-variant": "#222222",
+                        "surface-variant": "#1a1a1a",
+                        "on-surface-variant": "#a0a0a0"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0px",
+                        "lg": "0px",
+                        "xl": "0px",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+            font-size: 18px;
+        }
+        .equation-block {
+            background-image: radial-gradient(circle at 1px 1px, #222 1px, transparent 0);
+            background-size: 20px 20px;
+        }
+        ::-webkit-scrollbar {
+            height: 3px;
+            width: 3px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ffffff;
+        }
+        .math-latex {
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: -0.02em;
+        }
+        .trace-card {
+            min-width: 480px;
+        }
+        .no-color-status {
+            filter: grayscale(1);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary selection:text-on-primary overflow-hidden">
+<nav class="fixed left-0 top-0 h-full w-[260px] z-50 bg-surface-container-low border-r border-outline/20 flex flex-col py-8">
+<div class="px-8 mb-12">
+<h1 class="text-xl font-black tracking-[0.6em] text-primary uppercase">PROPULSION</h1>
+<p class="text-[9px] tracking-[0.5em] text-on-surface-variant font-mono mt-3 opacity-40">SYSTEM_ENV_V1.0.4</p>
+</div>
+<div class="flex flex-col flex-1">
+<a class="group text-on-surface-variant border-l-2 border-transparent pl-8 py-4 hover:text-primary hover:bg-white/5 transition-all duration-300 flex items-center gap-4" href="#">
+<span class="material-symbols-outlined opacity-40 group-hover:opacity-100">rocket_launch</span>
+<span class="uppercase tracking-[0.3em] text-[10px] font-mono">Rocket_Analysis</span>
+</a>
+<a class="group text-on-surface-variant border-l-2 border-transparent pl-8 py-4 hover:text-primary hover:bg-white/5 transition-all duration-300 flex items-center gap-4" href="#">
+<span class="material-symbols-outlined opacity-40 group-hover:opacity-100">mode_fan</span>
+<span class="uppercase tracking-[0.3em] text-[10px] font-mono">Gas_Turbine</span>
+</a>
+<a class="text-primary border-l-2 border-primary pl-8 py-4 bg-white/[0.03] flex items-center gap-4" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="uppercase tracking-[0.3em] text-[10px] font-mono font-bold">Comparative_Dash</span>
+</a>
+</div>
+<div class="px-8 mt-auto space-y-3 border-t border-outline-variant pt-8">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 bg-white shadow-[0_0_8px_rgba(255,255,255,0.3)]"></div>
+<div class="text-[9px] text-on-surface-variant font-mono tracking-[0.2em] uppercase">SYSTEM_STABLE</div>
+</div>
+<div class="text-[9px] text-on-surface-variant/40 font-mono tracking-[0.2em] uppercase">LINK: 0x8F2A_SECURE</div>
+</div>
+</nav>
+<header class="fixed top-0 right-0 left-[260px] h-20 z-40 bg-surface/90 backdrop-blur-xl border-b border-outline-variant flex items-center justify-between px-10">
+<div class="flex items-center gap-8">
+<div class="flex flex-col">
+<span class="uppercase tracking-[0.4em] font-bold text-xs text-primary">Multi-Trace Evaluation</span>
+<span class="text-[9px] font-mono text-on-surface-variant tracking-[0.2em] mt-1">REALTIME_CALCULATION_MATRIX</span>
+</div>
+<div class="h-8 w-px bg-outline-variant"></div>
+<div class="flex gap-4">
+<div class="px-4 py-2 border border-outline-variant bg-surface-container-lowest">
+<span class="text-[9px] font-mono text-on-surface-variant uppercase tracking-widest">Active_Runs: <span class="text-primary font-bold">04</span></span>
+</div>
+<div class="px-4 py-2 border border-white/20 bg-white/5">
+<span class="text-[9px] font-mono text-primary uppercase tracking-widest font-bold">MODE: CONCURRENT</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative flex items-center">
+<span class="absolute left-3 text-on-surface-variant/40 material-symbols-outlined">search</span>
+<input class="bg-surface-container-low border border-outline-variant pl-10 pr-4 py-2.5 text-[10px] font-mono tracking-wider focus:outline-none focus:border-white/40 w-72 transition-all placeholder:text-on-surface-variant/20" placeholder="FILTER_PARAM_SET..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button class="border border-outline-variant p-2 text-on-surface-variant hover:text-primary hover:border-white/20 transition-all">
+<span class="material-symbols-outlined">settings_input_component</span>
+</button>
+<button class="bg-white text-black px-5 py-2.5 flex items-center gap-3 hover:bg-on-surface-variant transition-all group">
+<span class="material-symbols-outlined !text-base group-hover:rotate-90 transition-transform">add</span>
+<span class="text-[10px] font-bold font-mono tracking-[0.2em] uppercase">INIT_RUN</span>
+</button>
+</div>
+</div>
+</header>
+<main class="ml-[260px] mt-20 p-10 h-[calc(100vh-80px)] overflow-y-auto bg-surface">
+<div class="max-w-[1600px] mx-auto space-y-10">
+<!-- Top Section: Input Matrix and Integration -->
+<div class="grid grid-cols-12 gap-8">
+<div class="col-span-7 bg-surface-container-low border border-outline-variant">
+<div class="bg-surface-container-high/50 px-5 py-3 border-b border-outline-variant flex justify-between items-center">
+<h3 class="text-[10px] font-mono font-bold uppercase tracking-[0.3em] text-primary">Comparative_Input_Matrix</h3>
+<span class="text-[9px] font-mono text-on-surface-variant/40 tracking-widest">DOC_REF: NASA-RP-1250_REV_B</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left font-mono text-[10px]">
+<thead>
+<tr class="border-b border-outline-variant text-on-surface-variant/60">
+<th class="px-6 py-4 font-medium uppercase tracking-widest">Parameter</th>
+<th class="px-6 py-4 font-medium border-l border-outline-variant/5 text-center">RT-9942</th>
+<th class="px-6 py-4 font-medium border-l border-outline-variant/5 text-center">RT-9943</th>
+<th class="px-6 py-4 font-medium border-l border-outline-variant/5 text-center">RT-9944</th>
+<th class="px-6 py-4 font-medium border-l border-outline-variant/5 text-center">RT-9945</th>
+</tr>
+</thead>
+<tbody class="text-on-surface divide-y divide-outline-variant/5">
+<tr class="hover:bg-white/[0.02] transition-colors">
+<td class="px-6 py-3.5 text-on-surface-variant/80">ṁ (kg/s)</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">450.25</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">485.10</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">420.00</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">501.44</td>
+</tr>
+<tr class="hover:bg-white/[0.02] transition-colors">
+<td class="px-6 py-3.5 text-on-surface-variant/80">v_e (m/s)</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">2950.4</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">3120.0</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">2850.5</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">3200.0</td>
+</tr>
+<tr class="hover:bg-white/[0.02] transition-colors">
+<td class="px-6 py-3.5 text-on-surface-variant/80">A_e (m²)</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">2.45</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">2.45</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">2.60</td>
+<td class="px-6 py-3.5 border-l border-outline-variant/5 text-center text-primary font-bold">2.80</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="col-span-5 flex flex-col gap-6">
+<div class="grid grid-cols-2 gap-6 flex-1">
+<div class="bg-surface-container-low border border-outline-variant p-5 flex flex-col justify-between">
+<div>
+<h3 class="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-on-surface-variant/60 mb-4">Runtime_Validation</h3>
+<div class="space-y-4">
+<div class="flex justify-between items-end text-[10px] font-mono">
+<span class="text-on-surface-variant/40 tracking-widest">INTEGRITY_CHECK</span>
+<span class="text-primary font-bold text-base">99.998<span class="text-[10px] opacity-40 ml-1">%</span></span>
+</div>
+<div class="w-full bg-outline-variant h-0.5">
+<div class="bg-white h-full w-[99.99%] shadow-[0_0_8px_rgba(255,255,255,0.4)]"></div>
+</div>
+<div class="flex gap-1">
+<div class="h-1 flex-1 bg-white"></div>
+<div class="h-1 flex-1 bg-white"></div>
+<div class="h-1 flex-1 bg-white"></div>
+<div class="h-1 flex-1 bg-outline-variant"></div>
+<div class="h-1 flex-1 bg-outline-variant"></div>
+</div>
+</div>
+</div>
+<div class="text-[9px] font-mono text-on-surface-variant/40 uppercase tracking-[0.2em] pt-4 border-t border-outline-variant/20">
+                            Status: Validated_Secure
+                        </div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant p-5 flex flex-col justify-between">
+<div>
+<h3 class="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-on-surface-variant/60 mb-4">Global_Constants</h3>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-[10px] font-mono border-b border-outline-variant/10 pb-2">
+<span class="text-on-surface-variant/40">G_ZERO</span>
+<span class="text-primary tracking-widest">9.80665 m/s²</span>
+</div>
+<div class="flex justify-between items-center text-[10px] font-mono border-b border-outline-variant/10 pb-2">
+<span class="text-on-surface-variant/40">R_GAS</span>
+<span class="text-primary tracking-widest">287.058 J/kg·K</span>
+</div>
+</div>
+</div>
+<div class="text-[9px] font-mono text-on-surface-variant/40 uppercase tracking-[0.2em] pt-4 border-t border-outline-variant/20">
+                            Ref: NIST_STD_DATA
+                        </div>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant p-5 grid grid-cols-2 gap-8 h-28">
+<div class="flex flex-col justify-between border-r border-outline-variant">
+<h3 class="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-on-surface-variant/60">Session_Log</h3>
+<div class="text-[11px] font-mono text-primary leading-tight tracking-wider">
+                            BATCH_ID: B-7724<br/>
+                            KERNEL: IEEE_754_F64
+                        </div>
+</div>
+<div class="flex flex-col justify-between">
+<h3 class="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-on-surface-variant/60">Timestamp</h3>
+<div class="text-[11px] font-mono text-primary tracking-widest">
+                            2024-11-24<br/>
+                            15:20:44_Z
+                        </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Middle Section: Trace Analysis Matrix -->
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-4">
+<h2 class="text-base font-black tracking-[0.5em] text-primary uppercase">Trace Analysis Matrix</h2>
+<div class="h-4 w-px bg-outline-variant"></div>
+<span class="text-[10px] font-mono text-on-surface-variant tracking-[0.3em] uppercase">Comparative_Traces [04]</span>
+</div>
+<div class="flex gap-2">
+<button class="bg-surface-container border border-outline-variant p-2 hover:bg-white hover:text-black transition-all">
+<span class="material-symbols-outlined !text-sm">arrow_back</span>
+</button>
+<button class="bg-surface-container border border-outline-variant p-2 hover:bg-white hover:text-black transition-all">
+<span class="material-symbols-outlined !text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+<div class="flex gap-8 overflow-x-auto pb-10 -mx-2 px-2 snap-x">
+<!-- Trace Card 01 -->
+<div class="trace-card snap-start bg-surface-container-lowest border border-outline-variant/40 flex flex-col group hover:border-white/20 transition-all duration-500">
+<div class="bg-surface-container px-6 py-3 border-b border-outline-variant flex justify-between items-center">
+<span class="text-[11px] font-mono font-bold text-primary tracking-widest">RUN_ID: RT-9942</span>
+<div class="flex items-center gap-3">
+<span class="text-[9px] font-mono text-on-surface-variant/60 uppercase tracking-widest">STEP_01_NOMINAL</span>
+<div class="w-1.5 h-1.5 bg-white/40"></div>
+</div>
+</div>
+<div class="p-8 equation-block flex-1 space-y-10">
+<div class="space-y-5">
+<div class="text-[9px] font-mono text-on-surface-variant/40 tracking-[0.3em] uppercase border-b border-outline-variant/10 pb-2">Governing_Equation</div>
+<div class="math-latex text-2xl text-primary tracking-tighter leading-none">
+                                F = \dot{m} v_e + (P_e - P_a) A_e
+                            </div>
+</div>
+<div class="space-y-4 font-mono">
+<div class="text-[9px] font-mono text-on-surface-variant/40 tracking-[0.3em] uppercase border-b border-outline-variant/10 pb-2">Expansion_Trace</div>
+<div class="text-[11px] text-on-surface-variant/80 leading-relaxed space-y-1.5">
+<div class="flex justify-between"><span class="opacity-30">01:</span> <span>(450.25 × 2950.4) + (12.4k × 2.45)</span></div>
+<div class="flex justify-between"><span class="opacity-30">02:</span> <span>1,328,417.6 + 30,502.5</span></div>
+</div>
+<div class="pt-6 border-t border-outline-variant">
+<div class="flex justify-between items-end">
+<span class="text-[9px] font-mono text-on-surface-variant/40 uppercase tracking-widest">Output_Thrust</span>
+<div class="text-3xl font-black text-primary tracking-tighter">1.359 <span class="text-sm font-light opacity-40 ml-1">MN</span></div>
+</div>
+</div>
+</div>
+<div class="bg-white/[0.03] p-5 border border-outline-variant flex justify-between items-center group-hover:bg-white/[0.05] transition-colors">
+<div class="space-y-1">
+<div class="text-[9px] font-mono text-on-surface-variant/60 uppercase tracking-widest">I_SPECIFIC</div>
+<div class="text-xl font-bold text-primary tracking-tight">307.75 <span class="text-xs opacity-40">s</span></div>
+</div>
+<div class="text-right">
+<div class="text-[9px] font-mono text-on-surface-variant/60 uppercase tracking-widest">DR_RATIO</div>
+<div class="text-sm font-mono text-primary">0.9942</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Trace Card 02 -->
+<div class="trace-card snap-start bg-surface-container-lowest border border-outline-variant/40 flex flex-col group hover:border-white/20 transition-all duration-500">
+<div class="bg-surface-container px-6 py-3 border-b border-outline-variant flex justify-between items-center">
+<span class="text-[11px] font-mono font-bold text-primary tracking-widest">RUN_ID: RT-9943</span>
+<div class="flex items-center gap-3">
+<span class="text-[9px] font-mono text-on-surface-variant/60 uppercase tracking-widest">STEP_02_HI_MASS</span>
+<div class="w-1.5 h-1.5 bg-white"></div>
+</div>
+</div>
+<div class="p-8 equation-block flex-1 space-y-10">
+<div class="space-y-5">
+<div class="text-[9px] font-mono text-on-surface-variant/40 tracking-[0.3em] uppercase border-b border-outline-variant/10 pb-2">Governing_Equation</div>
+<div class="math-latex text-2xl text-primary tracking-tighter leading-none">
+                                F = \dot{m} v_e + (P_e - P_a) A_e
+                            </div>
+</div>
+<div class="space-y-4 font-mono">
+<div class="text-[9px] font-mono text-on-surface-variant/40 tracking-[0.3em] uppercase border-b border-outline-variant/10 pb-2">Expansion_Trace</div>
+<div class="text-[11px] text-on-surface-variant/80 leading-relaxed space-y-1.5">
+<div class="flex justify-between"><span class="opacity-30">01:</span> <span>(485.10 × 3120.0) + (12.4k × 2.45)</span></div>
+<div class="flex justify-between"><span class="opacity-30">02:</span> <span>1,513,512.0 + 30,502.5</span></div>
+</div>
+<div class="pt-6 border-t border-outline-variant">
+<div class="flex justify-between items-end">
+<span class="text-[9px] font-mono text-on-surface-variant/40 uppercase tracking-widest">Output_Thrust</span>
+<div class="text-3xl font-black text-primary tracking-tighter">1.544 <span class="text-sm font-light opacity-40 ml-1">MN</span></div>
+</div>
+</div>
+</div>
+<div class="bg-white/[0.03] p-5 border border-outline-variant flex justify-between items-center group-hover:bg-white/[0.05] transition-colors">
+<div class="space-y-1">
+<div class="text-[9px] font-mono text-on-surface-variant/60 uppercase tracking-widest">I_SPECIFIC</div>
+<div class="text-xl font-bold text-primary tracking-tight">325.20 <span class="text-xs opacity-40">s</span></div>
+</div>
+<div class="text-right">
+<div class="text-[9px] font-mono text-on-surface-variant/60 uppercase tracking-widest">DR_RATIO</div>
+<div class="text-sm font-mono text-primary">1.0210</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Trace Card 03 -->
+<div class="trace-card snap-start bg-surface-container-lowest border border-outline-variant/40 flex flex-col group hover:border-white/20 transition-all duration-500">
+<div class="bg-surface-container px-6 py-3 border-b border-outline-variant flex justify-between items-center">
+<span class="text-[11px] font-mono font-bold text-primary tracking-widest">RUN_ID: RT-9944</span>
+<div class="flex items-center gap-3">
+<span class="text-[9px] font-mono text-on-surface-variant/60 uppercase tracking-widest">STEP_03_LOW_THRUST</span>
+<div class="w-1.5 h-1.5 bg-white/20"></div>
+</div>
+</div>
+<div class="p-8 equation-block flex-1 space-y-10">
+<div class="space-y-5">
+<div class="text-[9px] font-mono text-on-surface-variant/40 tracking-[0.3em] uppercase border-b border-outline-variant/10 pb-2">Governing_Equation</div>
+<div class="math-latex text-2xl text-primary tracking-tighter leading-none">
+                                F = \dot{m} v_e + (P_e - P_a) A_e
+                            </div>
+</div>
+<div class="space-y-4 font-mono">
+<div class="text-[9px] font-mono text-on-surface-variant/40 tracking-[0.3em] uppercase border-b border-outline-variant/10 pb-2">Expansion_Trace</div>
+<div class="text-[11px] text-on-surface-variant/80 leading-relaxed space-y-1.5">
+<div class="flex justify-between"><span class="opacity-30">01:</span> <span>(420.00 × 2850.5) + (12.4k × 2.60)</span></div>
+<div class="flex justify-between"><span class="opacity-30">02:</span> <span>1,197,210.0 + 32,370.0</span></div>
+</div>
+<div class="pt-6 border-t border-outline-variant">
+<div class="flex justify-between items-end">
+<span class="text-[9px] font-mono text-on-surface-variant/40 uppercase tracking-widest">Output_Thrust</span>
+<div class="text-3xl font-black text-primary tracking-tighter">1.229 <span class="text-sm font-light opacity-40 ml-1">MN</span></div>
+</div>
+</div>
+</div>
+<div class="bg-white/[0.03] p-5 border border-outline-variant flex justify-between items-center group-hover:bg-white/[0.05] transition-colors">
+<div class="space-y-1">
+<div class="text-[9px] font-mono text-on-surface-variant/60 uppercase tracking-widest">I_SPECIFIC</div>
+<div class="text-xl font-bold text-primary tracking-tight">298.40 <span class="text-xs opacity-40">s</span></div>
+</div>
+<div class="text-right">
+<div class="text-[9px] font-mono text-on-surface-variant/60 uppercase tracking-widest">DR_RATIO</div>
+<div class="text-sm font-mono text-primary">0.8845</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Stats Section -->
+<div class="grid grid-cols-4 gap-8">
+<div class="bg-surface-container-low p-6 border border-outline-variant hover:border-white/20 transition-all font-mono">
+<div class="text-[9px] text-on-surface-variant/60 font-bold uppercase tracking-[0.3em] mb-3">Global_Mean_Thrust</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl text-primary font-black tracking-tighter">1.442</span>
+<span class="text-[10px] text-on-surface-variant/40 uppercase">Mega_Newtons</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 border border-outline-variant hover:border-white/20 transition-all font-mono">
+<div class="text-[9px] text-on-surface-variant/60 font-bold uppercase tracking-[0.3em] mb-3">Convergence_Status</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl text-primary font-black tracking-tighter uppercase">Nominal</span>
+<span class="text-[10px] text-on-surface-variant/40 uppercase">[4/4_ACTIVE]</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 border border-outline-variant hover:border-white/20 transition-all font-mono">
+<div class="text-[9px] text-on-surface-variant/60 font-bold uppercase tracking-[0.3em] mb-3">Drift_Variance</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl text-primary font-black tracking-tighter">0.0004</span>
+<span class="text-[10px] text-on-surface-variant/40 uppercase">RMS_ERROR</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 border border-outline-variant hover:border-white/20 transition-all font-mono">
+<div class="text-[9px] text-on-surface-variant/60 font-bold uppercase tracking-[0.3em] mb-3">Compute_Latency</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl text-primary font-black tracking-tighter">1.22</span>
+<span class="text-[10px] text-on-surface-variant/40 uppercase">mili_seconds</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<div class="fixed bottom-8 right-12 pointer-events-none select-none flex items-center gap-8">
+<div class="text-[9px] font-mono text-on-surface-variant/30 tracking-[0.8em] uppercase">
+        Propulsion_Analysis_System // Secure_Protocol // (C) 2024
+    </div>
+<div class="flex gap-1.5 no-color-status">
+<div class="w-1 h-3 bg-white/10"></div>
+<div class="w-1 h-3 bg-white/30"></div>
+<div class="w-1 h-3 bg-white/60"></div>
+</div>
+</div>
+</body></html>

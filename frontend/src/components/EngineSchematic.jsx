@@ -7,16 +7,16 @@ const EngineSchematic = ({ activeStation, onStationClick }) => {
   
   // Design system colors based on theme
   const bgColor = isLight ? '#f8fafc' : '#0a0a0a';
-  const borderColor = isLight ? '#e2e8f0' : '#222';
-  const strokeColor = isLight ? '#cbd5e1' : '#333';
-  const textColorMuted = isLight ? '#94a3b8' : '#555';
-  const textColorSecondary = isLight ? '#64748b' : '#888';
-  const accentColor = 'var(--accent-color)';
+  const borderColor = isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)';
+  const strokeColor = isLight ? '#cbd5e1' : 'rgba(255,255,255,0.2)';
+  const textColorMuted = isLight ? '#94a3b8' : 'rgba(255,255,255,0.3)';
+  const textColorSecondary = isLight ? '#64748b' : 'rgba(255,255,255,0.5)';
+  const accentColor = 'var(--primary)';
   const activeColor = isLight ? '#0f172a' : '#fff';
   const surfaceAlpha = isLight ? 'rgba(15, 23, 42, 0.03)' : 'rgba(255,255,255,0.02)';
 
   // SVG proportions and station positions
-  const height = 150;
+  const height = 180;
   const width = 600;
   
   // Standard Turbojet Stations (Simplified)
@@ -30,8 +30,8 @@ const EngineSchematic = ({ activeStation, onStationClick }) => {
   ];
 
   return (
-    <div className="engine-schematic-container" style={{ margin: '2rem 0', background: bgColor, padding: '2rem', borderRadius: '12px', border: `1px solid ${borderColor}`, transition: 'all 0.3s' }}>
-      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="100%">
+    <div className="engine-schematic-container p-12 border border-white/10 bg-surface-container-low transition-all" style={{ borderRadius: 0 }}>
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="80%">
         {/* Connection Lines (Engine Body) */}
         <path 
           d={`M 100 ${height/2 - 40} L 220 ${height/2 - 30} L 340 ${height/2 - 30} L 460 ${height/2 - 35} L 550 ${height/2 - 50}`}
@@ -45,15 +45,15 @@ const EngineSchematic = ({ activeStation, onStationClick }) => {
         {/* Component Boxes */}
         {/* Compressor */}
         <polygon points="100,30 220,40 220,110 100,120" fill={surfaceAlpha} stroke={strokeColor} />
-        <text x="160" y="80" textAnchor="middle" fill={textColorMuted} fontSize="10" fontWeight="bold">COMPRESSOR</text>
+        <text x="160" y="80" textAnchor="middle" fill={textColorMuted} fontSize="12" fontWeight="bold" className="mono tracking-widest uppercase">COM</text>
 
         {/* Burner */}
         <rect x="220" y="40" width="120" height="70" fill={isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255,255,255,0.05)'} stroke={strokeColor} />
-        <text x="280" y="80" textAnchor="middle" fill={textColorSecondary} fontSize="10" fontWeight="bold">COMBUSTOR</text>
+        <text x="280" y="80" textAnchor="middle" fill={textColorSecondary} fontSize="12" fontWeight="bold" className="mono tracking-widest uppercase">BURNER</text>
 
         {/* Turbine */}
         <polygon points="340,40 460,30 460,120 340,110" fill={surfaceAlpha} stroke={strokeColor} />
-        <text x="400" y="80" textAnchor="middle" fill={textColorMuted} fontSize="10" fontWeight="bold">TURBINE</text>
+        <text x="400" y="80" textAnchor="middle" fill={textColorMuted} fontSize="12" fontWeight="bold" className="mono tracking-widest uppercase">TURB</text>
 
         {/* Stations */}
         {stations.map(s => (
@@ -62,15 +62,15 @@ const EngineSchematic = ({ activeStation, onStationClick }) => {
             onClick={() => onStationClick && onStationClick(s.id)}
             style={{ cursor: 'pointer' }}
           >
-            <line x1={s.x} y1={20} x2={s.x} y2={130} stroke={activeStation === s.id ? accentColor : strokeColor} strokeDasharray="4" />
-            <circle cx={s.x} cy={140} r="10" fill={activeStation === s.id ? accentColor : bgColor} stroke={activeStation === s.id ? accentColor : strokeColor} />
-            <text x={s.x} y={144} textAnchor="middle" fill={activeStation === s.id ? (isLight ? '#fff' : '#000') : textColorSecondary} fontSize="12" fontWeight="bold">{s.label}</text>
+            <line x1={s.x} y1={20} x2={s.x} y2={130} stroke={activeStation === s.id ? "#fff" : strokeColor} strokeDasharray="4" />
+            <circle cx={s.x} cy={150} r="12" fill={activeStation === s.id ? "#fff" : bgColor} stroke={activeStation === s.id ? "#fff" : strokeColor} />
+            <text x={s.x} y={155} textAnchor="middle" fill={activeStation === s.id ? (isLight ? '#fff' : '#000') : textColorSecondary} fontSize="14" fontWeight="black" className="mono">{s.label}</text>
           </g>
         ))}
       </svg>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', marginTop: '1.5rem', color: textColorSecondary, fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
+      <div className="grid grid-cols-6 mt-10 gap-2 text-center uppercase tracking-widest mono font-black">
         {stations.map(s => (
-          <span key={s.id} style={{ color: activeStation === s.id ? accentColor : 'inherit' }}>{s.full}</span>
+          <span key={s.id} className={`text-[12px] ${activeStation === s.id ? 'text-white' : 'text-white/20'}`}>{s.full}</span>
         ))}
       </div>
     </div>

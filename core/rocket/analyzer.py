@@ -150,6 +150,8 @@ class RocketAnalyzer:
         exit_half_angle_deg: float = 15.0,
         thrust_target_N: float = None,
         compute_heat_transfer: bool = True,
+        impurity_species: str = None,
+        impurity_mass_frac: float = 0.0,
     ) -> dict:
         """
         Solve chamber equilibrium and nozzle expansion.
@@ -159,16 +161,26 @@ class RocketAnalyzer:
         thrust_target_N      : if provided, sizes At/Ae/mdot for this thrust [N]
         compute_heat_transfer : enables Bartz heat flux calculation
         """
+        math_trace = []
         prop = self.propellants.get(propellant_name, self.propellants['H2/O2'])
         phi  = prop['stoich'] / of_ratio
+        math_trace.append(f"Propellants: {propellant_name} (Stoich O/F: {prop['stoich']})")
+        math_trace.append(f"Equivalence Ratio φ = {phi:.4f}")
 
         self.gas.TP = 300.0, self.pc
-        self.gas.set_equivalence_ratio(phi, prop['fuel'], prop['ox'])
+        if impurity_species and impurity_mass_frac > 0:
+            # Handle impurity in fuel
+            # Y_fuel = 1 - impurity_mass_frac, Y_impurity = impurity_mass_frac
+            fuel_mix = {prop['fuel']: (1.0 - impurity_mass_frac), impurity_species: impurity_mass_frac}
+            self.gas.set_equivalence_ratio(phi, fuel_mix, prop['ox'])
+        else:
+            self.gas.set_equivalence_ratio(phi, prop['fuel'], prop['ox'])
 
         # ── Chamber ──────────────────────────────────────────────────────
         self.gas.equilibrate('HP')
         t_chamber    = self.gas.T
         h_chamber    = self.gas.h
+        math_trace.append(f"Chamber Equilibrium (HP): T={t_chamber:.1f} K, h={h_chamber/1e6:.3f} MJ/kg")
         s_chamber    = self.gas.s
         rho_chamber  = self.gas.density
         visc_chamber = self.gas.viscosity
@@ -201,12 +213,15 @@ class RocketAnalyzer:
         lambda_div   = 0.5 * (1.0 + math.cos(alpha_rad))
         cf_friction  = 0.985
         v_exit_delivered = v_exit_ideal * lambda_div * cf_friction
+        math_trace.append(f"Ideal Exit Velocity: sqrt(2Δh) = {v_exit_ideal:.1f} m/s")
+        math_trace.append(f"Delivered Velocity: Ve_ideal * λ_div({lambda_div:.3f}) * η_friction(0.985) = {v_exit_delivered:.1f} m/s")
 
         # ── c* ─────────────────────────────────────────────────────────────
         g  = gamma_chamber
         c_star = math.sqrt(r_spec_chamber * t_chamber / g) / (
             (2 / (g + 1)) ** ((g + 1) / (2 * (g - 1)))
         )
+        math_trace.append(f"Characteristic Velocity c*: {c_star:.1f} m/s (using γ={g:.3f})")
 
         # ── Area ratio ε ──────────────────────────────────────────────────
         if mode == 'shifting':
@@ -348,8 +363,12 @@ class RocketAnalyzer:
             'nozzle_dims'  : {'r_t': r_throat, 'r_e': r_exit, 'l_cone': l_cone, 'l_bell': l_bell},
             # ── Heat transfer ────────────────────────────────────────────
             'heat_transfer'     : heat_transfer,
+            # ── Thrust ──────────────────────────────────────────────────
+            'thrust_vac'        : mdot * isp_vac * G,
+            'thrust_sl'         : mdot * isp_sl * G,
             # ── Exit species ─────────────────────────────────────────────
             'composition_exit'  : self.gas.mole_fraction_dict(),
+            'math_trace'        : math_trace,
         }
 
     # ─────────────────────────────────────────────────────────────────────────
