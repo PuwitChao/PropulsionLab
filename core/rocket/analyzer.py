@@ -1,16 +1,14 @@
 """
-Rocket engine thermodynamic and performance analyzer.
-Uses Cantera for chemical equilibrium (shifting or frozen composition).
+Rocket Propulsion Analysis Core (v2.0.1-STABLE)
 
-New in this version
--------------------
-- Bartz convective heat flux distribution along the nozzle wall
-- Thrust-specified engine sizing (At, Ae, mdot from thrust target)
-- Altitude performance sweep (how Isp varies with ambient pressure)
-- Turbopump / pressure-fed cycle rough power estimate
-- Propellant mass fraction / staging Δv helper
+Systematic solver for rocket combustion equilibrium and nozzle expansion.
+Models high-fidelity thermochemistry using Cantera and standard aerospace correlations.
 
-All values in SI unless labelled otherwise.
+Key Capabilities:
+- Equilibrium Composition: Shifting or Frozen flow models.
+- Performance Modeling: ISP, Thrust Coefficients, Characteristic Velocity (c*).
+- Thermal Loads: Bartz convective heat flux distribution along nozzle axis.
+- Engine Sizing: Automated throat and exit area calculation from thrust targets.
 """
 
 import math
@@ -19,16 +17,33 @@ from ..units import G
 
 
 class RocketAnalyzer:
-    """Chemical equilibrium and performance analysis for liquid rocket engines."""
+    """
+    High-fidelity rocket combustion and nozzle analyzer.
+    
+    Equations are based on the NASA Chemical Equilibrium with Applications (CEA) 
+    methodology, adapted for real-time design iterations.
+    
+    This class uses Cantera for thermochemical equilibrium calculations,
+    allowing for both shifting and frozen composition flow models.
+    It incorporates standard aerospace correlations for nozzle losses (divergence, friction)
+    and provides a Bartz model for convective heat transfer distribution along the nozzle wall.
+    """
 
     def __init__(self, chamber_p_pa: float):
+        """
+        Initialize with design chamber pressure.
+        
+        Parameters:
+            chamber_p_pa: Combustion chamber stagnation pressure [Pa]
+        """
+        # Load the chemical mechanism. GRI30 provides excellent coverage for CH4, H2, and RP1 surrogates.
         self.gas  = ct.Solution('gri30.yaml')
         self.pc   = chamber_p_pa
         self.propellants = {
             # Rocket Standard Liquid Propellants
             'H2/O2'       : {'fuel': 'H2',      'ox': 'O2',     'stoich': 7.94},
             'CH4/O2'      : {'fuel': 'CH4',     'ox': 'O2',     'stoich': 4.00},
-            'RP1/O2'      : {'fuel': 'C3H8',    'ox': 'O2',     'stoich': 3.63},  # Surrogate for RP1 in GRI3.0
+            'RP1/O2'      : {'fuel': 'C3H8',    'ox': 'O2',     'stoich': 3.63},  # Surrogate (Propane)
             'Propane/O2'  : {'fuel': 'C3H8',    'ox': 'O2',     'stoich': 3.63},
             'Ethanol/O2'  : {'fuel': 'CH3OH',   'ox': 'O2',     'stoich': 1.50},  # Surrogate (Methanol)
             'Methanol/O2' : {'fuel': 'CH3OH',   'ox': 'O2',     'stoich': 1.50},

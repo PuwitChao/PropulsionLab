@@ -18,31 +18,41 @@ POST /analyze/rocket            — chemical equilibrium rocket analysis
 POST /analyze/rocket/sweep      — OF ratio sweep
 POST /analyze/rocket/moc        — Method of Characteristics nozzle contour
 POST /analyze/rocket/altitude   — altitude Isp/Cf performance table
-POST /analyze/rocket/sizing     — engine sizing from thrust target
+Propulsion Analysis Suite — Backend API (v2.0.1-STABLE)
+
+System architect for high-fidelity gas turbine cycle analysis, rocket equilibriumCEA,
+and mission performance synthesis.
+
+Core dependencies: Cantera (Equilibrium), FastAPI (REST), Pydantic (Validation).
 """
 
 import os, sys
 from typing import List, Dict, Any, Optional
+import math
+from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from core.gas_turbine.mission import MissionAnalyzer
+# Local analytical modules
+from core.gas_turbine.aero import isa_atmosphere
 from core.gas_turbine.cycle import CycleAnalyzer
 from core.gas_turbine.off_design import OffDesignSolver
 from core.rocket.analyzer import RocketAnalyzer
 from core.rocket.moc import MoCNozzle
-from core.units import isa_atmosphere
+from core.mission.mission import MissionAnalyzer
 
 app = FastAPI(
-    title="Propulsion Analysis Web Platform API",
-    description="High-fidelity gas turbine and rocket propulsion analysis.",
-    version="2.0.0",
+    title="Propulsion Architecture API",
+    description="High-fidelity aerospace solver core for gas turbines and rockets.",
+    version="2.0.1"
 )
 
+# ── Security & Policy ────────────────────────────────────────────────────────
+# Configure CORS for local development and research origins.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -56,15 +66,21 @@ app.add_middleware(
 # ════════════════════════════════════════════════════════════════════════════
 
 @app.get("/")
-async def root():
-    return {"message": "Propulsion Analysis API v2.0 is running"}
+def read_root():
+    """Returns the API status and versioning."""
+    return {"message": "Propulsion Analysis API v2.0.1 is running"}
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "version": "2.0.0"}
+    """System health audit endpoint for frontend status badges."""
+    return {"status": "healthy", "version": "2.0.1", "timestamp": datetime.now().isoformat()}
 
 @app.get("/health/diagnostics")
 def get_diagnostics():
+    """
+    Detailed system telemetry for the Settings workspace.
+    Verifies connectivity to the Cantera kernel and thermodynamic modules.
+    """
     return {
         "status": "operational",
         "version": "2.0.1-BETA",
@@ -84,6 +100,7 @@ def get_diagnostics():
 # ════════════════════════════════════════════════════════════════════════════
 
 class MissionConstraintRequest(BaseModel):
+    """Data model for mission matching charts (T/W vs W/S)."""
     aircraft_data: Dict[str, Any]
     constraints:   List[Dict[str, Any]]
     ws_min:   float = 1000.0
@@ -92,6 +109,10 @@ class MissionConstraintRequest(BaseModel):
 
 @app.post("/analyze/mission")
 async def analyze_mission(request: MissionConstraintRequest):
+    """
+    Synthesizes the feasible design space for aircraft mission requirements.
+    Calculates operational envelopes for stall, takeoff, landing, and cruise.
+    """
     try:
         analyzer  = MissionAnalyzer(request.aircraft_data)
         ws_range  = [
@@ -104,10 +125,11 @@ async def analyze_mission(request: MissionConstraintRequest):
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Gas Turbine — On-Design (Turbojet)
+# Gas Turbine — On-Design (Turbojet & Turbofan)
 # ════════════════════════════════════════════════════════════════════════════
 
 class CycleRequest(BaseModel):
+    """Thermodynamic parameters for gas turbine cycle synthesis."""
     alt:        float = Field(...,  ge=0,    le=50000, description="Altitude [m]")
     mach:       float = Field(...,  ge=0,    le=4.0,   description="Flight Mach number")
     prc:        float = Field(...,  ge=1.1,  le=80.0,  description="Compressor Pressure Ratio")
@@ -127,6 +149,10 @@ class CycleRequest(BaseModel):
 
 @app.post("/analyze/cycle")
 async def analyze_cycle(request: CycleRequest):
+    """
+    Performs on-design parametric cycle analysis for a single-spool turbojet.
+    Utilizes standard ISA atmosphere and Cantera gas property models.
+    """
     try:
         p0, t0, _ = isa_atmosphere(request.alt)
         analyzer  = CycleAnalyzer(p0, t0, request.mach)
@@ -149,34 +175,24 @@ async def analyze_cycle(request: CycleRequest):
 
 # ── Turbofan On-Design ─────────────────────────────────────────────────────
 
-class TurbofanRequest(BaseModel):
-    alt:   float = Field(..., ge=0,   le=50000)
-    mach:  float = Field(..., ge=0,   le=4.0)
-    bpr:   float = Field(..., ge=0.5, le=15.0,  description="Bypass Ratio")
-    fpr:   float = Field(..., ge=1.1, le=3.0,   description="Fan Pressure Ratio")
-    opr:   float = Field(..., ge=5.0, le=60.0,  description="Overall Pressure Ratio")
-    tit:   float = Field(..., ge=800, le=2500,   description="Turbine Inlet Temperature [K]")
-    eta_fan: float = Field(0.90, ge=0.6, le=0.97)
-    eta_c:   float = Field(0.87, ge=0.6, le=0.97)
-    eta_t:   float = Field(0.91, ge=0.6, le=0.97)
-    eta_ab:  float = Field(0.95, ge=0.5, le=1.0)
-    h_fuel:  float = Field(42.8e6)
-    ab_enabled: bool  = False
-    ab_temp:    float = Field(2000.0, ge=1000, le=2500)
-    inlet_recovery:  float = Field(0.98, ge=0.8, le=1.0)
-    burner_eta:      float = Field(0.99, ge=0.8, le=1.0)
-    burner_dp_frac:  float = Field(0.04, ge=0.0, le=0.15)
-    phi_inlet:       float = Field(0.0, ge=0.0, le=0.1)
-    eta_install_nozzle: float = Field(1.0, ge=0.8, le=1.0)
-    mixed_exhaust: bool = False
+class TurbofanRequest(CycleRequest):
+    """Extended parameters for multi-stream turbofan analysis."""
+    bpr:      float = Field(..., ge=0,   le=20.0, description="Bypass Ratio")
+    fpr:      float = Field(..., ge=1.1, le=4.0,  description="Fan Pressure Ratio")
+    eta_fan: float = Field(0.90, ge=0.6, le=0.97) # Renamed from eta_f to eta_fan to match original
+    mixed_exhaust: bool = False # Renamed from mixed to mixed_exhaust to match original
 
 @app.post("/analyze/cycle/turbofan")
 async def analyze_turbofan(request: TurbofanRequest):
+    """
+    Performs on-design cycle analysis for separate or mixed-flow turbofans.
+    Supports high-bypass commercial or low-bypass military architectures.
+    """
     try:
         p0, t0, _ = isa_atmosphere(request.alt)
         analyzer  = CycleAnalyzer(p0, t0, request.mach)
         result    = analyzer.solve_turbofan(
-            bpr=request.bpr, fpr=request.fpr, opr=request.opr, tit=request.tit,
+            bpr=request.bpr, fpr=request.fpr, opr=request.prc, tit=request.tit, # opr maps to prc from CycleRequest
             eta_fan=request.eta_fan, eta_c=request.eta_c, eta_t=request.eta_t,
             eta_ab=request.eta_ab, h_fuel=request.h_fuel,
             ab_enabled=request.ab_enabled, ab_temp=request.ab_temp,
@@ -195,6 +211,7 @@ async def analyze_turbofan(request: TurbofanRequest):
 # ── Parametric Sweep (pressure ratio) ─────────────────────────────────────
 
 class CycleSweepRequest(BaseModel):
+    """Parameters for a parametric sweep of compressor pressure ratio."""
     alt:     float = 10000.0
     mach:    float = 0.8
     tit:     float = 1600.0
@@ -204,6 +221,10 @@ class CycleSweepRequest(BaseModel):
 
 @app.post("/analyze/cycle/sweep")
 async def analyze_cycle_sweep(request: CycleSweepRequest):
+    """
+    Executes a parametric sweep of compressor pressure ratio for a turbojet.
+    Returns performance metrics like specific thrust and TSFC across the range.
+    """
     try:
         p0, t0, _ = isa_atmosphere(request.alt)
         results   = []
@@ -231,6 +252,7 @@ async def analyze_cycle_sweep(request: CycleSweepRequest):
 # ════════════════════════════════════════════════════════════════════════════
 
 class OffDesignMapRequest(BaseModel):
+    """Config for generating scaled compressor performance maps."""
     n_speed_lines: int = Field(7,  ge=3, le=12)
     n_flow_points: int = Field(20, ge=8, le=50)
     # Design-point params used to anchor the map
@@ -241,6 +263,10 @@ class OffDesignMapRequest(BaseModel):
 
 @app.post("/analyze/offdesign/map")
 async def offdesign_map(request: OffDesignMapRequest):
+    """
+    Generates a scaled compressor map for off-design performance evaluation.
+    Utilizes quadratic speed-line scaling and surge margin estimation.
+    """
     try:
         p0, t0, _ = isa_atmosphere(request.alt)
         ca = CycleAnalyzer(p0, t0, request.mach)
@@ -259,6 +285,7 @@ async def offdesign_map(request: OffDesignMapRequest):
 
 
 class ThrottleSweepRequest(BaseModel):
+    """Simulation parameters for throttle transient performance."""
     alt:   float = Field(0.0,  ge=0, le=20000)
     mach:  float = Field(0.0,  ge=0, le=1.5)
     prc:   float = Field(20.0, ge=2, le=60)
@@ -268,6 +295,10 @@ class ThrottleSweepRequest(BaseModel):
 
 @app.post("/analyze/offdesign/throttle")
 async def offdesign_throttle(request: ThrottleSweepRequest):
+    """
+    Simulates engine performance along a throttle deck (TIT sweep).
+    Provides specific fuel consumption and thrust curves for mission planning.
+    """
     try:
         p0, t0, _ = isa_atmosphere(request.alt)
         ca = CycleAnalyzer(p0, t0, request.mach)
@@ -281,15 +312,16 @@ async def offdesign_throttle(request: ThrottleSweepRequest):
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Rocket — On-Design
+# Rocket — On-Design (CEA & Equilibrium)
 # ════════════════════════════════════════════════════════════════════════════
 
 class RocketRequest(BaseModel):
-    pc:                   float = Field(..., ge=1e5,  le=50e6)
-    of_ratio:             float = Field(..., ge=0.5,  le=20.0)
-    pe:                   float = Field(101325.0, ge=0, le=1e6)
+    """Rocket architecture request for chemical equilibrium analysis."""
+    pc:                   float = Field(..., ge=1e5,  le=50e6, description="Chamber Pressure [Pa]")
+    of_ratio:             float = Field(..., ge=0.5,  le=20.0, description="Mixture Ratio")
+    pe:                   float = Field(101325.0, ge=0, le=1e6, description="Exit Pressure [Pa]")
     propellant:           str   = Field("H2/O2")
-    mode:                 str   = Field("shifting")
+    mode:                 str   = Field("shifting", description="Shifting or Frozen composition")
     exit_half_angle_deg:  float = Field(15.0, ge=1, le=45)
     thrust_target_N:      Optional[float] = Field(None, ge=100, le=10e6)
     compute_heat_transfer: bool = True
@@ -298,6 +330,10 @@ class RocketRequest(BaseModel):
 
 @app.post("/analyze/rocket")
 async def analyze_rocket(request: RocketRequest):
+    """
+    Performs high-fidelity rocket combustion equilibrium (CEA).
+    Calculates ISP, delivered thrust, and thermal loads via Bartz.
+    """
     try:
         analyzer = RocketAnalyzer(request.pc)
         result   = analyzer.solve_equilibrium(
@@ -318,6 +354,7 @@ async def analyze_rocket(request: RocketRequest):
 
 @app.post("/analyze/rocket/sweep")
 async def analyze_rocket_sweep(request: RocketRequest):
+    """Generates an O/F ratio sweep for performance optimization."""
     try:
         analyzer  = RocketAnalyzer(request.pc)
         of_range  = [0.5 + i * 0.25 for i in range(60)]   # 0.5 to 15.25
@@ -349,6 +386,7 @@ async def analyze_rocket_sweep(request: RocketRequest):
 # ── Altitude Performance ───────────────────────────────────────────────────
 
 class AltitudeRequest(BaseModel):
+    """Inputs for generating rocket performance across an altitude range."""
     pc:         float = Field(..., ge=1e5, le=50e6)
     of_ratio:   float = Field(..., ge=0.5, le=20.0)
     propellant: str   = Field("H2/O2")
@@ -358,6 +396,10 @@ class AltitudeRequest(BaseModel):
 
 @app.post("/analyze/rocket/altitude")
 async def analyze_rocket_altitude(request: AltitudeRequest):
+    """
+    Calculates rocket engine performance (Isp, Cf) as a function of altitude.
+    Utilizes ISA atmosphere model for ambient pressure variation.
+    """
     try:
         altitudes = [i * request.alt_max_km * 1000.0 / (request.n_points - 1)
                      for i in range(request.n_points)]
@@ -370,6 +412,7 @@ async def analyze_rocket_altitude(request: AltitudeRequest):
 # ── Engine Sizing from Thrust Target ──────────────────────────────────────
 
 class SizingRequest(BaseModel):
+    """Inputs for sizing a rocket engine based on thrust targets."""
     thrust_N:   float = Field(..., ge=100, le=10e6, description="Target vacuum thrust [N]")
     pc:         float = Field(..., ge=1e5, le=50e6)
     of_ratio:   float = Field(..., ge=0.5, le=20.0)
@@ -379,6 +422,10 @@ class SizingRequest(BaseModel):
 
 @app.post("/analyze/rocket/sizing")
 async def analyze_sizing(request: SizingRequest):
+    """
+    Calculates throat/exit dimensions and mass flow rates for a specific thrust.
+    Provides key sizing parameters for engine design.
+    """
     try:
         analyzer = RocketAnalyzer(request.pc)
         result   = analyzer.solve_equilibrium(
@@ -404,7 +451,7 @@ async def analyze_sizing(request: SizingRequest):
             'A_exit_m2'   : result['A_exit'],
             'r_throat_m'  : result['r_throat'],
             'r_exit_m'    : result['r_exit'],
-            'mdot_kg_s'   : result['mdot_total'],
+            'mdot_total'  : result['mdot_total'],
             'mdot_fuel'   : result['mdot_fuel'],
             'mdot_ox'     : result['mdot_ox'],
             'mass_engine_kg': result['mass_est'],

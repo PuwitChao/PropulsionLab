@@ -44,7 +44,25 @@ class EngineStation:
 
 
 class CycleAnalyzer:
-    """Design-point thermodynamic cycle solver for Gas Turbines."""
+    """
+    Gas Turbine Cycle Analysis Core (v2.0.1-STABLE)
+
+    High-fidelity Brayton cycle solver using Cantera for real-gas thermodynamic properties.
+    Models on-design performance for turbojets and turbofans.
+
+    Propulsion models are based on constant-pressure combustion and 
+    polytropic/adiabatic component efficiencies.
+
+    Station Convention (AIAA):
+    - 0: Ambient / Free-stream
+    - 2: Fan / Compressor Inlet
+    - 3: High-Pressure Compressor Exit / Burner Inlet
+    - 4: Turbine Inlet (TIT)
+    - 4.5: High-Pressure Turbine Exit / Low-Pressure Turbine Inlet
+    - 5: Core Exit
+    - 7: Afterburner / Mixer Inlet
+    - 9: Nozzle Exit
+    """
 
     def __init__(self, p0_pa: float, t0_k: float, mach: float):
         self.p0 = p0_pa
