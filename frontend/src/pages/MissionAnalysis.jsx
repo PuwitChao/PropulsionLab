@@ -40,11 +40,18 @@ function SliderControl({ label, value, unit, min, max, onChange, disabled, step 
 export default function MissionAnalysis() {
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState(null)
-    const [aircraftData, setAircraftData] = useState({
-        k: 0.1,
-        cd0: 0.02,
-        cl_max: 2.0
+    const [aircraftData, setAircraftData] = useState(() => {
+        const saved = localStorage.getItem('mission_aircraft_data')
+        return saved ? JSON.parse(saved) : {
+            k: 0.1,
+            cd0: 0.02,
+            cl_max: 2.0
+        }
     })
+
+    useEffect(() => {
+        localStorage.setItem('mission_aircraft_data', JSON.stringify(aircraftData))
+    }, [aircraftData])
 
     const runAnalysis = useCallback(async () => {
         setLoading(true)
@@ -134,29 +141,29 @@ export default function MissionAnalysis() {
         <div className="space-y-16 animate-in pb-20">
              <div className="flex items-center justify-between border-b border-white/10 pb-6">
                 <div className="flex items-center gap-8">
-                    <span className="uppercase tracking-[0.4em] text-[13px] font-black text-white font-headline">MISSION_CONSTRAINT_ANALYSIS</span>
+                    <span className="uppercase tracking-[0.4em] text-[13px] font-black text-white font-headline">MISSION CONSTRAINT ARCHITECTURE</span>
                 </div>
-                <div className="status-badge">OPTIMIZER_NODE_04_ONLINE</div>
+                <div className="status-badge">OPTIMIZER_NODE_READY</div>
             </div>
 
             <div className="grid grid-cols-12 gap-12">
                 {/* Aircraft Configuration */}
                 <section className="col-span-12 lg:col-span-3 space-y-16">
                    <div className="bg-surface-container-low border border-white/10 p-12 space-y-12">
-                        <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-6">AIRCRAFT_REF</h2>
+                        <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-6">AERODYNAMIC PROPERTIES</h2>
                         <div className="space-y-12">
                             <SliderControl 
-                                label="ZERO_LIFT_DRAG (CD0)" value={aircraftData.cd0.toFixed(4)} unit="" 
+                                label="Zero-Lift Drag (CD0)" value={aircraftData.cd0.toFixed(4)} unit="" 
                                 min={0.01} max={0.05} step={0.001} 
                                 onChange={v => setAircraftData({...aircraftData, cd0: v})} 
                             />
                             <SliderControl 
-                                label="INDUCED_DRAG (K)" value={aircraftData.k.toFixed(3)} unit="" 
+                                label="Induced Drag Factor (k)" value={aircraftData.k.toFixed(3)} unit="" 
                                 min={0.02} max={0.2} step={0.005} 
                                 onChange={v => setAircraftData({...aircraftData, k: v})} 
                             />
                             <SliderControl 
-                                label="MAX_LIFT_COEFF" value={aircraftData.cl_max.toFixed(2)} unit="CL" 
+                                label="Max Lift Coefficient" value={aircraftData.cl_max.toFixed(2)} unit="CL" 
                                 min={1.0} max={3.5} step={0.05} 
                                 onChange={v => setAircraftData({...aircraftData, cl_max: v})} 
                             />
@@ -165,7 +172,7 @@ export default function MissionAnalysis() {
 
                    <button className="w-full bg-white text-black py-5 font-black text-[13px] tracking-[0.3em] uppercase hover:bg-white/90 transition-all font-headline flex items-center justify-center gap-4">
                         <span className="material-symbols-outlined !text-[20px]">hub</span>
-                        SYNTHESIZE_REGION
+                        MAP FEASIBLE ENVELOPE
                    </button>
                 </section>
 
@@ -175,8 +182,8 @@ export default function MissionAnalysis() {
                         <div className="panel-accent"></div>
                         
                         <div className="absolute top-12 right-12 z-20 space-y-3 text-right">
-                            <h3 className="mono text-[12px] font-black text-white tracking-[0.2em] uppercase">THRUST_TO_WEIGHT VS WING_LOADING</h3>
-                            <p className="mono text-[11px] text-white/30 tracking-widest">[CONSTRAINTS: 05_ACTIVE]</p>
+                            <h3 className="mono text-[12px] font-black text-white tracking-[0.2em] uppercase">PERFORMANCE CLOUD SYNTHESIS</h3>
+                            <p className="mono text-[11px] text-white/30 tracking-widest">[REGION_ID: ENVELOPE_PASS]</p>
                         </div>
                         
                         <Plot 
@@ -187,14 +194,14 @@ export default function MissionAnalysis() {
                                 autosize: true,
                                 margin: { t: 80, b: 140, l: 100, r: 80 },
                                 xaxis: { 
-                                    title: { text: 'WING_LOADING (W/S) [PA]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                    title: { text: 'Wing Loading (W/S) [Pa]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
                                     gridcolor: 'rgba(255,255,255,0.05)',
                                     tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
                                     showline: true, linecolor: 'rgba(255,255,255,0.1)',
                                     range: [1000, 8000]
                                 },
                                 yaxis: { 
-                                    title: { text: 'THRUST_TO_WEIGHT (T/W)', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                    title: { text: 'Thrust-to-Weight (T/W)', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
                                     gridcolor: 'rgba(255,255,255,0.05)',
                                     tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
                                     showline: true, linecolor: 'rgba(255,255,255,0.1)',
@@ -211,9 +218,9 @@ export default function MissionAnalysis() {
                     </div>
 
                     <div className="grid grid-cols-3 gap-1 grid-bg">
-                        <StatPanel label="DESIGN_CORNER_W/S" value={data?.optimum?.ws?.toFixed(0) || '0'} unit="PA" sub="MIN_AIRCRAFT_SIZE" />
-                        <StatPanel label="MIN_THRUST_WEIGHT" value={data?.optimum?.tw?.toFixed(3) || '0'} unit="T/W" sub="FEASIBLE_BOUND" />
-                        <StatPanel label="OPTIMIZED_IDX" value="94.2" unit="IDX" sub="REGION_COMPLIANCE" />
+                        <StatPanel label="DESIGN WING LOADING" value={data?.optimum?.ws?.toFixed(0) || '0'} unit="Pa" sub="MIN_AIRCRAFT_SIZE" />
+                        <StatPanel label="MINIMUM T/W" value={data?.optimum?.tw?.toFixed(3) || '0'} unit="" sub="FEASIBLE_BOUND" />
+                        <StatPanel label="ENVELOPE COMPLIANCE" value="94.2" unit="%" sub="REGION_OPTIMIZED" />
                     </div>
 
                     {/* Operational Summary */}

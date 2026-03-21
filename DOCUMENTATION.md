@@ -14,22 +14,23 @@ The Propulsion Analysis Suite is a professional-grade engineering platform desig
 
 ### 2. Gas Turbine On-Design
 
-- **Turbojet & Turbofan**: Solves thermodynamic states at every engine station.
+- **Cantera Real-Gas Core**: Integrates temperature and composition-dependent gas properties (GRI 3.0) for high-fidelity thermodynamic modeling.
+- **Mixed & Separate Flow**: Supports both military mixed-exhaust and civil separate-exhaust turbofans.
+- **Afterburner Integration**: Accounts for fuel-air ratio shifts and momentum energy balance in augmented cycles.
 - **Parametric Sweeps**: Analyzes performance sensitivity to bypass ratio (BPR), fan pressure ratio (FPR), and overall pressure ratio (OPR).
-- **Polytropic Efficiencies**: Accounts for aerodynamic losses using high-fidelity efficiency correlations.
 
 ### 3. Gas Turbine Off-Design
 
+- **Performance Fishhooks**: Correlates specific thrust vs. TSFC for identifying optimal cruise throttle points.
 - **Compressor/Turbine Matching**: Uses parametric maps to predict engine performance at part-power.
-- **Throttle Sweep**: Evaluates TSFC, thrust, and surge margin across the entire throttle range.
-- **Engine Deck Export**: Generates standardized CSV decks for flight simulation integration.
+- **Throttle Sweep**: Evaluates real-gas TSFC, thrust, and surge margin across the entire throttle range.
 
 ### 4. Rocket Propulsion Analysis
 
-- **Chemical Equilibrium**: Uses Gibbs free energy minimization (via Cantera) for species concentration and Isp prediction.
+- **Chemical Equilibrium (CEA)**: Uses Gibbs free energy minimization (via Cantera) for species concentration and Isp prediction.
+- **3D Nozzle Design (MoC)**: Generates Method of Characteristics supersonic contours for bell-shaped nozzles with 3D Surface visualization.
+- **CAD/STL Export**: Generates printable STL mesh files of nozzle contours directly from design points.
 - **Bartz Heat Transfer**: Predicts convective heat flux and gas-side film coefficients along the nozzle.
-- **Nozzle Design (MoC)**: Generates Method of Characteristics supersonic contours for bell-shaped nozzles.
-- **Engine Sizing**: Back-calculates throat area, exit area, and mass flows from a specified thrust target.
 
 ## Getting Started
 

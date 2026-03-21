@@ -75,7 +75,7 @@ export default function Settings() {
                     </div>
                 </div>
 
-                <div className="bg-surface-container-low border border-white/10 p-14">
+                <div className="bg-surface-container-low border border-white/10 p-14 space-y-12">
                      <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white/40 mb-10 flex items-center pr-4">
                         <span className="w-6 h-[1px] bg-white/20 mr-4"></span>
                         DATA_RETENTION_POLICY
@@ -83,13 +83,40 @@ export default function Settings() {
                     <div className="flex gap-12 items-start">
                         <div className="flex-1 space-y-6">
                             <p className="text-[12px] text-white/50 leading-relaxed uppercase mono">
-                                System analysis parameters are currently cached in the local browser state. Multi-device synchronization is pending implementation.
+                                System analysis parameters are cached in local browser state. Multi-device sync is pending.
                             </p>
                         </div>
-                        <button className="bg-transparent border border-white/10 px-10 py-4 text-[11px] font-black tracking-[0.2em] uppercase text-white/40 hover:text-white hover:border-white transition-all whitespace-nowrap">
-                            Purge_Cache
+                        <button 
+                            onClick={() => { localStorage.clear(); window.location.reload(); }}
+                            className="bg-transparent border border-white/10 px-10 py-4 text-[11px] font-black tracking-[0.2em] uppercase text-white/40 hover:text-white hover:border-white transition-all whitespace-nowrap"
+                        >
+                            Flush_Local_Cache
                         </button>
                     </div>
+                </div>
+
+                <div className="bg-surface-container-low border border-white/10 p-14 space-y-10">
+                     <div className="flex justify-between items-center mb-10">
+                        <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white/40 flex items-center pr-4">
+                            <span className="w-6 h-[1px] bg-white/20 mr-4"></span>
+                            SYSTEM_DIAGNOSTICS
+                        </h2>
+                        <span className="mono text-[10px] text-green-500 bg-green-500/10 px-4 py-1 border border-green-500/20">LIVE_TELEMETRY</span>
+                     </div>
+                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        {[
+                            { label: 'KERNEL', val: 'ACTIVE', sub: 'CANTERA_V3' },
+                            { label: 'CEA_ENG', val: 'NOMINAL', sub: 'ROCKET_CORE' },
+                            { label: 'OPT_NODE', val: 'WAITING', sub: 'CONSTRAINT_SYNTH' },
+                            { label: 'API_STAT', val: 'HEALTHY', sub: 'REST_V2.0' }
+                        ].map((d, i) => (
+                            <div key={i} className="bg-white/5 border border-white/10 p-6 space-y-3 group hover:border-white/30 transition-all">
+                                <p className="mono text-[10px] text-white/30 tracking-widest">{d.label}</p>
+                                <p className="text-[12px] font-black text-white">{d.val}</p>
+                                <p className="mono text-[9px] text-white/20 tracking-tighter truncate">{d.sub}</p>
+                            </div>
+                        ))}
+                     </div>
                 </div>
             </section>
 

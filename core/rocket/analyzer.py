@@ -316,6 +316,12 @@ class RocketAnalyzer:
             if p_exit_pa < 0.35 * 101325.0:
                 regime = 'Separation Warning'
 
+        # Sonic velocity at exit
+        gn_exit, cpn_exit, mwn_exit = self.gas.gamma, self.gas.cp_mass, self.gas.mean_molecular_weight
+        rn_exit = ct.gas_constant / mwn_exit
+        a_exit  = math.sqrt(max(0.1, gn_exit * rn_exit * t_exit))
+        mach_exit = v_exit_ideal / a_exit if a_exit > 0 else 1.0
+
         return {
             # ── Thermochemistry ──────────────────────────────────────────
             't_chamber'    : t_chamber,
@@ -328,6 +334,7 @@ class RocketAnalyzer:
             'pr_chamber'   : pr_chamber,
             'mw_chamber'   : mw_chamber,
             'gamma'        : g,
+            'mach_exit'    : mach_exit,
             'phi'          : phi,
             # ── Nozzle conditions ────────────────────────────────────────
             't_exit'       : t_exit,

@@ -10,20 +10,24 @@
 
 ## Key Features
 
+
 ### 1. Gas Turbine Analysis
-- **On-Design Parametric Cycle**: Evaluate Turbojet and Turbofan performance across varying altitudes, Mach numbers, and TIT.
-- **Off-Design Mapping**: Generate compressor maps and throttle performance curves.
-- **Station Audit**: Detailed thermodynamic state tracking (Tt, Pt, s) across all engine stations.
+
+- **Cantera-Driven Cycle Solver**: High-fidelity thermodynamic analysis using temperature-dependent gas properties and chemical kinetics.
+- **On-Design & Off-Design**: Comprehensive sizing and performance mapping for Turbojet and Turbofan architectures.
+- **Mixed-Exhaust Augmentation**: Advanced modeling for augmented turbofans with momentum-preserving mixers.
 
 ### 2. Rocket Propulsion
-- **Chemical Equilibrium (CEA)**: minimized Gibbs free energy solver for ISP and flame temperature estimation.
-- **Nozzle Analysis**: Shifting/Frozen flow isp estimation.
-- **Heat Transfer**: Bartz-correlation based heat flux analysis and cooling requirements.
-- **Engine Sizing**: Structural and mass estimation for chamber and nozzle assemblies.
+
+- **Chemical Equilibrium (CEA)**: Cantera-based Gibbs minimization for Isp and species optimization across 20+ propellant combinations.
+- **3D Nozzle Synthesis**: Nozzle contour design using Method of Characteristics (MoC) with interactive 3D surface visualization.
+- **CAD Integration**: Direct export of optimized nozzle geometries to STL format for 3D printing and CFD validation.
+- **Bartz Heat Flux**: Distributed convective heat transfer modeling along the nozzle liner.
 
 ### 3. Mission Constraint Synthesis
-- **T/W vs W/S Diagrams**: multi-point constraint analysis for takeoff, climb, cruise, and sustained maneuvers.
-- **Design Point Optimization**: Identification of optimal wing loading and thrust-to-weight ratios.
+
+- **Constraint Diagrams**: synthesis of design point requirements (T/W vs W/S) for military and civil aircraft.
+- **Workspace Persistence**: Automatic saving of design configurations via local storage.
 
 ---
 

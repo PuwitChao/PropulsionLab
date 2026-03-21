@@ -46,23 +46,20 @@ When parameters are updated in the Rocket Analysis tab:
 
 ### 2. Gas Turbine Cycle Logic
 
-- **Station Numbering**: Follows standard aerospace numbering (S0: Freestream, S2: Inlet, S3: Compressor Exit, S4: Turbine Inlet, etc.).
-- **Isentropic vs Polytropic**: The solver converts user-specified polytropic efficiencies ($\eta_p$) into isentropic efficiencies ($\eta_{isen}$) using the pressure ratio to ensure thermodynamic consistency.
-- **Off-Design**: Uses a Newton-Raphson solver to match mass flow and work between the compressor and turbine on parametric maps.
+- **Station Numbering**: Follows standard aerospace numbering (S0: Freestream, S2: Inlet, S21: Fan Exit, S3: HPC Exit, S4: HPT Inlet, S45: LPT Inlet, S5: Turbine Exit, S7: Augmentor, S9: Nozzle).
+- **Cantera Thermodynamics**: Replaced constant gamma approximations with a temperature-dependent real-gas core (GRI 3.0). Every station transition evaluates property state vectors ($h, s, \gamma, C_p, mw$) based on enthalpy and pressure.
+- **Mixer Logic**: Implements a mass-weighted enthalpy conservation model for mixed-exhaust turbofans.
 
 ## Component Hierarchy & State Management
 
-### Settings Context
+### Persistence Strategy
 
-Provides global access to:
-
-- **Theme**: `dark` | `light`.
-- **Text Size**: Scaling factor (0.8 - 1.5).
-- Shared CSS variables in `index.css`.
+- **LocalStorage Hooks**: The `MissionAnalysis` and `AircraftData` states are serialized and stored in browser `localStorage`. This ensures session continuity for complex aircraft design syntheses.
+- **Settings Context**: Provides global access to theme, font scaling, and shared CSS variables.
 
 ### Plotting System
 
-- Built on **react-plotly.js**.
+- **2D/3D Hybrid Rendering**: The MoC visualizer supports both 2D characteristic mesh rendering and revolving 3D surface plots via Plotly.
 - **Revision Control**: Uses a `plotRevision` state to force UI updates during parameter shifts.
 - **Theming**: Integrated with `getLayout()` helper to switch between dark/light layout tokens.
 
@@ -78,7 +75,6 @@ Where $\sigma$ is a correction for boundary layer properties.
 
 ### Method of Characteristics (MoC)
 
-- Solves the compatibility equations along characteristic lines ($C^+$ and $C^-$).
 - Generates a shock-free supersonic nozzle contour for maximum thrust extraction.
 - Maps internal expansion nodes to a grid for visualization.
 

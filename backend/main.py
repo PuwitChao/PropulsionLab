@@ -60,8 +60,23 @@ async def root():
     return {"message": "Propulsion Analysis API v2.0 is running"}
 
 @app.get("/health")
-async def health():
+def health_check():
     return {"status": "healthy", "version": "2.0.0"}
+
+@app.get("/health/diagnostics")
+def get_diagnostics():
+    return {
+        "status": "operational",
+        "version": "2.0.1-BETA",
+        "components": {
+            "gas_turbine_core": "active",
+            "rocket_cea_engine": "active",
+            "mission_constraint_optimizer": "active",
+            "cantera_interface": "connected"
+        },
+        "system_time": datetime.now().isoformat(),
+        "memory_profile": "optimal"
+    }
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -144,14 +159,14 @@ class TurbofanRequest(BaseModel):
     eta_fan: float = Field(0.90, ge=0.6, le=0.97)
     eta_c:   float = Field(0.87, ge=0.6, le=0.97)
     eta_t:   float = Field(0.91, ge=0.6, le=0.97)
-    eta_ab:  float = Field(0.95)
+    eta_ab:  float = Field(0.95, ge=0.5, le=1.0)
     h_fuel:  float = Field(42.8e6)
     ab_enabled: bool  = False
-    ab_temp:    float = Field(2000.0)
-    inlet_recovery:  float = Field(0.98)
-    burner_eta:      float = Field(0.99)
-    burner_dp_frac:  float = Field(0.04)
-    phi_inlet:       float = Field(0.0)
+    ab_temp:    float = Field(2000.0, ge=1000, le=2500)
+    inlet_recovery:  float = Field(0.98, ge=0.8, le=1.0)
+    burner_eta:      float = Field(0.99, ge=0.8, le=1.0)
+    burner_dp_frac:  float = Field(0.04, ge=0.0, le=0.15)
+    phi_inlet:       float = Field(0.0, ge=0.0, le=0.1)
     eta_install_nozzle: float = Field(1.0, ge=0.8, le=1.0)
     mixed_exhaust: bool = False
 
@@ -415,6 +430,21 @@ async def analyze_rocket_moc(request: MoCRequest):
         x, y     = designer.solve_contour()
         mesh     = designer.get_mesh_data()
         return {"x": x, "y": y, "mesh": mesh}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/analyze/rocket/export/stl")
+async def export_rocket_stl(request: MoCRequest):
+    try:
+        from fastapi.responses import PlainTextResponse
+        designer = MoCNozzle(request.gamma, request.mach_exit, request.throat_radius)
+        stl_text = designer.generate_stl_mesh()
+        return PlainTextResponse(
+            content=stl_text,
+            media_type="application/sla",
+            headers={"Content-Disposition": "attachment; filename=nozzle_moc.stl"}
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

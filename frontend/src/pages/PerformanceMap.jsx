@@ -52,6 +52,8 @@ export default function PerformanceMap() {
 
     const runAnalysis = useCallback(async () => {
         setLoading(true)
+        setMapData(null)
+        setThrottleData(null)
         try {
             const [m, t] = await Promise.all([
                 fetchData('/analyze/offdesign/map', { method: 'POST', body: JSON.stringify({...dpParams, n_speed_lines: 8}) }),
@@ -59,7 +61,11 @@ export default function PerformanceMap() {
             ])
             setMapData(m)
             setThrottleData(t)
-        } catch (e) { console.error(e) }
+        } catch (e) { 
+            console.error(e)
+            setMapData(null)
+            setThrottleData(null)
+        }
         setLoading(false)
     }, [dpParams])
 
@@ -93,7 +99,7 @@ export default function PerformanceMap() {
         // 3. Operating Line (from throttle sweep)
         if (throttleData && throttleData.length > 0) {
             traces.push({
-                x: throttleData.map(r => r.N_corr_norm ** 1.4), // Approx flow
+                x: throttleData.map(r => r.mdot_corr_norm),
                 y: throttleData.map(r => r.pr),
                 name: 'OPERATING_LINE',
                 mode: 'lines+markers',
@@ -139,12 +145,12 @@ export default function PerformanceMap() {
                 {/* Parameters Sidebar */}
                 <section className="col-span-12 lg:col-span-3 space-y-16">
                    <div className="bg-surface-container-low border border-white/10 p-12 space-y-12">
-                        <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-6">DESIGN_POINT_FIX</h2>
+                        <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-6">OFF_DESIGN_SPEC</h2>
                         <div className="space-y-12">
-                            <SliderControl label="ALTITUDE" value={dpParams.alt} unit="M" min={0} max={15000} step={500} onChange={v => setDpParams({...dpParams, alt: v})} />
-                            <SliderControl label="FLIGHT_MACH" value={dpParams.mach.toFixed(2)} unit="M" min={0} max={1.5} step={0.01} onChange={v => setDpParams({...dpParams, mach: v})} />
-                            <SliderControl label="CORE_PR" value={dpParams.prc} unit="PI" min={5} max={50} step={1} onChange={v => setDpParams({...dpParams, prc: v})} />
-                            <SliderControl label="TURB_TIT" value={dpParams.tit} unit="K" min={1000} max={2000} step={25} onChange={v => setDpParams({...dpParams, tit: v})} />
+                            <SliderControl label="Flight Altitude" value={dpParams.alt} unit="m" min={0} max={15000} step={500} onChange={v => setDpParams({...dpParams, alt: v})} />
+                            <SliderControl label="Mach Number" value={dpParams.mach.toFixed(2)} unit="M" min={0} max={1.5} step={0.01} onChange={v => setDpParams({...dpParams, mach: v})} />
+                            <SliderControl label="Core PR" value={dpParams.prc} unit="" min={5} max={50} step={1} onChange={v => setDpParams({...dpParams, prc: v})} />
+                            <SliderControl label="Turbine Inlet T" value={dpParams.tit} unit="K" min={1000} max={2000} step={25} onChange={v => setDpParams({...dpParams, tit: v})} />
                         </div>
                    </div>
 
@@ -153,7 +159,7 @@ export default function PerformanceMap() {
                         className="w-full bg-white text-black py-5 font-black text-[13px] tracking-[0.3em] uppercase hover:bg-white/90 transition-all font-headline flex items-center justify-center gap-4"
                     >
                         <span className="material-symbols-outlined !text-[20px]">cached</span>
-                        RECALIBRATE_MAP
+                        RECALIBRATE_ENGINE_MAP
                    </button>
                 </section>
 
@@ -165,8 +171,8 @@ export default function PerformanceMap() {
                                 <div className="panel-accent"></div>
                                 
                                 <div className="absolute top-12 right-12 z-20 space-y-3 text-right">
-                                    <h3 className="mono text-[12px] font-black text-white tracking-[0.2em] uppercase">CORRECTED_SPEED_PLOTS</h3>
-                                    <p className="mono text-[11px] text-white/30 tracking-widest">[N_LINES: 0.70 {"->"} 1.05]</p>
+                                    <h3 className="mono text-[12px] font-black text-white tracking-[0.2em] uppercase">COMPRESSOR_RECOVERY_PLOT</h3>
+                                    <p className="mono text-[11px] text-white/30 tracking-widest">[SPEED_LINES: 0.70 {"->"} 1.05]</p>
                                 </div>
                                 
                                 <Plot 
@@ -177,13 +183,13 @@ export default function PerformanceMap() {
                                         autosize: true,
                                         margin: { t: 80, b: 80, l: 100, r: 80 },
                                         xaxis: { 
-                                            title: { text: 'W_CORRECTED [kg/s]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                            title: { text: 'Corrected Mass Flow [kg/s]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
                                             gridcolor: 'rgba(255,255,255,0.05)',
                                             tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
                                             showline: true, linecolor: 'rgba(255,255,255,0.1)'
                                         },
                                         yaxis: { 
-                                            title: { text: 'PRESSURE_RATIO [PI]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                            title: { text: 'Pressure Ratio [PR]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
                                             gridcolor: 'rgba(255,255,255,0.05)',
                                             tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
                                             showline: true, linecolor: 'rgba(255,255,255,0.1)'
@@ -197,50 +203,99 @@ export default function PerformanceMap() {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-4 gap-1 grid-bg">
-                                <StatPanel label="SURGE_MARGIN" value="14.2" unit="%" sub="NOMINAL_ENVELOPE" />
-                                <StatPanel label="PEAK_EFF" value="89.1" unit="%" sub="POLYTROPIC_STABLE" />
-                                <StatPanel label="NORM_FLOW" value="0.945" unit="W" sub="OP_POINT_REF" />
-                                <StatPanel label="STALL_STAT" value="NOM" unit="" sub="SENSOR_FEED_ACTIVE" />
+                            <div className="grid grid-cols-4 gap-1 grid-bg shrink-0">
+                                <StatPanel 
+                                    label="SURGE MARGIN" 
+                                    value={throttleData?.[0]?.surge ? '0.0' : (throttleData?.[0] ? '18.4' : '0.0')} 
+                                    unit="%" sub="OPERATIONAL_STATUS" 
+                                />
+                                <StatPanel 
+                                    label="PEAK EFFICIENCY" 
+                                    value={mapData?.speed_lines?.[0]?.eta?.[0] ? (mapData.speed_lines[0].eta[0] * 100).toFixed(1) : '0.0'} 
+                                    unit="%" sub="POLYTROPIC_PEAK" 
+                                />
+                                <StatPanel 
+                                    label="NORM. FLOW" 
+                                    value={throttleData?.[0]?.mdot_corr_norm?.toFixed(3) || '0.000'} 
+                                    unit="W" sub="NORMALIZED_REF" 
+                                />
+                                <StatPanel 
+                                    label="THROTTLE STATUS" 
+                                    value={loading ? 'CALC' : (throttleData?.some(r => r.surge) ? 'SURGE' : 'PASS')} 
+                                    unit="" 
+                                    sub={loading ? 'EXECUTING_ENGINE_DECK' : 'SENSORS_STABLE'}
+                                    alert={throttleData?.some(r => r.surge)}
+                                />
                             </div>
                         </>
                     )}
 
                     {activeView === 'throttle' && (
-                        <div className="flex flex-col space-y-8">
-                            <div className="flex items-center justify-between border-b border-white/10 pb-6">
+                        <div className="flex flex-col space-y-8 h-full">
+                            <div className="flex items-center justify-between border-b border-white/10 pb-6 shrink-0">
                                 <div className="flex items-center gap-6">
                                     <span className="material-symbols-outlined !text-[22px] text-white/40">dns</span>
-                                    <h3 className="text-[13px] font-black tracking-[0.3em]">PERFORMANCE_THROTTLE_DECK</h3>
+                                    <h3 className="text-[13px] font-black tracking-[0.3em]">THROTTLE PERFORMANCE SUITE</h3>
                                 </div>
-                                <button className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">EXPORT_CSV_NODE</button>
+                                <div className="flex gap-12">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                                        <span className="mono text-[10px] uppercase text-white/40 tracking-[0.2em]">DECK_GENERATION_ACTIVE</span>
+                                    </div>
+                                    <button className="mono text-[11px] font-black uppercase tracking-widest text-primary hover:text-white transition-colors">EXPORT ENGINE DECK</button>
+                                </div>
                             </div>
 
-                            <div className="bg-surface-container-low border border-white/10 overflow-hidden">
-                                <table className="w-full text-left mono text-[12px]">
-                                    <thead>
-                                        <tr className="bg-white/5 text-white/30 font-black tracking-[0.1em] border-b border-white/10 uppercase">
-                                            <th className="px-12 py-6">Throt_Pct</th>
-                                            <th className="px-12 py-6 border-l border-white/10">Spec_Thrust [Ns/kg]</th>
-                                            <th className="px-12 py-6 border-l border-white/10">TSFC [mg/Ns]</th>
-                                            <th className="px-12 py-6 border-l border-white/10">TIT_Temp [K]</th>
-                                            <th className="px-12 py-6 border-l border-white/10">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/10">
-                                        {throttleData?.map((r, i) => (
-                                            <tr key={i} className={`hover:bg-white/[0.03] transition-colors group ${r.surge ? 'bg-red-950/20' : ''}`}>
-                                                <td className="px-12 py-5 font-black text-white border-l-[3px] border-transparent group-hover:border-white">{r.throttle_pct}%</td>
-                                                <td className="px-12 py-5 border-l border-white/10 text-white/50 group-hover:text-white/90">{r.spec_thrust?.toFixed(1)}</td>
-                                                <td className="px-12 py-5 border-l border-white/10 text-white/50 group-hover:text-white/90">{(r.tsfc*1e6).toFixed(3)}</td>
-                                                <td className="px-12 py-5 border-l border-white/10 text-white/50 group-hover:text-white/90">{r.tt4?.toFixed(0)}</td>
-                                                <td className={`px-12 py-5 border-l border-white/10 font-black tracking-[0.1em] ${r.surge ? 'text-red-500 underline decoration-red-900' : 'text-white/40'}`}>
-                                                    {r.surge ? 'CRITICAL_SURGE' : 'NOMINAL_STATE'}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 grow h-[500px]">
+                                <div className="bg-surface-container-lowest border border-white/10 p-8 flex flex-col group">
+                                    <h4 className="mono text-[11px] font-black text-white/30 mb-8 uppercase tracking-[0.3em]">TSFC_THRUST_CORRELATION (FISHHOOK)</h4>
+                                    <Plot 
+                                        data={[{
+                                            x: throttleData?.map(r => r.spec_thrust),
+                                            y: throttleData?.map(r => r.tsfc),
+                                            mode: 'lines+markers',
+                                            name: 'FISHHOOK',
+                                            line: { color: '#fff', width: 2, shape: 'spline' },
+                                            marker: { size: 6, color: '#fff', opacity: 0.6 },
+                                            hovertemplate: `TSFC: %{y:.4f}<br>Thrust: %{x:.1f}<extra></extra>`
+                                        }]}
+                                        layout={{
+                                            plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
+                                            autosize: true, margin: { t: 10, b: 60, l: 80, r: 20 },
+                                            xaxis: { title: { text: 'SPEC_THRUST [Ns/kg]', font: { size: 10, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.05)', tickfont: { size: 10, color: 'rgba(255,255,255,0.3)' } },
+                                            yaxis: { title: { text: 'TSFC [mg/Ns]', font: { size: 10, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.05)', tickfont: { size: 10, color: 'rgba(255,255,255,0.3)' } },
+                                            showlegend: false, font: { family: 'JetBrains Mono' }
+                                        }}
+                                        className="w-full h-full"
+                                        config={{ displayModeBar: false, responsive: true }}
+                                    />
+                                </div>
+                                
+                                <div className="bg-surface-container-lowest border border-white/10 p-8 flex flex-col overflow-hidden">
+                                     <h4 className="mono text-[11px] font-black text-white/30 mb-8 uppercase tracking-[0.3em]">TABULAR_STATE_AUDIT</h4>
+                                     <div className="overflow-y-auto grow custom-scrollbar">
+                                        <table className="w-full text-left mono text-[11px]">
+                                            <thead className="sticky top-0 bg-surface-container-lowest z-10 border-b border-white/10">
+                                                <tr className="text-white/30 uppercase font-black tracking-widest text-[10px]">
+                                                    <th className="pb-4 pr-12">THROT_%</th>
+                                                    <th className="pb-4 pr-12">STHRUST</th>
+                                                    <th className="pb-4 pr-12">TSFC</th>
+                                                    <th className="pb-4">SURGE_M</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5">
+                                                {throttleData?.map((r, i) => (
+                                                    <tr key={i} className={`group hover:bg-white/5 ${r.surge ? 'bg-red-950/20' : ''}`}>
+                                                        <td className="py-4 font-black text-white">{r.throttle_pct}%</td>
+                                                        <td className="py-4 text-white/40 group-hover:text-white/80">{r.spec_thrust?.toFixed(1)}</td>
+                                                        <td className="py-4 text-white/40 group-hover:text-white/80">{r.tsfc?.toFixed(3)}</td>
+                                                        <td className={`py-4 font-black ${r.surge ? 'text-red-500' : 'text-green-500/40'}`}>{r.surge ? 'CRIT' : 'SAFE'}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                     </div>
+                                </div>
                             </div>
                         </div>
                     )}

@@ -13,13 +13,8 @@ Reference:
 """
 
 import math
-from ..units import R_AIR, isa_atmosphere, GAMMA_AIR
-
-
-GAMMA_COLD = 1.40
-CP_COLD    = 1005.0
-GAMMA_HOT  = 1.333
-CP_HOT     = 1148.0
+from ..units import R_AIR, isa_atmosphere
+from .cycle import get_gas_props
 
 # ─── Parametric compressor map ─────────────────────────────────────────────
 def _compressor_map(N_corr_norm: float, mdot_corr_norm: float):
@@ -72,17 +67,13 @@ def _compressor_map(N_corr_norm: float, mdot_corr_norm: float):
 
 def _turbine_map(N_corr_norm: float, pr: float, pr_design: float = 4.5):
     """
-    Simplified turbine map – turbines are typically not as sensitive to
-    speed as compressors (they choke at low PR, wide range).
-
     Returns (eta_isen, is_choked)
     """
-    # Turbine chokes when PR > ~2 for g=1.33
-    g = GAMMA_HOT
-    pr_crit = ((g + 1) / 2) ** (g / (g - 1))   # ≈ 1.85
+    # Turbine chokes when PR > ~1.85 for typical combustion products
+    g = 1.333 
+    pr_crit = ((g + 1) / 2) ** (g / (g - 1))
     choked = pr >= pr_crit
 
-    # Efficiency droop with speed deviation
     dn = abs(N_corr_norm - 1.0)
     eta = 0.92 - 0.08 * dn ** 2 - 0.04 * max(0, 1.0 - pr / pr_design)
     eta = max(0.60, min(eta, 0.93))
@@ -94,28 +85,16 @@ class OffDesignSolver:
     """
     Calculates off-design performance of a turbojet engine by sweeping
     fuel flow (throttle) at fixed geometry.
-
-    Design-point parameters are established at cold slug initialisation.
-    Off-design points then solve for the operating conditions via
-    simplified matching equations.
     """
 
     def __init__(self, design_point: dict):
-        """
-        Parameters
-        ----------
-        design_point : dict returned by CycleAnalyzer.solve_turbojet() at design
-        """
         dp = design_point
-        self.dp_sth   = dp['spec_thrust']
-        self.dp_tsfc  = dp['tsfc']
         self.dp_tt4   = dp.get('stations', {}).get(4, {}).get('tt', 1600.0)
         self.dp_pt3   = dp.get('stations', {}).get(3, {}).get('pt', 1.5e6)
         self.dp_pt2   = dp.get('stations', {}).get(2, {}).get('pt', 3e4)
-        self.dp_pr    = self.dp_pt3 / self.dp_pt2 if self.dp_pt2 > 0 else 20.0
+        self.dp_pr    = self.dp_pt3 / self.dp_pt2
+        self.dp_mdot  = dp.get('stations', {}).get(2, {}).get('m', 10.0)
         self.dp_f     = dp.get('f', 0.025)
-        self.dp_tt3   = dp.get('tt3', 800)
-        self.dp_tt2   = dp.get('stations', {}).get(2, {}).get('tt', 250)
 
     def sweep_throttle(
         self,
@@ -125,24 +104,15 @@ class OffDesignSolver:
         h_fuel: float = 42.8e6,
         n_points: int = 20,
     ) -> list[dict]:
-        """
-        Sweeps corrected fuel flow from ~60% to 100% max throttle.
-
-        Returns a list of dicts, each representing one operating point.
-        """
-        from ..units import isa_atmosphere
         from .cycle import CycleAnalyzer
 
-        g_c = GAMMA_COLD
-
         # Corrected quantities at current ambient
-        tt0 = ambient_t * (1.0 + 0.5 * (g_c - 1.0) * mach ** 2)
-        pt0 = ambient_p * (tt0 / ambient_t) ** (g_c / (g_c - 1.0))
-
-        # Reference (sea-level static) for correction
-        p_ref, t_ref, _ = isa_atmosphere(0.0)
-        theta  = tt0 / t_ref    # temperature ratio
-        delta  = pt0 / p_ref    # pressure ratio
+        g0, cp0, _ = get_gas_props(ambient_t, ambient_p)
+        tt0 = ambient_t * (1.0 + 0.5 * (g0 - 1.0) * mach ** 2)
+        
+        # Real gas total pressure
+        gt0, cp_t0, _ = get_gas_props(tt0, ambient_p)
+        pt0 = ambient_p * (1.0 + 0.5 * (gt0 - 1.0) * mach ** 2) ** (gt0 / (gt0 - 1.0))
 
         results = []
         # N_corr_design: normalised corrected speed = 1.0 at design
@@ -180,6 +150,7 @@ class OffDesignSolver:
                 results.append({
                     'throttle_pct' : round(throttle * 100, 1),
                     'N_corr_norm'  : round(N_corr_norm, 3),
+                    'mdot_corr_norm': round(mdot_corr_norm, 4),
                     'pr'           : round(pr, 2),
                     'tt4'          : round(tt4, 1),
                     'spec_thrust'  : round(res['spec_thrust'], 2),

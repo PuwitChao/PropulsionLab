@@ -88,6 +88,7 @@ export default function ParametricCycle() {
   const [activeEngine, setActiveEngine] = useState('turbojet')
   const [p, setP] = useState({
     alt: 10000, mach: 0.8, prc: 25, tit: 1650,
+    bpr: 6.0, fpr: 1.6,
     eta_c: 0.88, eta_t: 0.92, burner_dp_frac: 0.04,
     inlet_recovery: 0.98, phi_inlet: 0.0, eta_install_nozzle: 1.0,
     ab_enabled: false, ab_temp: 2000
@@ -97,40 +98,48 @@ export default function ParametricCycle() {
 
   const runAnalysis = useCallback(async () => {
     setLoading(true)
+    setResult(null)
     try {
-      const endpoint = activeEngine === 'turbojet' ? '/analyze/cycle' : '/analyze/cycle/turbofan'
-      // For turbofan, we need additional params like bpr/fpr
-      const body = activeEngine === 'turbojet' ? p : { ...p, bpr: 5.0, fpr: 1.6, opr: p.prc, mixed_exhaust: activeEngine === 'mixed_flow' }
+      const isTurbofan = activeEngine === 'turbofan' || activeEngine === 'mixed_flow'
+      const endpoint = !isTurbofan ? '/analyze/cycle' : '/analyze/cycle/turbofan'
+      
+      const body = !isTurbofan ? p : { ...p, opr: p.prc, mixed_exhaust: activeEngine === 'mixed_flow' }
       const data = await fetchData(endpoint, { method: 'POST', body: JSON.stringify(body) })
       setResult(data)
-    } catch (e) { console.error(e) }
+    } catch (e) { 
+      console.error(e)
+      setResult(null)
+    }
     setLoading(false)
   }, [p, activeEngine])
 
   useEffect(() => {
+    setResult(null); // Clear stale data when switching engine types
     const t = setTimeout(runAnalysis, 300)
     return () => clearTimeout(t)
-  }, [p, runAnalysis])
+  }, [p, activeEngine, runAnalysis])
 
   const getStationData = () => {
     if (!result || !result.stations) return []
     const mapping = {
         'turbojet': [
-            { id: '00', ref: 'FREESTREAM', k: 0 },
-            { id: '02', ref: 'INLET_EXIT', k: 2 },
-            { id: '03', ref: 'COMP_EXIT', k: 3 },
-            { id: '04', ref: 'BURN_EXIT', k: 4 },
-            { id: '05', ref: 'TURB_EXIT', k: 5 },
-            { id: '09', ref: 'NOZ_EXIT', k: 9 },
+            { id: '00', ref: 'Freestream', k: 0 },
+            { id: '02', ref: 'Inlet Exit', k: 2 },
+            { id: '03', ref: 'Compressor Exit', k: 3 },
+            { id: '04', ref: 'Combustor Exit', k: 4 },
+            { id: '05', ref: 'Turbine Exit', k: 5 },
+            { id: '07', ref: 'Augmentor Exit', k: 7 },
+            { id: '09', ref: 'Nozzle Exit', k: 9 },
         ],
         'turbofan': [
-            { id: '00', ref: 'FREESTREAM', k: 0 },
-            { id: '02', ref: 'FAN_ENTRY', k: 2 },
-            { id: '21', ref: 'FAN_EXIT_B', k: 21 },
-            { id: '03', ref: 'HPC_EXIT', k: 3 },
-            { id: '04', ref: 'BURN_EXIT', k: 4 },
-            { id: '45', ref: 'HPT_EXIT', k: 45 },
-            { id: '05', ref: 'LPT_EXIT', k: 5 },
+            { id: '00', ref: 'Freestream', k: 0 },
+            { id: '02', ref: 'Fan Inlet', k: 2 },
+            { id: '21', ref: 'Fan Bypass', k: 21 },
+            { id: '03', ref: 'HPC Exit', k: 3 },
+            { id: '04', ref: 'Combustor Exit', k: 4 },
+            { id: '05', ref: 'LPT Exit', k: 5 },
+            { id: '07', ref: 'Augmentor Exit', k: 7 },
+            { id: '09', ref: 'Nozzle Exit', k: 9 },
         ]
     }
     const set = mapping[activeEngine] || mapping['turbojet']
@@ -159,11 +168,11 @@ export default function ParametricCycle() {
                     key={mode} onClick={() => setActiveEngine(mode)}
                     className={`text-[12px] tracking-[0.3em] uppercase transition-all pb-3 ${activeEngine === mode ? 'text-white border-b border-white font-black' : 'text-white/30 font-bold hover:text-white'}`}
                 >
-                    {mode.replace('_', ' ')}
+                    {mode.replace('_', ' ').toUpperCase()}
                 </button>
             ))}
         </div>
-        <div className="status-badge">SOLVER_ENGINE_01 // {loading ? 'EXECUTING' : 'READY'}</div>
+        <div className="status-badge">KERN_ID: {activeEngine.toUpperCase()} // {loading ? 'EXECUTING' : 'READY'}</div>
       </div>
 
       <div className="grid grid-cols-12 gap-12">
@@ -172,16 +181,43 @@ export default function ParametricCycle() {
              <div className="bg-surface-container-low border border-white/10 p-12 space-y-12">
                   <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-6">ENVIRONMENT</h2>
                   <div className="space-y-12">
-                       <SliderControl label="ALTITUDE" value={p.alt} min={0} max={15000} unit="M" onChange={v => setP({...p, alt: v})} />
-                       <SliderControl label="MACH_NO" value={p.mach.toFixed(2)} min={0} max={2.5} unit="M" onChange={v => setP({...p, mach: v})} />
+                       <SliderControl label="Flight Altitude" value={p.alt} min={0} max={15000} unit="m" onChange={v => setP({...p, alt: v})} />
+                       <SliderControl label="Mach Number" value={p.mach.toFixed(2)} min={0} max={2.5} unit="M" onChange={v => setP({...p, mach: v})} />
                   </div>
              </div>
 
              <div className="bg-surface-container-low border border-white/10 p-12 space-y-12">
                   <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-6">CYCLE_SPEC</h2>
                   <div className="space-y-12">
-                       <SliderControl label="PR_CORE" value={p.prc} min={2} max={60} unit="" onChange={v => setP({...p, prc: v})} />
-                       <SliderControl label="TIT_TEMP" value={p.tit} min={1000} max={2500} unit="K" onChange={v => setP({...p, tit: v})} />
+                       <SliderControl label="Core PR" value={p.prc} min={2} max={60} unit="" onChange={v => setP({...p, prc: v})} />
+                       <SliderControl label="Turbine Inlet T" value={p.tit} min={1000} max={2500} unit="K" onChange={v => setP({...p, tit: v})} />
+                  </div>
+             </div>
+
+             {(activeEngine === 'turbofan' || activeEngine === 'mixed_flow') && (
+               <div className="bg-surface-container-low border border-white/10 p-12 space-y-12 animate-in slide-in-from-left-4">
+                    <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-6">TURBOFAN_SPEC</h2>
+                    <div className="space-y-12">
+                         <SliderControl label="Bypass Ratio" value={p.bpr} min={0.5} max={15.0} unit="" onChange={v => setP({...p, bpr: v})} />
+                         <SliderControl label="Fan Pressure Ratio" value={p.fpr} min={1.1} max={3.0} unit="" onChange={v => setP({...p, fpr: v})} />
+                    </div>
+               </div>
+             )}
+
+             <div className="bg-surface-container-low border border-white/10 p-12 space-y-12">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white">AUGMENTATION</h2>
+                    <input 
+                        type="checkbox" checked={p.ab_enabled} 
+                        onChange={e => setP({...p, ab_enabled: e.target.checked})}
+                        className="w-5 h-5 accent-white cursor-pointer"
+                    />
+                  </div>
+                  <div className="space-y-12">
+                       <SliderControl 
+                            label="Afterburner T" value={p.ab_temp} min={1000} max={2500} unit="K" 
+                            disabled={!p.ab_enabled} onChange={v => setP({...p, ab_temp: v})} 
+                       />
                   </div>
              </div>
 
@@ -190,7 +226,7 @@ export default function ParametricCycle() {
                 className="w-full bg-white text-black py-5 font-black text-[13px] tracking-[0.3em] uppercase hover:bg-white/90 transition-all font-headline flex items-center justify-center gap-4"
             >
                 <span className="material-symbols-outlined !text-[20px]">rebase_edit</span>
-                SYNTHESIZE_CYCLE
+                SOLVE_GAS_TURBINE_CYCLE
             </button>
         </section>
 
@@ -202,13 +238,13 @@ export default function ParametricCycle() {
                 {/* Overlay Performance Panel */}
                 <div className="absolute top-12 left-12 right-12 flex justify-between items-start z-30">
                     <div className="space-y-3">
-                        <h2 className="text-[14px] font-black tracking-[0.3em] text-white">THERMODYNAMIC_STATION_BLUEPRINT</h2>
-                        <p className="mono text-[11px] text-white/30 uppercase tracking-widest underline decoration-white/20">ARCH_ID: {activeEngine.toUpperCase()}_EXPLORER</p>
+                        <h2 className="text-[14px] font-black tracking-[0.3em] text-white">STATION_THERMO_BLUEPRINT</h2>
+                        <p className="mono text-[11px] text-white/30 uppercase tracking-widest underline decoration-white/20">SYSTEM_ID: {activeEngine.toUpperCase()}_EXPLORER</p>
                     </div>
                     <div className="flex gap-16">
-                        <StatPanel label="SPEC_THRUST" value={(result?.spec_thrust_installed || result?.spec_thrust)?.toFixed(1) || '0.0'} unit="Ns/kg" sub="INSTALLED_NET" />
-                        <StatPanel label="EFF_THERMAL" value={(result?.eta_thermal * 100)?.toFixed(1) || '0.0'} unit="%" sub="CYCLE_EFFICIENCY" />
-                        <StatPanel label="SFC_FUEL" value={(result?.tsfc * 1e6)?.toFixed(2) || '0.00'} unit="mg/Ns" sub="FUEL_SPECIFIC" />
+                        <StatPanel label="SPECIFIC THRUST" value={(result?.spec_thrust_installed || result?.spec_thrust)?.toFixed(1) || '0.0'} unit="Ns/kg" sub="NET_INSTALLED" />
+                        <StatPanel label="THERMAL EFFICIENCY" value={(result?.eta_thermal * 100)?.toFixed(1) || '0.0'} unit="%" sub="CYCLE_TOTAL" />
+                        <StatPanel label="SFC" value={(result?.tsfc * 1e6)?.toFixed(2) || '0.00'} unit="mg/Ns" sub="SPECIFIC_FUEL_CONS" />
                     </div>
                 </div>
 
