@@ -1,4 +1,5 @@
 import math
+from typing import Any
 import cantera as ct
 from ..units import R_AIR
 
@@ -7,18 +8,32 @@ from ..units import R_AIR
 # Defaulting to GRI 3.0 for combustion products and air.
 GAS = ct.Solution('gri30.yaml')
 
-def get_gas_props(t_k: float, p_pa: float, f: float = 0.0):
+def get_gas_props(t_k: float, p_pa: float, f: float = 0.0, species: str = 'CH4:1.0') -> tuple[float, float, float]:
     """
     Returns (gamma, cp, mw) at a given (T, P) and fuel-to-air ratio.
+
+    Utilizes Cantera for high-fidelity real-gas properties.
+
+    Args:
+        t_k: Stagnation temperature [K].
+        p_pa: Stagnation pressure [Pa].
+        f: Fuel-to-air ratio. Defaults to 0.0.
+        species: Fuel species identifier for Cantera. Defaults to 'CH4:1.0'.
+
+    Returns:
+        tuple: (gamma, cp [J/kg/K], mean_molecular_weight [kg/kmol]).
     """
-    # Simple model: assume mixture of air and stoichiometric combustion products
-    # For now, let's treat it as pure air if f=0, or stoichiometric if f > 0
-    # A more robust fix would be updating composition based on f
     GAS.TP = t_k, p_pa
     if f > 0:
-        # Simplified: add some CO2 and H2O to the mix based on f
-        # For professional use, we should set equivalence ratio precisely
-        GAS.set_equivalence_ratio(min(f / 0.068, 1.0), 'CH4:1.0', 'O2:1.0, N2:3.76')
+        # Equivalence ratio from fuel-to-air ratio
+        # Assumes stoichiometric f = 0.068 (typical for Jet-A/CH4)
+        phi = f / 0.068 
+        phi = max(0.0, min(phi, 1.2)) # Bound for stability
+        GAS.set_equivalence_ratio(phi, species, 'O2:1.0, N2:3.76')
+        GAS.TP = t_k, p_pa
+    else:
+        # Set to pure air (simplified with N2 and O2)
+        GAS.X = 'N2:0.79, O2:0.21'
         GAS.TP = t_k, p_pa
     
     cp = GAS.cp
@@ -36,8 +51,19 @@ class EngineStation:
         self.m  = mach
         self.mdot_frac = mdot_frac   # fraction of inlet mass flow
 
-    def get_entropy(self, cp=1005.0, r=R_AIR):
-        """Relative entropy  s = cp·ln(Tt) − R·ln(Pt)."""
+    def get_entropy(self, cp: float = 1005.0, r: float = R_AIR) -> float:
+        """
+        Calculates relative entropy.
+
+        Formula: s = cp·ln(Tt) − R·ln(Pt)
+
+        Args:
+            cp: Specific heat at constant pressure [J/kg/K].
+            r: Specific gas constant [J/kg/K].
+
+        Returns:
+            float: Relative entropy.
+        """
         if self.tt <= 0 or self.pt <= 0:
             return 0.0
         return cp * math.log(self.tt) - r * math.log(self.pt)
@@ -144,9 +170,32 @@ class CycleAnalyzer:
         nozzle_dp_frac: float = 0.02,
         phi_inlet: float = 0.0,
         eta_install_nozzle: float = 1.0,
-    ) -> dict:
+        eta_mech_hp: float = 0.99,
+        eta_mech_lp: float = 0.99,
+    ) -> dict[str, Any]:
         """
         Solves a single-spool turbojet cycle using Cantera properties.
+
+        Args:
+            prc: Compressor Pressure Ratio.
+            tit: Turbine Inlet Temperature [K].
+            eta_c: Compressor polytropic efficiency.
+            eta_t: Turbine polytropic efficiency.
+            eta_ab: Afterburner efficiency.
+            h_fuel: Lower Heating Value of fuel [J/kg].
+            ab_enabled: Whether afterburning is active.
+            ab_temp: Afterburner exit temperature [K].
+            inlet_recovery: Inlet total pressure recovery factor.
+            burner_eta: Combustion efficiency.
+            burner_dp_frac: Burner total pressure drop fraction.
+            nozzle_dp_frac: Nozzle total pressure drop fraction.
+            phi_inlet: Inlet spillage/drag fraction.
+            eta_install_nozzle: Nozzle installation efficiency.
+            eta_mech_hp: Mechanical efficiency of HP spool.
+            eta_mech_lp: Mechanical efficiency of LP spool.
+
+        Returns:
+            dict: Performance metrics including specific thrust and TSFC.
         """
         # ── Station 2: Inlet exit ─────────────────────────────────────────
         pt2 = self.pt0 * inlet_recovery
@@ -169,26 +218,31 @@ class CycleAnalyzer:
         # ── Station 4: Turbine inlet ───────────────────────────────────────
         tt4 = tit
         pt4 = pt3 * (1.0 - burner_dp_frac)
-        g4, cp4, _ = get_gas_props(tt4, pt4, f=0.04) # Initial guess for f to get cp4
-        f   = cp_c_avg * (tt4 - tt3) / (burner_eta * h_fuel - cp4 * tt4)
-        f   = max(f, 0.0)
-        # Re-calc props with found f
+        
+        # Iterative f calculation using enthalpy balance
+        # h_fuel_eff = burner_eta * h_fuel
+        # (1+f)*h4 = h3 + f*h_fuel_eff  => f = (h4 - h3) / (h_fuel_eff - h4)
+        _, cp4_0, _ = get_gas_props(tt4, pt4, f=0.02) # Guess f for props
+        f = (cp4_0 * tt4 - cp_c_avg * tt3) / (burner_eta * h_fuel - cp4_0 * tt4)
+        f = max(f, 0.0)
+        
+        # Refine with calculated f
         g4, cp4, mw4 = get_gas_props(tt4, pt4, f=f)
         self.stations[4] = EngineStation(t_total=tt4, p_total=pt4)
         self.math_trace.append(f"Combustor: Tt4={tt4:.1f} K, f={f:.4f}, Gas Props: gamma={g4:.4f}, cp={cp4:.1f}")
 
         # ── Station 5: Turbine exit ────────────────────────────────────────
-        # Power balance: cp_turb_avg * (1+f) * ΔTt_turb = cp_comp_avg * ΔTt_comp
-        # Iterative guess for Tt5
-        tt5 = tt4 - w_comp / (cp4 * (1.0 + f))
+        # Power balance: cp_turb_avg * (1+f) * ΔTt_turb * eta_mech_hp = cp_comp_avg * ΔTt_comp
+        # ΔTt_turb = w_comp / (cp_turb_avg * (1+f) * eta_mech_hp)
+        tt5 = tt4 - w_comp / (cp4 * (1.0 + f) * eta_mech_hp)
         tau_t = tt5 / tt4
         eta_isen_t = self._poly_to_isen_turb(tau_t, eta_t, g4)
-        pt5_ratio  = (1.0 - (1.0 - tau_t) / eta_isen_t) if eta_isen_t > 0 else tau_t
+        pt5_ratio  = (1.0 - (1.0 - tau_t) / eta_isen_t) if (eta_isen_t > 0 and abs(1-tau_t) > 1e-6) else 1.0
         pt5        = pt4 * max(pt5_ratio, 1e-4) ** (g4 / (g4 - 1.0))
         
         # Refine tt5 with mid-point properties
         _, cp_t_avg, _ = get_gas_props(0.5*(tt4+tt5), 0.5*(pt4+pt5), f=f)
-        tt5   = tt4 - w_comp / (cp_t_avg * (1.0 + f))
+        tt5   = tt4 - w_comp / (cp_t_avg * (1.0 + f) * eta_mech_hp)
         self.stations[5] = EngineStation(t_total=tt5, p_total=pt5)
         self.math_trace.append(f"Turbine: Tt5={tt5:.1f} K, Pt5/Pt4={pt5/pt4:.3f}, η_is={eta_isen_t:.4f}")
 
@@ -222,12 +276,12 @@ class CycleAnalyzer:
         # Ideal exhaust velocity for thermal efficiency (expanded to P0)
         v9_fe = math.sqrt(max(0.0, 2.0 * cpn * tt9_in * (1.0 - (self.p0 / pt9_in) ** ((gn - 1.0) / gn))))
         eta_thermal = (0.5 * (1.0 + f_total) * v9_fe**2 - 0.5 * v0**2) / q_in if q_in > 0 else 0.0
-        eta_prop = 2.0 * v0 / (v9 + v0) if (v9 + v0) > 0 else 0.0
+        eta_prop = 2.0 * v0 / (v9 + v0) if (v9 + v0) > 1e-3 else 0.0
 
         return {
             'engine_type': 'turbojet',
-            'spec_thrust': spec_thrust_installed, # Return the installed value as the primary metric
-            'tsfc': tsfc_installed,
+            'spec_thrust': spec_thrust_installed, # Standardized key
+            'tsfc': tsfc_installed,               # Standardized key
             'f_total': f_total,
             'eta_thermal': eta_thermal,
             'eta_propulsive': eta_prop,
@@ -257,9 +311,37 @@ class CycleAnalyzer:
         mixed_exhaust: bool   = False,
         phi_inlet: float = 0.0,
         eta_install_nozzle: float = 1.0,
-    ) -> dict:
+        eta_mech_hp: float = 0.99,
+        eta_mech_lp: float = 0.99,
+        lpc_pr: float = 1.0,
+    ) -> dict[str, Any]:
         """
         Solves a dual-spool turbofan cycle using Cantera properties.
+
+        Args:
+            bpr: Bypass Ratio.
+            fpr: Fan Pressure Ratio.
+            opr: Overall Pressure Ratio.
+            tit: Turbine Inlet Temperature [K].
+            eta_fan: Fan polytropic efficiency.
+            eta_c: HPC polytropic efficiency.
+            eta_t: Turbine polytropic efficiency.
+            eta_ab: Afterburner efficiency.
+            h_fuel: Lower Heating Value of fuel [J/kg].
+            ab_enabled: Whether afterburning is active.
+            ab_temp: Afterburner exit temperature [K].
+            inlet_recovery: Inlet total pressure recovery factor.
+            burner_eta: Combustion efficiency.
+            burner_dp_frac: Burner total pressure drop fraction.
+            mixed_exhaust: Whether core and bypass streams are mixed.
+            phi_inlet: Inlet spillage/drag fraction.
+            eta_install_nozzle: Nozzle installation efficiency.
+            eta_mech_hp: Mechanical efficiency of HP spool.
+            eta_mech_lp: Mechanical efficiency of LP spool.
+            lpc_pr: Low Pressure Compressor (Booster) pressure ratio.
+
+        Returns:
+            dict: Performance metrics including specific thrust and TSFC.
         """
         # ── Station 2: Inlet exit ─────────────────────────────────────────
         pt2 = self.pt0 * inlet_recovery
@@ -276,18 +358,28 @@ class CycleAnalyzer:
         w_fan_per_kg = cp_fan_avg * (tt21 - tt2) # Work spent on 1kg of total air
         self.stations[21] = EngineStation(t_total=tt21, p_total=pt21, mdot_frac=bpr)
 
+        # ── LPC / Booster (core flow only, driven by LP spool) ────────────
+        g21, cp21, _ = get_gas_props(tt21, pt21)
+        eta_isen_lpc = self._poly_to_isen_comp(lpc_pr, eta_fan, g21) # assume fan eta for lpc for now
+        tt25_ideal   = tt21 * lpc_pr ** ((g21 - 1.0) / g21)
+        tt25         = tt21 + (tt25_ideal - tt21) / eta_isen_lpc
+        pt25         = pt21 * lpc_pr
+        _, cp_lpc_avg, _ = get_gas_props(0.5*(tt21+tt25), pt25)
+        w_lpc        = cp_lpc_avg * (tt25 - tt21) # per kg of core flow
+        self.stations[25] = EngineStation(t_total=tt25, p_total=pt25)
+
         # ── HPC pressure ratio ────────────────────────────────────────────
-        hpc_pr = opr / fpr if fpr > 0 else opr
+        hpc_pr = opr / (fpr * lpc_pr) if (fpr * lpc_pr) > 0 else opr
         hpc_pr = max(hpc_pr, 1.0)
         
         # ── Station 3: HPC exit ───────────────────────────────────────────
-        g21, cp21, _ = get_gas_props(tt21, pt21)
-        eta_isen_c = self._poly_to_isen_comp(hpc_pr, eta_c, g21)
-        tt3_ideal  = tt21 * hpc_pr ** ((g21 - 1.0) / g21)
-        tt3        = tt21 + (tt3_ideal - tt21) / eta_isen_c
-        pt3        = pt21 * hpc_pr
-        _, cp_hpc_avg, _ = get_gas_props(0.5*(tt21+tt3), pt3)
-        w_comp_hp  = cp_hpc_avg * (tt3 - tt21) # specific work into core compressor
+        g25, cp25, _ = get_gas_props(tt25, pt25)
+        eta_isen_c = self._poly_to_isen_comp(hpc_pr, eta_c, g25)
+        tt3_ideal  = tt25 * hpc_pr ** ((g25 - 1.0) / g25)
+        tt3        = tt25 + (tt3_ideal - tt25) / eta_isen_c
+        pt3        = pt25 * hpc_pr
+        _, cp_hpc_avg, _ = get_gas_props(0.5*(tt25+tt3), pt3)
+        w_comp_hp  = cp_hpc_avg * (tt3 - tt25) # specific work into core compressor
         self.stations[3] = EngineStation(t_total=tt3, p_total=pt3)
 
         # ── Station 4: HPT inlet ─────────────────────────────────────────
@@ -300,17 +392,20 @@ class CycleAnalyzer:
         self.stations[4] = EngineStation(t_total=tt4, p_total=pt4)
 
         # ── HPT (drives HPC) ─────────────────────────────────────────────
-        tt45 = tt4 - w_comp_hp / (cph * (1.0 + f))
+        # W_hpt * (1+f) * eta_mech_hp = W_hpc
+        tt45 = tt4 - w_comp_hp / (cph * (1.0 + f) * eta_mech_hp)
         tau_hpt = tt45 / tt4
         eta_isen_hpt = self._poly_to_isen_turb(tau_hpt, eta_t, gh)
         pt45 = pt4 * max( (1.0 - (1.0-tau_hpt)/eta_isen_hpt), 1e-4)**(gh/(gh-1.0))
         self.stations[45] = EngineStation(t_total=tt45, p_total=pt45)
 
-        # ── LPT (drives Fan) ─────────────────────────────────────────────
-        # LPT work = fan work * (1 + BPR)
-        w_fan_total = w_fan_per_kg * (1.0 + bpr)
+        # ── LPT (drives Fan & LPC) ───────────────────────────────────────
+        # LPT work * (1 + f) * eta_mech_lp = Power_Fan + Power_LPC
+        # w_fan_total is work on whole air per kg of core flow: W_fan * (1+BPR)
+        # Power_LPC is W_lpc * 1 (per 1kg core flow)
+        w_lp_spool_total = w_fan_per_kg * (1.0 + bpr) + w_lpc
         _, cph_avg_lp, _ = get_gas_props(tt45, pt45, f=f)
-        tt5 = tt45 - w_fan_total / (cph_avg_lp * (1.0 + f))
+        tt5 = tt45 - w_lp_spool_total / (cph_avg_lp * (1.0 + f) * eta_mech_lp)
         tau_lpt = tt5 / tt45
         eta_isen_lpt = self._poly_to_isen_turb(tau_lpt, eta_t, gh)
         pt5 = pt45 * max( (1.0 - (1.0-tau_lpt)/eta_isen_lpt), 1e-4)**(gh/(gh-1.0))
@@ -364,9 +459,9 @@ class CycleAnalyzer:
             
             return {
                 'engine_type': 'turbofan_mixed',
-                'spec_thrust': spec_thrust_installed,
-                'tsfc': tsfc_installed,
-                'f_total': f_total,
+                'spec_thrust': spec_thrust_installed, # Standardized key
+                'tsfc': tsfc_installed,               # Standardized key
+                'f_total': (f + f_ab),
                 'math_trace': self.math_trace + [f"Mixed exhaust logic applied: Tt_mix={tt_mix:.1f} K, Pt_mix={pt_mix/1e3:.1f} kPa"],
                 'stations': { k: {'tt': v.tt, 'pt': v.pt} for k, v in self.stations.items() }
             }
@@ -389,8 +484,88 @@ class CycleAnalyzer:
             
             return {
                 'engine_type': 'turbofan_separate',
-                'spec_thrust_installed': spec_thrust_installed,
-                'tsfc_installed': tsfc_installed,
+                'spec_thrust': spec_thrust_installed, # Standardized key (fixed from spec_thrust_installed)
+                'tsfc': tsfc_installed,               # Standardized key (fixed from tsfc_installed)
+                'f_total': f,
                 'math_trace': self.math_trace + ["Separate exhaust turbofan solved using Cantera."],
                 'stations': { k: {'tt': v.tt, 'pt': v.pt} for k, v in self.stations.items() }
             }
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # [STUB] Multi-Spool Work Matching (Sprint 5)
+    # ─────────────────────────────────────────────────────────────────────────
+    def solve_multispool(
+        self,
+        opr: float,
+        bpr: float,
+        fpr: float,
+        lpc_pr: float,
+        tit: float,
+        eta_fan: float = 0.90,
+        eta_lpc: float = 0.88,
+        eta_hpc: float = 0.86,
+        eta_hpt: float = 0.91,
+        eta_lpt: float = 0.92,
+        eta_mech_hp: float = 0.99,
+        eta_mech_lp: float = 0.99,
+        h_fuel: float = 42.8e6,
+    ) -> dict:
+        """
+        [STUB] High-fidelity multi-spool turbofan work matching solver.
+
+        Target Architecture: Military turbofan (LPC + HPC + HPT + LPT, separate or mixed exhaust).
+
+        Planned work-matching algorithm (Sprint 5):
+        ---------------------------------------------------------
+        1. FAN (Station 21): Solve fan compression, fixed FPR.
+           W_fan = mdot_total * Cp_fan * ΔTt_fan
+
+        2. LPC / BOOSTER (Station 25): Solve LPC with its own lpc_pr.
+           W_lpc = mdot_core * Cp_lpc * ΔTt_lpc
+
+        3. HPC (Station 3): hpc_pr = opr / (fpr * lpc_pr).
+           W_hpc = mdot_core * Cp_hpc * ΔTt_hpc
+
+        4. COMBUSTOR (Station 4): Enthalpy balance for fuel-to-air ratio.
+           f = (Cp4*T4 - Cp3*T3) / (eta_b * LHV - Cp4*T4)
+
+        5. HPT (Station 45): Power balance to drive HPC only.
+           W_hpt * (1+f) * eta_mech_hp = W_hpc
+           Iterate until Tt45 and Pt45 converge.
+
+        6. LPT (Station 5): Power balance to drive FAN + LPC.
+           W_lpt * (1+f) * eta_mech_lp = W_fan*(1+BPR) + W_lpc
+           Iterate until Tt5 and Pt5 converge.
+
+        7. NOZZLE (Station 9 / 19): Choked/unchoked nozzle exit for core/bypass.
+
+        8. WORK MATCH ITERATION: Outer loop adjusts N1/N2 operating lines
+           until LP spool power balance closes to < 0.1% error.
+        ---------------------------------------------------------
+
+        Args:
+            opr: Overall Pressure Ratio.
+            bpr: Bypass Ratio.
+            fpr: Fan Pressure Ratio.
+            lpc_pr: LPC/Booster Pressure Ratio.
+            tit: Turbine Inlet Temperature [K].
+            eta_fan: Fan polytropic efficiency.
+            eta_lpc: LPC polytropic efficiency.
+            eta_hpc: HPC polytropic efficiency.
+            eta_hpt: HPT polytropic efficiency.
+            eta_lpt: LPT polytropic efficiency.
+            eta_mech_hp: HP spool mechanical efficiency.
+            eta_mech_lp: LP spool mechanical efficiency.
+            h_fuel: Fuel Lower Heating Value [J/kg].
+
+        Returns:
+            dict: Placeholder (stub). Will return full station data and performance metrics.
+
+        Raises:
+            NotImplementedError: Always, until Sprint 5 implementation.
+        """
+        # TODO (Sprint 5): Implement full iterative work-matching loop.
+        raise NotImplementedError(
+            "solve_multispool() is a Sprint 5 deliverable. "
+            "Use solve_turbofan() with lpc_pr parameter for interim analysis."
+        )

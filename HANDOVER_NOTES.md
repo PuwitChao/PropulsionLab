@@ -1,40 +1,55 @@
+# 📑 SESSION HANDOVER NOTES (v2.2.0-dev)
 
-# 📑 SESSION HANDOVER NOTES (v2.0.1-STABLE)
+## 🎯 Current Status: SPRINT 4 IN PROGRESS
 
-## 🎯 Current Status: OPERATIONAL
-The Propulsion Analysis Suite has been fully audited and stabilized. All core thermodynamic solvers are now correctly mapped to the frontend, and the port bind conflicts on Windows have been resolved with a dedicated maintenance script.
-
----
-
-### ✅ ACHIEVEMENTS (This Session)
-1. **Frontend Nomenclature Standardized**: 
-   - Replaced all technical shorthand (e.g., `SFC`, `CD0`, `OF_RATIO`) with professional aerospace terminology.
-   - Refined headers to match a premium "Design Suite" aesthetic.
-2. **Key Mapping Fixes**:
-   - Standardized backend keys for Specific Fuel Consumption (`tsfc`) and Specific Thrust (`spec_thrust`) to resolve `NaN` errors seen in the Cycle charts.
-   - Integrated `mach_exit` into the `RocketAnalyzer` response to enable accurate Nozzle MoC visualizations.
-3. **Connectivity & Stability**:
-   - Implemented `kill_port_8000.py` to handle Windows socket reuse errors ([Errno 10048]).
-   - Replaced `localhost` with `127.0.0.1` in the API configuration for consistent cross-origin performance.
-4. **Full 6-Point Audit**:
-   - Verified Turbojet SLS, Turbofan Cruise, RP1/O2 Shifting Equilibrium, MoC Mesh Gen, Compressor Maps, and Mission Constraints.
+v2.2.0-dev backend is operational. New sensitivity sweep and nozzle CSV export endpoints are live. Frontend wiring for the new endpoints is pending.
 
 ---
 
-### 📂 SYSTEM ARCHITECTURE (DETAILED)
-- **`backend/main.py`**: FastAPi server with high-fidelity endpoints for equilibrium and off-design analysis.
-- **`core/gas_turbine/`**: High-fidelity cycle solvers using real-gas properties from Cantera.
-- **`core/rocket/`**: Equilibrium chemistry (shifting/frozen) and Method of Characteristics (MoC) geometry engine.
-- **`frontend/`**: Vite/React application with Plotly.js for premium aerospace visualizations and dynamic design controls.
+### ✅ ACHIEVEMENTS (Sprint 4: CAD Exports & Sensitivity Sweeps)
+
+1. **Nozzle CSV Export** (Cleanup from Sprint 3.5):
+   - Added `POST /analyze/rocket/export/csv` — returns nozzle (X, R) contour as downloadable CSV.
+   - Verified alongside existing STL export; both serve correctly in isolation.
+
+2. **Sensitivity Sweep Engine**:
+   - Added `POST /analyze/cycle/sensitivity` — single-parameter sweep over T4, altitude, or OPR.
+   - Returns structured `{sweep_type, sweep_label, fixed_params, data[]}` for direct Plotly consumption.
+
+3. **Multi-Spool Groundwork**:
+   - Added `MultispoolRequest` Pydantic model and `POST /analyze/cycle/multispool` stub (returns HTTP 501).
+   - Added `CycleAnalyzer.solve_multispool()` stub in `core/gas_turbine/cycle.py` with exhaustive algorithm docstring (LP/HP work balancing, 8-step iteration plan).
+
+4. **Testing**:
+   - Added 2 new tests to `tests/test_core.py`: `test_moc_contour_csv_format`, `test_moc_contour_monotonic`.
+   - Full regression: **4/4 PASSED**.
+
+5. **Versioning & Docs**:
+   - Bumped to `v2.2.0-dev`. Updated `CHANGELOG.md`.
+
+---
+
+### 📂 SYSTEM ARCHITECTURE (UPDATED)
+
+- **`backend/main.py`**: FastAPI server — now includes CSV export, sensitivity sweep, and multispool stub.
+- **`core/gas_turbine/cycle.py`**: Turbojet, turbofan, + `solve_multispool()` stub.
+- **`core/rocket/analyzer.py`**: Chemical equilibrium solver (unchanged).
+- **`core/rocket/moc.py`**: MoC nozzle — `solve_contour()`, `generate_stl_mesh()`.
+- **`tools/`**: Internal analytics and audit suites.
+- **`scripts/`**: Operational utilities (`run_platform.bat`).
+- **`tests/`**: Unit test suite — 4 tests, all passing.
+- **`frontend/`**: Vite/React aerospace workspace — **export buttons and sensitivity chart pending**.
 
 ---
 
 ### 🚀 NEXT SESSION OBJECTIVES (TODO)
-- **Automatic Port Sweep**: Integrate the `kill_port` script directly into the `backend/main.py` entry point to avoid manual maintenance.
-- **Multi-Spool Turbofan Extension**: Expand the `CycleAnalyzer` to support the low-pressure/high-pressure work matching logic for military turbofans.
-- **CAD Export Suite**: Add more robust STL/STEP export options for the nozzle contours using a dedicated tessellation library.
+
+- **Frontend Export Buttons**: Wire "Export CSV" + "Export STL" in the Nozzle/MoC panel (fetch → Blob → download).
+- **Sensitivity Chart Panel**: Add "Sensitivity" sub-tab to Gas Turbine with Plotly curve from `/analyze/cycle/sensitivity`.
+- **Multi-Spool Implementation** (Sprint 5): Fill in `solve_multispool()` — LPC/HPC iterative work matching, N1/N2 coupling.
 
 ---
 
-**Last Verified Audit: 2026-03-22 00:54+07:00**
+**Last Verified Audit: 2026-03-27 22:47+07:00**
 **Audit Result: [PASS]**
+**Regression Status: [4/4 PASSED]**

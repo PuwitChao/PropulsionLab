@@ -95,6 +95,34 @@ export default function ParametricCycle() {
   })
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [sensParams, setSensParams] = useState({
+    sweep_type: 't4', alt: 10000, mach: 0.8, prc: 25, tit: 1600,
+    sweep_min: 1000, sweep_max: 2200, steps: 30
+  })
+  const [sensData, setSensData] = useState(null)
+  const [sensLoading, setSensLoading] = useState(false)
+
+  const runSensitivity = useCallback(async () => {
+    setSensLoading(true)
+    setSensData(null)
+    try {
+      const data = await fetchData('/analyze/cycle/sensitivity', {
+        method: 'POST',
+        body: JSON.stringify(sensParams)
+      })
+      setSensData(data)
+    } catch (e) {
+      console.error('Sensitivity sweep error:', e)
+    }
+    setSensLoading(false)
+  }, [sensParams])
+
+  useEffect(() => {
+    if (activeEngine === 'sensitivity') {
+      const t = setTimeout(runSensitivity, 400)
+      return () => clearTimeout(t)
+    }
+  }, [sensParams, activeEngine, runSensitivity])
 
   const runAnalysis = useCallback(async () => {
     setLoading(true)
@@ -114,6 +142,7 @@ export default function ParametricCycle() {
   }, [p, activeEngine])
 
   useEffect(() => {
+    if (activeEngine === 'sensitivity') return
     setResult(null); // Clear stale data when switching engine types
     const t = setTimeout(runAnalysis, 300)
     return () => clearTimeout(t)
@@ -163,18 +192,19 @@ export default function ParametricCycle() {
       {/* Platform Controls */}
       <div className="flex items-center justify-between border-b border-white/10 pb-6">
         <div className="flex gap-12 items-center">
-            {['turbojet', 'turbofan', 'mixed_flow'].map(mode => (
+            {['turbojet', 'turbofan', 'mixed_flow', 'sensitivity'].map(mode => (
                 <button 
                     key={mode} onClick={() => setActiveEngine(mode)}
                     className={`text-[12px] tracking-[0.3em] uppercase transition-all pb-3 ${activeEngine === mode ? 'text-white border-b border-white font-black' : 'text-white/30 font-bold hover:text-white'}`}
                 >
-                    {mode.replace('_', ' ').toUpperCase()}
+                    {mode === 'sensitivity' ? '⚡ SENSITIVITY' : mode.replace('_', ' ').toUpperCase()}
                 </button>
             ))}
         </div>
-        <div className="status-badge">KERN_ID: {activeEngine.toUpperCase()} // {loading ? 'EXECUTING' : 'READY'}</div>
+        <div className="status-badge">KERN_ID: {activeEngine.toUpperCase()} // {(loading || sensLoading) ? 'EXECUTING' : 'READY'}</div>
       </div>
 
+      {activeEngine !== 'sensitivity' && (
       <div className="grid grid-cols-12 gap-12">
         {/* Left Col: Params */}
         <section className="col-span-12 lg:col-span-3 space-y-12">
@@ -242,9 +272,9 @@ export default function ParametricCycle() {
                         <p className="mono text-[11px] text-white/30 uppercase tracking-widest underline decoration-white/20">SYSTEM_ID: {activeEngine.toUpperCase()}_EXPLORER</p>
                     </div>
                     <div className="flex gap-16">
-                        <StatPanel label="SPECIFIC THRUST" value={(result?.spec_thrust_installed || result?.spec_thrust)?.toFixed(1) || '0.0'} unit="Ns/kg" sub="NET_INSTALLED" />
+                        <StatPanel label="SPECIFIC THRUST" value={(result?.spec_thrust_installed || result?.spec_thrust)?.toFixed(1) || '0.0'} unit="Ns/kg" sub="NET_AIR_FORCE" />
                         <StatPanel label="THERMAL EFFICIENCY" value={(result?.eta_thermal * 100)?.toFixed(1) || '0.0'} unit="%" sub="CYCLE_TOTAL" />
-                        <StatPanel label="SFC" value={(result?.tsfc * 1e6)?.toFixed(2) || '0.00'} unit="mg/Ns" sub="SPECIFIC_FUEL_CONS" />
+                        <StatPanel label="SPECIFIC FUEL CONSUMPTION" value={(result?.tsfc * 1e6)?.toFixed(2) || '0.00'} unit="mg/Ns" sub="FUEL_EFFICIENCY_METRIC" />
                     </div>
                 </div>
 
@@ -353,6 +383,135 @@ export default function ParametricCycle() {
             </div>
         </section>
       </div>
+      )}
+
+      {/* ── Sensitivity Mode Panel ── */}
+      {activeEngine === 'sensitivity' && (
+        <div className="grid grid-cols-12 gap-12 animate-in">
+          {/* Left: Sweep Controls */}
+          <section className="col-span-12 lg:col-span-3 space-y-12">
+            <div className="bg-surface-container-low border border-white/10 p-12 space-y-12">
+              <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-6">SWEEP_CONFIG</h2>
+              <div className="space-y-8">
+                <div className="space-y-4">
+                  <label className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40">Sweep Parameter</label>
+                  <div className="flex flex-col gap-2">
+                    {[['t4', 'TIT — Turbine Inlet Temp'], ['alt', 'Altitude'], ['opr', 'Overall Pressure Ratio']].map(([val, lab]) => (
+                      <button
+                        key={val}
+                        onClick={() => setSensParams(s => ({...s, sweep_type: val,
+                          sweep_min: val==='t4' ? 1000 : val==='alt' ? 0 : 5,
+                          sweep_max: val==='t4' ? 2200 : val==='alt' ? 15000 : 60
+                        }))}
+                        className={`text-left py-4 px-8 border text-[11px] mono tracking-widest uppercase transition-all ${
+                          sensParams.sweep_type === val
+                            ? 'border-white bg-white/10 text-white font-black'
+                            : 'border-white/10 text-white/40 hover:border-white/30'
+                        }`}
+                      >{lab}</button>
+                    ))}
+                  </div>
+                </div>
+                <SliderControl label="Fixed: Alt" value={sensParams.alt} min={0} max={15000} unit="m" onChange={v => setSensParams(s => ({...s, alt: v}))} />
+                <SliderControl label="Fixed: Mach" value={sensParams.mach.toFixed(2)} min={0} max={2.5} unit="M" onChange={v => setSensParams(s => ({...s, mach: v}))} />
+                <SliderControl label="Fixed: OPR" value={sensParams.prc} min={2} max={60} unit="" onChange={v => setSensParams(s => ({...s, prc: v}))} />
+                <SliderControl label="Fixed: TIT" value={sensParams.tit} min={1000} max={2500} unit="K" onChange={v => setSensParams(s => ({...s, tit: v}))} />
+              </div>
+            </div>
+            <button
+              onClick={runSensitivity}
+              className="w-full bg-white text-black py-5 font-black text-[13px] tracking-[0.3em] uppercase hover:bg-white/90 transition-all font-headline flex items-center justify-center gap-4"
+            >
+              <span className="material-symbols-outlined !text-[20px]">stacked_line_chart</span>
+              {sensLoading ? 'COMPUTING...' : 'RUN_SWEEP'}
+            </button>
+          </section>
+
+          {/* Right: Chart */}
+          <section className="col-span-12 lg:col-span-9 flex flex-col gap-12">
+            <div className="h-[650px] bg-surface-container-lowest border border-white/10 relative overflow-hidden group">
+              <div className="panel-accent"></div>
+              <div className="absolute top-12 left-12 z-20 space-y-3 pointer-events-none">
+                <h2 className="text-[14px] font-black tracking-[0.3em] text-white">PARAMETRIC_SENSITIVITY_CURVE</h2>
+                <p className="mono text-[11px] text-white/30 uppercase tracking-widest">
+                  {sensData ? `SWEEP: ${sensData.sweep_label} // POINTS: ${sensData.data?.length}` : 'Awaiting Sweep Execution...'}
+                </p>
+              </div>
+              <div className="w-full h-full pt-16">
+                {sensData && sensData.data?.length > 0 ? (
+                  <Plot
+                    data={[
+                      {
+                        x: sensData.data.map(d => d.sweep_value),
+                        y: sensData.data.map(d => d.spec_thrust),
+                        name: 'SPEC_THRUST',
+                        type: 'scatter', mode: 'lines+markers',
+                        line: { color: '#ffffff', width: 2 },
+                        marker: { size: 6, color: '#fff' },
+                        yaxis: 'y1',
+                        hovertemplate: `${sensData.sweep_label}: %{x}<br>Spec Thrust: %{y:.2f} Ns/kg<extra></extra>`
+                      },
+                      {
+                        x: sensData.data.map(d => d.sweep_value),
+                        y: sensData.data.map(d => d.tsfc * 1e6),
+                        name: 'TSFC [mg/Ns]',
+                        type: 'scatter', mode: 'lines+markers',
+                        line: { color: 'rgba(255,255,255,0.35)', width: 2, dash: 'dot' },
+                        marker: { size: 5, color: 'rgba(255,255,255,0.4)' },
+                        yaxis: 'y2',
+                        hovertemplate: `${sensData.sweep_label}: %{x}<br>TSFC: %{y:.3f} mg/Ns<extra></extra>`
+                      },
+                      {
+                        x: sensData.data.map(d => d.sweep_value),
+                        y: sensData.data.map(d => d.eta_thermal * 100),
+                        name: 'η_THERMAL [%]',
+                        type: 'scatter', mode: 'lines',
+                        line: { color: 'rgba(255,255,255,0.15)', width: 1.5, dash: 'longdash' },
+                        yaxis: 'y1',
+                        hovertemplate: `${sensData.sweep_label}: %{x}<br>η_th: %{y:.1f}%<extra></extra>`
+                      }
+                    ]}
+                    layout={{
+                      plot_bgcolor: 'transparent',
+                      paper_bgcolor: 'transparent',
+                      autosize: true,
+                      margin: { t: 60, b: 60, l: 70, r: 70 },
+                      showlegend: true,
+                      legend: { font: { family: 'JetBrains Mono', size: 10, color: 'white' }, x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0.3)' },
+                      xaxis: {
+                        title: { text: sensData.sweep_label, font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } },
+                        gridcolor: 'rgba(255,255,255,0.04)',
+                        tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' },
+                      },
+                      yaxis: {
+                        title: { text: 'Spec Thrust / η_th [Ns/kg | %]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } },
+                        gridcolor: 'rgba(255,255,255,0.04)',
+                        tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' },
+                        side: 'left'
+                      },
+                      yaxis2: {
+                        title: { text: 'TSFC [mg/Ns]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.2)' } },
+                        overlaying: 'y', side: 'right',
+                        tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.2)' },
+                        showgrid: false
+                      },
+                      font: { family: 'Inter', color: '#fff' }
+                    }}
+                    className="w-full h-full"
+                    config={{ displayModeBar: false, responsive: true }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-white/10 uppercase tracking-[0.5em] text-[14px] font-black animate-pulse">
+                      {sensLoading ? 'Computing_Sensitivity_Sweep...' : 'Select_Parameters_And_Run_Sweep'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }

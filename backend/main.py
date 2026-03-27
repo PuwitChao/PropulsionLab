@@ -16,9 +16,11 @@ POST /analyze/offdesign/throttle — throttle sweep at fixed ambient/Mach
 
 POST /analyze/rocket            — chemical equilibrium rocket analysis
 POST /analyze/rocket/sweep      — OF ratio sweep
-POST /analyze/rocket/moc        — Method of Characteristics nozzle contour
-POST /analyze/rocket/altitude   — altitude Isp/Cf performance table
-Propulsion Analysis Suite — Backend API (v2.0.1-STABLE)
+POST /analyze/rocket/moc           — Method of Characteristics nozzle contour
+POST /analyze/rocket/altitude      — altitude Isp/Cf performance table
+POST /analyze/rocket/export/csv    — Nozzle contour coordinates as CSV
+POST /analyze/cycle/sensitivity    — Multi-parameter sensitivity sweep (T4/Alt/OPR)
+Propulsion Analysis Suite — Backend API (v2.2.0-dev)
 
 System architect for high-fidelity gas turbine cycle analysis, rocket equilibriumCEA,
 and mission performance synthesis.
@@ -30,6 +32,15 @@ import os, sys
 from typing import List, Dict, Any, Optional
 import math
 from datetime import datetime
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger("propulsion-api")
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -38,17 +49,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # Local analytical modules
-from core.gas_turbine.aero import isa_atmosphere
+from core.units import isa_atmosphere
 from core.gas_turbine.cycle import CycleAnalyzer
 from core.gas_turbine.off_design import OffDesignSolver
 from core.rocket.analyzer import RocketAnalyzer
 from core.rocket.moc import MoCNozzle
-from core.mission.mission import MissionAnalyzer
+from core.gas_turbine.mission import MissionAnalyzer
 
 app = FastAPI(
     title="Propulsion Architecture API",
     description="High-fidelity aerospace solver core for gas turbines and rockets.",
-    version="2.0.1"
+    version="2.2.0"
 )
 
 # ── Security & Policy ────────────────────────────────────────────────────────
@@ -68,12 +79,21 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     """Returns the API status and versioning."""
-    return {"message": "Propulsion Analysis API v2.0.1 is running"}
+    return {"message": "Propulsion Analysis API v2.1.0 is running"}
+
+@app.get("/version")
+def get_version():
+    """Returns the structured version info."""
+    return {
+        "version": "2.2.0-dev",
+        "build_date": "2026-03-27",
+        "status": "operational"
+    }
 
 @app.get("/health")
 def health_check():
     """System health audit endpoint for frontend status badges."""
-    return {"status": "healthy", "version": "2.0.1", "timestamp": datetime.now().isoformat()}
+    return {"status": "healthy", "version": "2.2.0", "timestamp": datetime.now().isoformat()}
 
 @app.get("/health/diagnostics")
 def get_diagnostics():
@@ -83,7 +103,7 @@ def get_diagnostics():
     """
     return {
         "status": "operational",
-        "version": "2.0.1-BETA",
+        "version": "2.1.0",
         "components": {
             "gas_turbine_core": "active",
             "rocket_cea_engine": "active",
@@ -146,6 +166,8 @@ class CycleRequest(BaseModel):
     nozzle_dp_frac:  float = Field(0.02,  ge=0.0,  le=0.10)
     phi_inlet:       float = Field(0.0,   ge=0.0,  le=0.10)
     eta_install_nozzle: float = Field(1.0, ge=0.8, le=1.0)
+    eta_mech_hp: float = Field(0.99, ge=0.9, le=1.0)
+    eta_mech_lp: float = Field(0.99, ge=0.9, le=1.0)
 
 @app.post("/analyze/cycle")
 async def analyze_cycle(request: CycleRequest):
@@ -167,6 +189,8 @@ async def analyze_cycle(request: CycleRequest):
             nozzle_dp_frac=request.nozzle_dp_frac,
             phi_inlet=request.phi_inlet,
             eta_install_nozzle=request.eta_install_nozzle,
+            eta_mech_hp=request.eta_mech_hp,
+            eta_mech_lp=request.eta_mech_lp,
         )
         return result
     except Exception as e:
@@ -181,6 +205,7 @@ class TurbofanRequest(CycleRequest):
     fpr:      float = Field(..., ge=1.1, le=4.0,  description="Fan Pressure Ratio")
     eta_fan: float = Field(0.90, ge=0.6, le=0.97) # Renamed from eta_f to eta_fan to match original
     mixed_exhaust: bool = False # Renamed from mixed to mixed_exhaust to match original
+    lpc_pr:   float = Field(1.0, ge=1.0, le=5.0)  # LPC/Booster PR
 
 @app.post("/analyze/cycle/turbofan")
 async def analyze_turbofan(request: TurbofanRequest):
@@ -202,6 +227,9 @@ async def analyze_turbofan(request: TurbofanRequest):
             phi_inlet=request.phi_inlet,
             eta_install_nozzle=request.eta_install_nozzle,
             mixed_exhaust=request.mixed_exhaust,
+            eta_mech_hp=request.eta_mech_hp,
+            eta_mech_lp=request.eta_mech_lp,
+            lpc_pr=request.lpc_pr,
         )
         return result
     except Exception as e:
@@ -349,7 +377,10 @@ async def analyze_rocket(request: RocketRequest):
         )
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        v_err = f"BACKEND_ERROR: {str(e)}\n{traceback.format_exc()}"
+        logger.error(v_err)
+        raise HTTPException(status_code=500, detail=f"Computational Kernel Error: {str(e)}")
 
 
 @app.post("/analyze/rocket/sweep")
@@ -496,6 +527,169 @@ async def export_rocket_stl(request: MoCRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/analyze/rocket/export/csv")
+async def export_rocket_csv(request: MoCRequest):
+    """
+    Exports the MoC nozzle wall contour as a CSV file.
+    Returns (X [m], R [m]) coordinate pairs for CFD meshing or CAD import.
+    """
+    try:
+        from fastapi.responses import PlainTextResponse
+        designer = MoCNozzle(request.gamma, request.mach_exit, request.throat_radius)
+        x_vals, y_vals = designer.solve_contour()
+
+        lines = ["X_m,R_m"]
+        for x, r in zip(x_vals, y_vals):
+            lines.append(f"{x:.8f},{r:.8f}")
+        csv_content = "\n".join(lines)
+
+        logger.info(
+            f"CSV export: gamma={request.gamma}, Me={request.mach_exit}, "
+            f"Rt={request.throat_radius}, points={len(x_vals)}"
+        )
+        return PlainTextResponse(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=nozzle_contour.csv"}
+        )
+    except Exception as e:
+        logger.error(f"CSV export error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Gas Turbine — Sensitivity Sweeps
+# ════════════════════════════════════════════════════════════════════════════
+
+class SensitivityRequest(BaseModel):
+    """
+    Multi-parameter sensitivity sweep for gas turbine cycle analysis.
+    Sweeps one parameter (T4, altitude, or OPR) while holding others fixed.
+    """
+    sweep_type: str   = Field("t4", description="'t4', 'alt', or 'opr'")
+    alt:        float = Field(10000.0, ge=0,   le=50000)
+    mach:       float = Field(0.8,     ge=0,   le=4.0)
+    prc:        float = Field(20.0,    ge=1.1, le=80.0)
+    tit:        float = Field(1600.0,  ge=300, le=2500)
+    # Sweep bounds
+    sweep_min:  float = Field(800.0)
+    sweep_max:  float = Field(2200.0)
+    steps:      int   = Field(20, ge=5, le=60)
+
+
+@app.post("/analyze/cycle/sensitivity")
+async def analyze_cycle_sensitivity(request: SensitivityRequest):
+    """
+    Executes a single-parameter sensitivity sweep across a turbojet cycle.
+    Supports sweeps of Turbine Inlet Temperature (T4), altitude, or OPR.
+    Returns a performance curve suitable for Plotly visualizations.
+    """
+    try:
+        results = []
+        sweep_values = [
+            request.sweep_min + i * (request.sweep_max - request.sweep_min) / request.steps
+            for i in range(request.steps + 1)
+        ]
+
+        for val in sweep_values:
+            # Resolve operating point for this sweep step
+            alt  = val  if request.sweep_type == "alt" else request.alt
+            tit  = val  if request.sweep_type == "t4"  else request.tit
+            prc  = val  if request.sweep_type == "opr" else request.prc
+            mach = request.mach
+
+            try:
+                p0, t0, _ = isa_atmosphere(alt)
+                ca = CycleAnalyzer(p0, t0, mach)
+                res = ca.solve_turbojet(prc=prc, tit=tit)
+                results.append({
+                    "sweep_value"  : round(val, 2),
+                    "spec_thrust"  : round(res["spec_thrust"],  4),
+                    "tsfc"         : round(res["tsfc"],         6),
+                    "eta_thermal"  : round(res.get("eta_thermal", 0),  4),
+                    "eta_overall"  : round(res.get("eta_overall", 0),  4),
+                    "eta_propulsive": round(res.get("eta_propulsive", 0), 4),
+                })
+            except Exception:
+                # Skip failed points without aborting the sweep
+                pass
+
+        return {
+            "sweep_type"   : request.sweep_type,
+            "sweep_label"  : {"t4": "TIT [K]", "alt": "Altitude [m]", "opr": "OPR [-]"}[request.sweep_type],
+            "fixed_params" : {"alt": request.alt, "mach": request.mach, "prc": request.prc, "tit": request.tit},
+            "data"         : results,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Gas Turbine — Multi-Spool (Stub / Groundwork)
+# ════════════════════════════════════════════════════════════════════════════
+
+class MultispoolRequest(BaseModel):
+    """
+    [STUB] Request model for high-fidelity multi-spool turbofan work matching.
+    Intended for military turbofan architectures with LPC/HPC work balancing.
+
+    TODO (Sprint 5):
+      - Implement LPC/HPC work matching via iterative N1/N2 spool speed coupling.
+      - Add HPT/LPT expansion split control.
+      - Support cooling flow insertion between HPT stages.
+    """
+    alt:    float = Field(0.0,    ge=0,   le=30000)
+    mach:   float = Field(0.0,   ge=0,   le=3.0)
+    opr:    float = Field(32.0,  ge=5,   le=80.0)
+    bpr:    float = Field(0.3,   ge=0,   le=12.0)
+    fpr:    float = Field(3.5,   ge=1.1, le=6.0)
+    lpc_pr: float = Field(4.0,   ge=1.0, le=10.0)
+    tit:    float = Field(1850.0, ge=800, le=2500)
+
+
+@app.post("/analyze/cycle/multispool")
+async def analyze_multispool(request: MultispoolRequest):
+    """
+    [STUB] Multi-spool high-fidelity turbofan cycle solver.
+    Currently routes to the standard turbofan solver as a placeholder.
+    Full LPC/HPC work-matching logic is scheduled for Sprint 5.
+    """
+    # TODO (Sprint 5): Replace with dedicated work-matching solver.
+    raise HTTPException(
+        status_code=501,
+        detail="Multi-spool work matching is scheduled for Sprint 5. Use /analyze/cycle/turbofan for now."
+    )
+
+
+
+def kill_port(port: int):
+    """Terminates processes occupying the target port (Windows specific)."""
+    import subprocess
+    if os.name != 'nt':
+        return
+    try:
+        # Get PIDs using netstat
+        cmd = f'netstat -ano | findstr :{port}'
+        result = subprocess.check_output(cmd, shell=True).decode()
+        if not result.strip():
+            return
+            
+        pids = {line.split()[-1] for line in result.strip().split('\n') if len(line.split()) > 4}
+        for pid in pids:
+            # Only kill if it's a valid integer PID
+            if pid.isdigit():
+                subprocess.run(f"taskkill /F /PID {pid}", shell=True, capture_output=True)
+    except subprocess.CalledProcessError:
+        # findstr returns 1 if no matches found, which is fine
+        pass
+    except Exception as e:
+        logger.warning(f"Failed to clear port {port}: {e}")
+
 if __name__ == "__main__":
     import uvicorn
+    # Clear port 8000 before startup to avoid [Errno 10048]
+    if os.name == 'nt':
+        kill_port(8000)
+    
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

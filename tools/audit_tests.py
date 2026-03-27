@@ -3,7 +3,7 @@ import requests
 import json
 import numpy as np
 
-BASE_URL = "http://localhost:8001"
+BASE_URL = "http://localhost:8000"
 
 def test_health():
     print("Testing Health Check...")
@@ -33,19 +33,19 @@ def test_turbojet():
     if r.status_code != 200:
         raise Exception(f"Turbojet failed: {r.text}")
     data = r.json()
-    print(f"  [OK] Spec Thrust: {data['spec_thrust_installed']:.1f}")
+    print(f"  [OK] Spec Thrust: {data['spec_thrust']:.1f}")
 
 def test_turbofan():
     print("Testing Turbofan Cycle (Mixed Exhaust)...")
     payload = {
-        "alt": 11000, "mach": 0.8, "bpr": 6.0, "fpr": 1.6, "opr": 35, "tit": 1650,
+        "alt": 11000, "mach": 0.8, "bpr": 6.0, "fpr": 1.6, "prc": 35, "tit": 1650,
         "mixed_exhaust": True, "ab_enabled": False
     }
     r = requests.post(f"{BASE_URL}/analyze/cycle/turbofan", json=payload)
     if r.status_code != 200:
         raise Exception(f"Turbofan failed: {r.text}")
     data = r.json()
-    print(f"  [OK] Mixed Turbofan Solved (ST: {data['spec_thrust_installed']:.1f})")
+    print(f"  [OK] Mixed Turbofan Solved (ST: {data['spec_thrust']:.1f})")
 
 def test_rocket_moc():
     print("Testing Rocket MoC & STL...")

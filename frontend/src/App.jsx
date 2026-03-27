@@ -21,13 +21,31 @@ const navItems = [
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [backendStatus, setBackendStatus] = useState('CHECKING')
-  const [uptime, setUptime] = useState('000.0H')
+  const [sessionDuration, setSessionDuration] = useState('00:00:00')
   const [time, setTime] = useState(new Date().toLocaleTimeString('en-GB', { hour12: false }))
 
+  // Record session start in sessionStorage on first load
+  const sessionStart = React.useRef(() => {
+    const stored = sessionStorage.getItem('session_start')
+    if (!stored) {
+      const now = Date.now().toString()
+      sessionStorage.setItem('session_start', now)
+      return parseInt(now)
+    }
+    return parseInt(stored)
+  })()
+
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date().toLocaleTimeString('en-GB', { hour12: false })), 1000)
+    const timer = setInterval(() => {
+      setTime(new Date().toLocaleTimeString('en-GB', { hour12: false }))
+      const elapsed = Math.floor((Date.now() - sessionStart) / 1000)
+      const h = String(Math.floor(elapsed / 3600)).padStart(2, '0')
+      const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0')
+      const s = String(elapsed % 60).padStart(2, '0')
+      setSessionDuration(`${h}:${m}:${s}`)
+    }, 1000)
     return () => clearInterval(timer)
-  }, [])
+  }, [sessionStart])
 
   useEffect(() => {
     const checkHealth = async () => {
@@ -40,7 +58,6 @@ function App() {
       }
     }
     checkHealth()
-    setUptime('142.8H')
     const interval = setInterval(checkHealth, 30000)
     return () => clearInterval(interval)
   }, [])
@@ -94,12 +111,8 @@ function App() {
         <div className="px-12 py-10 border-t border-white/10">
           <div className="space-y-5">
              <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-white/20">Uptime</span>
-                <span className="font-mono text-[11px] text-white/60">{uptime}</span>
-             </div>
-             <div className="flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-white/20">Session</span>
-                <span className="font-mono text-[11px] text-white/60">04:22:15</span>
+                <span className="font-mono text-[11px] text-white/60">{sessionDuration}</span>
              </div>
           </div>
         </div>
@@ -228,11 +241,11 @@ function Dashboard({ status, onNavigate }) {
             <div className="space-y-8">
                 <h4 className="text-[11px] font-black text-white/20 tracking-[0.3em] mb-6">DOCUMENTATION</h4>
                 <div className="flex flex-col gap-4">
-                    <a href="/DOCUMENTATION.md" target="_blank" className="text-[12px] font-mono text-white/60 hover:text-white transition-all flex items-center gap-3">
-                        <div className="w-1.5 h-1.5 bg-white/20"></div> USER_GUIDE_V2.PDF
+                    <a href="https://github.com/PuwitChao/PropulsionLab/blob/main/DOCUMENTATION.md" target="_blank" rel="noreferrer" className="text-[12px] font-mono text-white/60 hover:text-white transition-all flex items-center gap-3">
+                        <div className="w-1.5 h-1.5 bg-white/20"></div> USER_GUIDE.MD
                     </a>
-                    <a href="/API_SPEC.md" target="_blank" className="text-[12px] font-mono text-white/60 hover:text-white transition-all flex items-center gap-3">
-                         <div className="w-1.5 h-1.5 bg-white/20"></div> API_REFERENCE.JSON
+                    <a href="https://github.com/PuwitChao/PropulsionLab/blob/main/ARCHITECTURE_WIKI.md" target="_blank" rel="noreferrer" className="text-[12px] font-mono text-white/60 hover:text-white transition-all flex items-center gap-3">
+                         <div className="w-1.5 h-1.5 bg-white/20"></div> ARCHITECTURE_WIKI.MD
                     </a>
                 </div>
             </div>

@@ -12,6 +12,7 @@ Key Capabilities:
 """
 
 import math
+from typing import Any, Optional
 import cantera as ct
 from ..units import G
 
@@ -29,15 +30,16 @@ class RocketAnalyzer:
     and provides a Bartz model for convective heat transfer distribution along the nozzle wall.
     """
 
-    def __init__(self, chamber_p_pa: float):
+    def __init__(self, chamber_p_pa: float) -> None:
         """
-        Initialize with design chamber pressure.
-        
-        Parameters:
-            chamber_p_pa: Combustion chamber stagnation pressure [Pa]
+        Initialize the analyzer with design chamber pressure.
+
+        Args:
+            chamber_p_pa: Combustion chamber stagnation pressure [Pa].
         """
         # Load the chemical mechanism. GRI30 provides excellent coverage for CH4, H2, and RP1 surrogates.
-        self.gas  = ct.Solution('gri30.yaml')
+        # Note: transport_model='mixture-averaged' is required for viscosity/thermal_conductivity
+        self.gas  = ct.Solution('gri30.yaml', transport_model='mixture-averaged')
         self.pc   = chamber_p_pa
         self.propellants = {
             # Rocket Standard Liquid Propellants
@@ -57,6 +59,10 @@ class RocketAnalyzer:
             # Nitrous Oxide based (Hybrid/Small)
             'CH4/N2O'     : {'fuel': 'CH4',     'ox': 'N2O',    'stoich': 11.0},
             'C3H8/N2O'    : {'fuel': 'C3H8',    'ox': 'N2O',    'stoich': 9.98},
+            
+            # Hypergolic (Storable)
+            'UDMH/N2O4'    : {'fuel': 'C2H8N2',  'ox': 'N2O4',   'stoich': 2.61},
+            'MMH/N2O4'     : {'fuel': 'CH6N2',   'ox': 'N2O4',   'stoich': 1.64},
         }
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -73,22 +79,29 @@ class RocketAnalyzer:
         cp_chamber: float,
         cond_chamber: float,
         c_star: float,
-        r_curvature_throat: float = None,
-    ) -> dict:
+        r_curvature_throat: Optional[float] = None,
+    ) -> dict[str, Any]:
         """
         Bartz (1957) convective heat transfer coefficient along nozzle axis.
 
-        Evaluates at the throat and along the divergent section.
+        Evaluates at the throat and along the divergent section using the 
+        standard Bartz correlation for rocket nozzles.
 
-        Parameters
-        ----------
-        stations_n         : number of axial stations to evaluate
-        r_throat           : throat radius [m]
-        r_curvature_throat : wall curvature radius at throat (default 1.5*r_throat)
+        Args:
+            stations_n: Number of axial stations to evaluate.
+            r_throat: Throat radius [m].
+            gamma: Specific heat ratio at chamber/throat.
+            mw: Mean molecular weight [kg/kmol].
+            t_chamber: Chamber stagnation temperature [K].
+            visc_chamber: Gas viscosity at chamber [Pa-s].
+            cp_chamber: Specific heat at constant pressure [J/kg/K].
+            cond_chamber: Thermal conductivity [W/m/K].
+            c_star: Characteristic velocity [m/s].
+            r_curvature_throat: Wall curvature radius at throat [m]. 
+                Defaults to 1.5 * r_throat.
 
-        Returns
-        -------
-        dict with lists: x, area_ratio, q_flux_max [W/m²], h_gas [W/m²/K]
+        Returns:
+            dict: Lists of axial stations, area ratios, heat fluxes [MW/m²], and h_gas values.
         """
         if r_curvature_throat is None:
             r_curvature_throat = 1.5 * r_throat
@@ -163,18 +176,27 @@ class RocketAnalyzer:
         p_exit_pa: float = 101325,
         mode: str = 'shifting',
         exit_half_angle_deg: float = 15.0,
-        thrust_target_N: float = None,
+        thrust_target_N: Optional[float] = None,
         compute_heat_transfer: bool = True,
-        impurity_species: str = None,
+        impurity_species: Optional[str] = None,
         impurity_mass_frac: float = 0.0,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
-        Solve chamber equilibrium and nozzle expansion.
+        Solves chamber equilibrium and nozzle expansion.
 
-        Parameters
-        ----------
-        thrust_target_N      : if provided, sizes At/Ae/mdot for this thrust [N]
-        compute_heat_transfer : enables Bartz heat flux calculation
+        Args:
+            propellant_name: Key from self.propellants (e.g., 'H2/O2').
+            of_ratio: Oxidizer-to-fuel mass ratio.
+            p_exit_pa: Ambient exit pressure [Pa]. Defaults to 101325.
+            mode: 'shifting' or 'frozen' equilibrium. Defaults to 'shifting'.
+            exit_half_angle_deg: Nozzle exit half-angle. Defaults to 15.0.
+            thrust_target_N: Optional vacuum thrust target for engine sizing [N].
+            compute_heat_transfer: Enables Bartz heat flux calculation. Defaults to True.
+            impurity_species: Optional species present in fuel (e.g., 'N2').
+            impurity_mass_frac: Mass fraction of impurity in fuel.
+
+        Returns:
+            dict: Comprehensive results including Isp, thrust, dimensions, and composition.
         """
         math_trace = []
         prop = self.propellants.get(propellant_name, self.propellants['H2/O2'])
@@ -332,7 +354,9 @@ class RocketAnalyzer:
                 regime = 'Separation Warning'
 
         # Sonic velocity at exit
-        gn_exit, cpn_exit, mwn_exit = self.gas.gamma, self.gas.cp_mass, self.gas.mean_molecular_weight
+        cpn_exit = self.gas.cp
+        mwn_exit = self.gas.mean_molecular_weight
+        gn_exit  = cpn_exit / (cpn_exit - ct.gas_constant / mwn_exit)
         rn_exit = ct.gas_constant / mwn_exit
         a_exit  = math.sqrt(max(0.1, gn_exit * rn_exit * t_exit))
         mach_exit = v_exit_ideal / a_exit if a_exit > 0 else 1.0
@@ -376,6 +400,8 @@ class RocketAnalyzer:
             'A_exit'          : A_exit,
             'r_throat'        : r_throat,
             'r_exit'          : r_exit,
+            'l_chamber'       : len_chamber,
+            'l_nozzle'        : l_bell,
             'mdot_total'      : mdot,
             'mdot_fuel'       : mdot_fuel,
             'mdot_ox'         : mdot_ox,
@@ -398,12 +424,22 @@ class RocketAnalyzer:
         self,
         propellant_name: str,
         of_ratio: float,
-        altitudes_m: list,
+        altitudes_m: list[float],
         mode: str = 'shifting',
-    ) -> list:
+    ) -> list[dict[str, Any]]:
         """
-        Calculates delivered Isp and Cf at various altitudes (ambient pressures).
-        Useful for staging analysis.
+        Calculates delivered Isp and Cf at various altitudes.
+
+        Useful for launch vehicle staging and trajectory analysis.
+
+        Args:
+            propellant_name: Name of the propellant combination.
+            of_ratio: Mixture ratio (O/F).
+            altitudes_m: List of altitudes to evaluate [m].
+            mode: Equilibrium mode ('shifting' or 'frozen'). Defaults to 'shifting'.
+
+        Returns:
+            list: List of dictionaries containing performance metrics at each altitude.
         """
         from ..units import isa_atmosphere
         results = []

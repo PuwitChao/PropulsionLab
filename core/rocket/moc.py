@@ -83,6 +83,7 @@ class MoCNozzle:
                 'type': 'C-',
                 'mach': round(m_local, 2)
             })
+        return traces
 
     def generate_stl_mesh(self, num_theta=36):
         """

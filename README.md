@@ -1,6 +1,5 @@
-# PropulsionLab
-
-**PropulsionLab** is a computationally rigorous engineering suite for aerospace propulsion systems. It provides an integrated environment for thermodynamic cycle analysis, chemical equilibrium combustion modeling, and mission-level design synthesis.
+# 🚀 Propulsion Analysis Suite (v2.1.0-STABLE)
+ It provides an integrated environment for thermodynamic cycle analysis, chemical equilibrium combustion modeling, and mission-level design synthesis.
 
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
 [![React Version](https://img.shields.io/badge/react-18.0+-61dafb.svg)](https://reactjs.org)

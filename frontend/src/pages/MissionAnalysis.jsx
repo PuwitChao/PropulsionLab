@@ -82,10 +82,14 @@ export default function MissionAnalysis() {
         return () => clearTimeout(t)
     }, [aircraftData, runAnalysis])
 
-    // Calculate Feasible Region (Maximum T/W requirement at each W/S)
+    // Compute Envelope Compliance: fraction of W/S range where all constraints are met below T/W=1.0
     const feasibleTW = data ? data.ws.map((_, i) => {
         return Math.max(...data.series.map(s => s.values[i]))
     }) : []
+
+    const envelopeCompliance = data
+        ? Math.round((feasibleTW.filter(v => v <= 1.0).length / feasibleTW.length) * 100)
+        : 0
 
     const plotTraces = data ? [
         // Transparent upper boundary for filling (Target T/W limit)
@@ -218,9 +222,9 @@ export default function MissionAnalysis() {
                     </div>
 
                     <div className="grid grid-cols-3 gap-1 grid-bg">
-                        <StatPanel label="DESIGN WING LOADING" value={data?.optimum?.ws?.toFixed(0) || '0'} unit="Pa" sub="MIN_AIRCRAFT_SIZE" />
-                        <StatPanel label="MINIMUM T/W" value={data?.optimum?.tw?.toFixed(3) || '0'} unit="" sub="FEASIBLE_BOUND" />
-                        <StatPanel label="ENVELOPE COMPLIANCE" value="94.2" unit="%" sub="REGION_OPTIMIZED" />
+                        <StatPanel label="DESIGN WING LOADING" value={data?.optimum?.ws?.toFixed(0) || '—'} unit="Pa" sub="MIN_AIRCRAFT_SIZE" />
+                        <StatPanel label="MINIMUM T/W" value={data?.optimum?.tw?.toFixed(3) || '—'} unit="" sub="FEASIBLE_BOUND" />
+                        <StatPanel label="ENVELOPE COMPLIANCE" value={data ? envelopeCompliance : '—'} unit="%" sub="REGION_OPTIMIZED" />
                     </div>
 
                     {/* Operational Summary */}

@@ -1,7 +1,6 @@
+# 🚀 Propulsion Analysis Suite (v2.1.0-STABLE)
 
-# 🚀 Propulsion Analysis Suite (v2.0.1-STABLE)
-
-A high-fidelity aerospace engineering platform for cycle analysis, rocket engine design, and mission constraint optimization.
+A professional, high-fidelity aerospace engineering platform for cycle analysis, rocket engine design, and mission constraint optimization.
 
 ---
 
@@ -13,43 +12,44 @@ The backend is built with **FastAPI** and uses **Cantera** for chemical equilibr
 - **`core/gas_turbine/`**: 
   - On-design parametric cycle analysis for Turbojets, Mixed-flow Turbofans, and Separate-flow Turbofans.
   - Off-design matching using compressor map scaling and Newton-Raphson mass-flow iteration.
-- **`core/rocket/`**:
-  - Equilibrium combustion (Shifting or Frozen composition) using GRI-Mech 3.0.
-  - Method of Characteristics (MoC) Nozzle Design for minimum length bell (MLB) and conical geometries.
-- **`core/mission/`**:
-  - Matching chart analysis (Thrust-to-Weight vs Wing Loading) for mission constraint synthesis.
+- **`core/rocket/`**: 
+  - Equilibrium combustion (Shifting or Frozen) and Method of Characteristics (MoC) geometry engine.
+- **`tools/`**: 
+  - Computational audit suites and diagnostic utility scripts.
+- **`tests/`**: 
+  - Automated regression suite using `pytest`.
 
 ### 🎨 DESIGN WORKSPACE (FRONTEND)
 A premium **React/Vite** workspace with a modular grid layout and high-fidelity aerospace visualizations.
-
-- **Visualizations**: D3.js and Plotly.js for Fishhook curves, Compressor Maps, and 3D Nozzle Surfaces.
-- **State Management**: React Hooks with local persistence for design parameters.
-- **Nomenclature**: Standard NASA/AIAA station identifiers (e.g., Sta 0, 2, 3, 4, 4.5, 5, 7, 9).
 
 ---
 
 ## ⚙️ MAINTENANCE & TROUBLESHOOTING
 
-### 💥 SOCET CONFLICTS (Windows Error 10048)
-If the backend fails to start because port 8000 is occupied, run the maintenance script:
+### 💥 AUTOMATIC PORT MAINTENANCE
+The backend automatically attempts to clear port 8000 on startup. If manual intervention is needed:
 ```powershell
-python kill_port_8000.py
+python scripts/kill_port_8000.py
 ```
 
-### ✅ SYSTEM AUDIT
-Verify all computational paths with the built-in audit suite:
+### ✅ SYSTEM AUDIT & TESTING
+Verify solvers and API integrity:
 ```powershell
-# Performs end-to-end testing of all major solvers
-python audit_edge_cases.py
+# Run the end-to-end audit
+python tools/audit_edge_cases.py
+
+# Run unit tests
+pytest tests/
 ```
 
 ---
 
-## 📅 SESSION LOG: 2026-03-22
-- **Unified Nomenclature**: Replaced technical shorthand with professional titles (e.g., `Specific Thrust`, `Adiabatic Flame T`).
-- **Standardized API**: Resolved `NaN` SFC errors by aligning backend `tsfc` and `spec_thrust` keys.
-- **Rocket MoC**: Integrated `mach_exit` into the equilibrium solver to feed the 3D geometry engine.
-- **Diagnostic Panel**: Added real-time health checks in the Settings workspace.
+## 📅 SESSION LOG: 2026-03-24
+- **Sprint 3 (QoL)**: Reorganized project structure, moved scripts to `tools/` and `scripts/`.
+- **Standardized Versioning**: Updated all components to `v2.1.0-STABLE`.
+- **Backend Logging**: Implemented structured `logging` and added `/version` endpoint.
+- **Type-Safe Core**: Added full type-hint coverage across all core solvers.
+- **Test Suite**: Initialized `tests/` directory with `pytest` for stability.
 
 ---
 

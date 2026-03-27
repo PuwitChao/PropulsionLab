@@ -60,6 +60,19 @@
     .scrollbar-hide::-webkit-scrollbar {
         display: none;
     }
+
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
 }
 
 /* Polished Range Inputs */
@@ -89,4 +102,28 @@ input[type="range"]:hover::-webkit-slider-thumb {
 
 .panel-accent {
     @apply absolute top-0 left-0 w-[2px] h-6 bg-white opacity-40;
+}
+
+/* ── Shared UI Utilities ─────────────────────────────────────── */
+
+.status-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 3px 12px;
+    color: rgba(255, 255, 255, 0.35);
+    white-space: nowrap;
+}
+
+/* Toast animation (slide in from right) */
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(12px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+.slide-in-from-right-4 {
+    animation: slideInRight 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }

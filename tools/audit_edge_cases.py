@@ -23,7 +23,7 @@ audit_endpoint("Turbojet Sea Level Static", "/analyze/cycle", {
     "alt": 0, "mach": 0.001, "prc": 20, "tit": 1600
 })
 audit_endpoint("Turbofan High Alt Cruise", "/analyze/cycle/turbofan", {
-    "alt": 20000, "mach": 1.5, "bpr": 0.5, "fpr": 2.5, "opr": 40, "tit": 1800,
+    "alt": 20000, "mach": 1.5, "bpr": 0.5, "fpr": 2.5, "prc": 40, "tit": 1800,
     "mixed_exhaust": True
 })
 

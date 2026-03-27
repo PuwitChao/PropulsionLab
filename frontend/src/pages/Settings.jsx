@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
+import { API_BASE_URL } from '../api';
 
 function SidebarParameter({ label, value, unit, min, max, onChange, step }) {
     return (
@@ -23,6 +24,34 @@ function SidebarParameter({ label, value, unit, min, max, onChange, step }) {
 
 export default function Settings() {
   const { textSize, setTextSize, theme, setTheme } = useSettings();
+  const [versionInfo, setVersionInfo] = useState({ version: 'Loading...', cantera: '...' })
+  const [apiStatus, setApiStatus] = useState('CHECKING')
+  const [sessionTime, setSessionTime] = useState('00:00:00')
+
+  useEffect(() => {
+    // Fetch version info
+    fetch(`${API_BASE_URL}/version`)
+      .then(r => r.json())
+      .then(d => setVersionInfo({ version: d.version || '2.2.0-dev', cantera: d.cantera_version || '3.0.0' }))
+      .catch(() => setVersionInfo({ version: '2.2.0-dev', cantera: '3.0.0' }))
+
+    // Fetch health
+    fetch(`${API_BASE_URL}/health`)
+      .then(r => r.json())
+      .then(d => setApiStatus(d.status === 'healthy' ? 'HEALTHY' : 'DEGRADED'))
+      .catch(() => setApiStatus('OFFLINE'))
+
+    // Live session clock
+    const start = parseInt(sessionStorage.getItem('session_start') || Date.now())
+    const tick = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - start) / 1000)
+      const h = String(Math.floor(elapsed / 3600)).padStart(2, '0')
+      const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0')
+      const s = String(elapsed % 60).padStart(2, '0')
+      setSessionTime(`${h}:${m}:${s}`)
+    }, 1000)
+    return () => clearInterval(tick)
+  }, [])
 
   return (
     <div className="space-y-16 animate-in max-w-5xl">
@@ -105,10 +134,10 @@ export default function Settings() {
                      </div>
                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                         {[
-                            { label: 'KERNEL', val: 'ACTIVE', sub: 'CANTERA_V3' },
-                            { label: 'CEA_ENG', val: 'NOMINAL', sub: 'ROCKET_CORE' },
+                            { label: 'KERNEL', val: apiStatus === 'HEALTHY' ? 'ACTIVE' : 'ERROR', sub: 'CANTERA_V3' },
+                            { label: 'CEA_ENG', val: apiStatus === 'HEALTHY' ? 'NOMINAL' : 'OFFLINE', sub: 'ROCKET_CORE' },
                             { label: 'OPT_NODE', val: 'WAITING', sub: 'CONSTRAINT_SYNTH' },
-                            { label: 'API_STAT', val: 'HEALTHY', sub: 'REST_V2.0' }
+                            { label: 'API_STAT', val: apiStatus, sub: 'REST_V2.0' }
                         ].map((d, i) => (
                             <div key={i} className="bg-white/5 border border-white/10 p-6 space-y-3 group hover:border-white/30 transition-all">
                                 <p className="mono text-[10px] text-white/30 tracking-widest">{d.label}</p>
@@ -131,8 +160,8 @@ export default function Settings() {
                     
                     <div className="space-y-8">
                         <div className="space-y-3">
-                            <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.2em] leading-relaxed">System Access Token</p>
-                            <p className="text-[12px] text-white mono bg-white/5 px-6 py-4 border border-white/10 truncate">MOCK_ACCESS_TOKEN_0422</p>
+                            <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.2em] leading-relaxed">Session Mode</p>
+                            <p className="text-[12px] text-white mono bg-white/5 px-6 py-4 border border-white/10 truncate">LOCAL_SESSION_ONLY</p>
                         </div>
                         <p className="text-[12px] text-white/40 leading-relaxed uppercase mono border-l-2 border-white/40 pl-6 italic">
                             Cloud synchronization is restricted to registered researchers.
@@ -143,23 +172,23 @@ export default function Settings() {
                     </div>
                 </div>
 
-                <div className="p-12 border border-white/10 bg-surface-container-low">
-                     <p className="text-[11px] font-black tracking-[0.3em] uppercase text-white/30 mb-8 font-headline">VERSION_INFO</p>
-                     <div className="space-y-4 mono text-[12px] text-white/40 uppercase tracking-widest">
-                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                             <span>Stable Build</span>
-                             <span className="text-white">2.1.4-BETA</span>
-                        </div>
-                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                             <span>Kernel</span>
-                             <span className="text-white">CANTERA 3.0.0</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-2">
-                             <span>Uptime</span>
-                             <span className="text-white">04:22:12</span>
-                        </div>
+                     <div className="p-12 border border-white/10 bg-surface-container-low">
+                          <p className="text-[11px] font-black tracking-[0.3em] uppercase text-white/30 mb-8 font-headline">VERSION_INFO</p>
+                          <div className="space-y-4 mono text-[12px] text-white/40 uppercase tracking-widest">
+                            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                 <span>Build</span>
+                                 <span className="text-white">{versionInfo.version}</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                 <span>Kernel</span>
+                                 <span className="text-white">CANTERA {versionInfo.cantera}</span>
+                            </div>
+                            <div className="flex justify-between items-center pb-2">
+                                 <span>Session</span>
+                                 <span className="text-white">{sessionTime}</span>
+                            </div>
+                         </div>
                      </div>
-                </div>
             </section>
         </div>
     </div>

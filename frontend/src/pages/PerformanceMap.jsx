@@ -50,6 +50,30 @@ export default function PerformanceMap() {
         tit: 1550,
     })
 
+    // Compute surge margin from the lowest-throttle operating point
+    const surgeMargin = React.useMemo(() => {
+        if (!throttleData || throttleData.length === 0) return null
+        const dp = throttleData.find(r => r.throttle_pct === 100) || throttleData[throttleData.length - 1]
+        const low = throttleData[0]
+        if (!dp || !low || !dp.pr || !low.pr) return null
+        return (((dp.pr - low.pr) / dp.pr) * 100).toFixed(1)
+    }, [throttleData])
+
+    const handleExportDeck = React.useCallback(() => {
+        if (!throttleData || throttleData.length === 0) return
+        const header = 'Throttle_%,Spec_Thrust_Nsk,TSFC_mgNs,PR,Surge\n'
+        const rows = throttleData.map(r =>
+            `${r.throttle_pct},${r.spec_thrust?.toFixed(3)},${r.tsfc?.toFixed(4)},${r.pr?.toFixed(4)},${r.surge ? 'YES' : 'NO'}`
+        ).join('\n')
+        const blob = new Blob([header + rows], { type: 'text/csv' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'engine_deck.csv'
+        a.click()
+        URL.revokeObjectURL(url)
+    }, [throttleData])
+
     const runAnalysis = useCallback(async () => {
         setLoading(true)
         setMapData(null)
@@ -206,7 +230,7 @@ export default function PerformanceMap() {
                             <div className="grid grid-cols-4 gap-1 grid-bg shrink-0">
                                 <StatPanel 
                                     label="SURGE MARGIN" 
-                                    value={throttleData?.[0]?.surge ? '0.0' : (throttleData?.[0] ? '18.4' : '0.0')} 
+                                    value={surgeMargin ?? (loading ? 'CALC' : '—')} 
                                     unit="%" sub="OPERATIONAL_STATUS" 
                                 />
                                 <StatPanel 
@@ -242,7 +266,11 @@ export default function PerformanceMap() {
                                         <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
                                         <span className="mono text-[10px] uppercase text-white/40 tracking-[0.2em]">DECK_GENERATION_ACTIVE</span>
                                     </div>
-                                    <button className="mono text-[11px] font-black uppercase tracking-widest text-primary hover:text-white transition-colors">EXPORT ENGINE DECK</button>
+                                <button
+                                        onClick={handleExportDeck}
+                                        disabled={!throttleData}
+                                        className={`mono text-[11px] font-black uppercase tracking-widest transition-colors ${throttleData ? 'text-white/60 hover:text-white cursor-pointer' : 'text-white/20 cursor-not-allowed'}`}
+                                    >EXPORT ENGINE DECK</button>
                                 </div>
                             </div>
 
@@ -297,6 +325,41 @@ export default function PerformanceMap() {
                                      </div>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {activeView === 'surge_profile' && (
+                        <div className="h-[600px] bg-surface-container-lowest border border-white/10 relative overflow-hidden group p-12">
+                            <div className="panel-accent"></div>
+                            <div className="absolute top-12 right-12 z-20 text-right space-y-2">
+                                <h3 className="mono text-[12px] font-black text-white tracking-[0.2em] uppercase">SURGE_PROXIMITY_PROFILE</h3>
+                                <p className="mono text-[11px] text-white/30 tracking-widest">SM vs. throttle setting</p>
+                            </div>
+                            <Plot
+                                data={[{
+                                    x: throttleData?.map(r => r.throttle_pct),
+                                    y: throttleData?.map((r, i, arr) => {
+                                        const dp = arr[arr.length - 1]
+                                        return dp?.pr ? (((dp.pr - r.pr) / dp.pr) * 100).toFixed(2) : 0
+                                    }),
+                                    mode: 'lines+markers',
+                                    name: 'SURGE_MARGIN',
+                                    line: { color: '#fff', width: 2 },
+                                    marker: { size: 6, color: throttleData?.map(r => r.surge ? 'rgba(255,68,68,0.9)' : '#fff') },
+                                    hovertemplate: 'Throttle: %{x}%<br>SM: %{y}%<extra></extra>'
+                                }]}
+                                layout={{
+                                    plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
+                                    autosize: true, margin: { t: 60, b: 60, l: 80, r: 60 },
+                                    xaxis: { title: { text: 'Throttle [%]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
+                                    yaxis: { title: { text: 'Surge Margin [%]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
+                                    shapes: [{ type: 'line', x0: 0, x1: 100, y0: 10, y1: 10, line: { color: 'rgba(255,68,68,0.4)', width: 1, dash: 'dash' } }],
+                                    annotations: [{ x: 50, y: 10, text: 'MIN_SM_THRESHOLD (10%)', showarrow: false, font: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,68,68,0.6)' }, yshift: 10 }],
+                                    showlegend: false, font: { family: 'Inter', color: '#fff' }
+                                }}
+                                className="w-full h-full"
+                                config={{ displayModeBar: false, responsive: true }}
+                            />
                         </div>
                     )}
                 </section>

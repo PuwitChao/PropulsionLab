@@ -3,7 +3,7 @@ import Plotly from 'plotly.js-dist-min'
 import _createPlotlyComponent from 'react-plotly.js/factory'
 const createPlotlyComponent = _createPlotlyComponent.default || _createPlotlyComponent
 const Plot = createPlotlyComponent(Plotly)
-import { fetchData } from '../api'
+import { fetchData, fetchBlob } from '../api'
 
 // ── Components ───────────────────────────────────────────────────────────────
 
@@ -39,7 +39,9 @@ function MocVisualization({ mocData }) {
   const [viewMode, setViewMode] = useState('2D') // '2D' or '3D'
   const traces = []
   
-  if (mocData && viewMode === '2D') {
+  const hasData = mocData && Array.isArray(mocData.x) && Array.isArray(mocData.y) && mocData.x.length > 0;
+
+  if (hasData && viewMode === '2D') {
     // 1. Wall Contour
     traces.push({
       x: mocData.x,
@@ -64,50 +66,52 @@ function MocVisualization({ mocData }) {
     })
 
     // 2. Wave Mesh (C+ and C-)
-    if (mocData.mesh) {
+    if (Array.isArray(mocData.mesh)) {
         mocData.mesh.forEach((wave, i) => {
-            traces.push({
-                x: wave.x,
-                y: wave.y,
-                name: i === 0 ? 'WAVE_REFLECTIONS' : '',
-                legendgroup: 'waves',
-                showlegend: i === 0,
-                type: 'scatter',
-                mode: 'lines',
-                line: { 
-                    color: wave.type === 'C+' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.15)', 
-                    width: 0.8 
-                },
-                hovertemplate: `${wave.type}_WAVE<br>MACH: ${wave.mach}<extra></extra>`
-            })
-            
-            // Lower symmetry waves
-            traces.push({
-                x: wave.x,
-                y: wave.y.map(v => -v),
-                legendgroup: 'waves',
-                showlegend: false,
-                type: 'scatter',
-                mode: 'lines',
-                line: { 
-                    color: 'rgba(255,255,255,0.05)', 
-                    width: 0.5 
-                },
-                hoverinfo: 'skip'
-            })
+            if (wave && Array.isArray(wave.x) && Array.isArray(wave.y)) {
+                traces.push({
+                    x: wave.x,
+                    y: wave.y,
+                    name: i === 0 ? 'WAVE_REFLECTIONS' : '',
+                    legendgroup: 'waves',
+                    showlegend: i === 0,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { 
+                        color: wave.type === 'C+' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.15)', 
+                        width: 0.8 
+                    },
+                    hovertemplate: `${wave.type}_WAVE<br>MACH: ${wave.mach || 'N/A'}<extra></extra>`
+                })
+                
+                // Lower symmetry waves
+                traces.push({
+                    x: wave.x,
+                    y: wave.y.map(v => -v),
+                    legendgroup: 'waves',
+                    showlegend: false,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { 
+                        color: 'rgba(255,255,255,0.05)', 
+                        width: 0.5 
+                    },
+                    hoverinfo: 'skip'
+                })
+            }
         })
     }
     
     // 3. Centerline
     traces.push({
-        x: [0, Math.max(...mocData.x) * 1.1],
+        x: [0, (mocData.x[mocData.x.length - 1] || 0) * 1.1],
         y: [0, 0],
         name: 'CENTER_LINE',
         mode: 'lines',
         line: { color: 'rgba(255,255,255,0.05)', width: 1, dash: 'dot' },
         hoverinfo: 'skip'
     })
-  } else if (mocData && viewMode === '3D') {
+  } else if (hasData && viewMode === '3D') {
     // Create 3D Surface by rotating (x,y) wall points
     const nThetas = 40
     const thetas = Array.from({length: nThetas}, (_, i) => (i * 2 * Math.PI) / (nThetas - 1))
@@ -225,8 +229,8 @@ function MocVisualization({ mocData }) {
 
       <div className="p-12 border-t border-white/10 flex items-center justify-between bg-black/40 relative z-20">
         <div className="flex gap-x-16 text-[12px] mono text-white/40 uppercase tracking-[0.2em]">
-          <span className="flex items-center gap-4"><div className="w-2 h-2 bg-white opacity-40"></div> X_DOMAIN: 0.00 {"->"} {(mocData?.x[mocData.x.length-1] || 0.0).toFixed(2)} M</span>
-          <span className="flex items-center gap-4"><div className="w-2 h-2 bg-white opacity-40"></div> R_EXIT: {(mocData?.y[mocData.y.length-1] || 0.0).toFixed(2)} M</span>
+          <span className="flex items-center gap-4"><div className="w-2 h-2 bg-white opacity-40"></div> X_DOMAIN: 0.00 {"->"} {(mocData?.x?.[mocData.x?.length-1] || 0.0).toFixed(2)} M</span>
+          <span className="flex items-center gap-4"><div className="w-2 h-2 bg-white opacity-40"></div> R_EXIT: {(mocData?.y?.[mocData.y?.length-1] || 0.0).toFixed(2)} M</span>
         </div>
         <div className="flex gap-6">
           <button 
@@ -260,6 +264,65 @@ export default function RocketAnalysis() {
         thrust_target_N: 500000 
     })
     const [mocData, setMocData] = useState(null)
+    const [exportLoading, setExportLoading] = useState(null) // 'csv' | 'stl' | null
+    const [toast, setToast] = useState(null)
+
+    const showToast = (msg, ok = true) => {
+        setToast({ msg, ok })
+        setTimeout(() => setToast(null), 3000)
+    }
+
+    const handleExportCSV = useCallback(async () => {
+        if (!result) return;
+        setExportLoading('csv')
+        try {
+            const blob = await fetchBlob('/analyze/rocket/export/csv', {
+                method: 'POST',
+                body: JSON.stringify({
+                    gamma: result.gamma,
+                    mach_exit: result.mach_exit || 3.0,
+                    throat_radius: result.r_throat || 0.1
+                })
+            })
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `nozzle_contour_${params.propellant.replace('/', '_')}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('CSV export complete — nozzle contour downloaded.');
+        } catch (e) {
+            console.error('CSV Export Error:', e);
+            showToast('Export failed. Is the backend running?', false);
+        }
+        setExportLoading(null)
+    }, [result, params.propellant])
+
+    const handleExportSTL = useCallback(async () => {
+        if (!result) return;
+        setExportLoading('stl')
+        try {
+            const blob = await fetchBlob('/analyze/rocket/export/stl', {
+                method: 'POST',
+                body: JSON.stringify({
+                    gamma: result.gamma,
+                    mach_exit: result.mach_exit || 3.0,
+                    throat_radius: result.r_throat || 0.1
+                })
+            })
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `nozzle_design_${params.propellant.replace('/', '_')}.stl`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('STL export complete — 3D mesh downloaded.');
+        } catch (e) {
+            console.error('STL Export Error:', e);
+            showToast('STL export failed. Is the backend running?', false);
+        }
+        setExportLoading(null)
+    }, [result, params.propellant])
 
     const runAnalysis = useCallback(async () => {
         setLoading(true)
@@ -314,7 +377,7 @@ export default function RocketAnalysis() {
                                 onChange={v => setParams({...params, pc: v*1e6})}
                             />
                             <SliderControl 
-                                label="Mixture Ratio (O/F)" value={params.of_ratio.toFixed(2)} unit=""
+                                label="Propellant Oxidizer/Fuel Ratio" value={params.of_ratio.toFixed(2)} unit=""
                                 min={2} max={12} step={0.1}
                                 onChange={v => setParams({...params, of_ratio: v})}
                             />
@@ -328,12 +391,14 @@ export default function RocketAnalysis() {
                                     <option value="H2/O2">LOX / LH2 - Hydrolox</option>
                                     <option value="CH4/O2">LOX / LCH4 - Methalox</option>
                                     <option value="RP1/O2">LOX / RP-1 - Kerolox</option>
+                                    <option value="UDMH/N2O4">UDMH / N2O4 - Hypergolic</option>
+                                    <option value="MMH/N2O4">MMH / N2O4 - Hypergolic</option>
                                 </select>
                             </div>
                         </div>
                    </div>
 
-                   <div className="bg-surface-container-low border border-white/10 p-12 space-y-10">
+                    <div className="bg-surface-container-low border border-white/10 p-12 space-y-10">
                         <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-6">DESIGN_PROTOCOLS</h2>
                         <div className="flex flex-col gap-4">
                             <button className="w-full bg-white text-black py-5 px-10 flex items-center justify-between text-[11px] font-black tracking-[0.2em] uppercase hover:bg-white/90 transition-all font-headline">
@@ -341,30 +406,20 @@ export default function RocketAnalysis() {
                                 <span className="material-symbols-outlined !text-[18px]">picture_as_pdf</span>
                             </button>
                             <button 
-                                onClick={async () => {
-                                    if (!result) return;
-                                    try {
-                                        const res = await fetch('http://localhost:8000/analyze/rocket/export/stl', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ 
-                                                gamma: result.gamma, 
-                                                mach_exit: result.mach_exit || 3.0, 
-                                                throat_radius: result.r_throat || 0.1 
-                                            })
-                                        })
-                                        const blob = await res.blob()
-                                        const url = window.URL.createObjectURL(blob)
-                                        const a = document.createElement('a')
-                                        a.href = url
-                                        a.download = `nozzle_design_${params.propellant.replace('/','_')}.stl`
-                                        a.click()
-                                    } catch (e) { console.error('STL Export Error:', e) }
-                                }}
-                                className="w-full border border-white/20 bg-transparent text-white py-5 px-10 flex items-center justify-between text-[11px] font-black tracking-[0.2em] uppercase hover:border-white transition-all font-headline"
+                                onClick={handleExportCSV}
+                                disabled={!result || exportLoading === 'csv'}
+                                className={`w-full border border-white/20 bg-transparent text-white py-5 px-10 flex items-center justify-between text-[11px] font-black tracking-[0.2em] uppercase hover:border-white transition-all font-headline ${(!result || exportLoading) ? 'opacity-30 cursor-not-allowed' : ''}`}
                             >
-                                <span>EXPORT CAD MESH (.STL)</span>
-                                <span className="material-symbols-outlined !text-[18px]">draw</span>
+                                <span>{exportLoading === 'csv' ? 'EXPORTING...' : 'EXPORT COORDINATES (CSV)'}</span>
+                                <span className="material-symbols-outlined !text-[18px]">{exportLoading === 'csv' ? 'sync' : 'csv'}</span>
+                            </button>
+                            <button 
+                                onClick={handleExportSTL}
+                                disabled={!result || exportLoading === 'stl'}
+                                className={`w-full border border-white/10 bg-transparent text-white/60 py-4 px-10 flex items-center justify-between text-[11px] font-bold tracking-[0.2em] uppercase hover:border-white/40 hover:text-white transition-all font-headline ${(!result || exportLoading) ? 'opacity-30 cursor-not-allowed' : ''}`}
+                            >
+                                <span>{exportLoading === 'stl' ? 'EXPORTING_STL...' : 'EXPORT 3D MESH (STL)'}</span>
+                                <span className="material-symbols-outlined !text-[18px]">{exportLoading === 'stl' ? 'sync' : 'draw'}</span>
                             </button>
                         </div>
                    </div>
@@ -378,14 +433,27 @@ export default function RocketAnalysis() {
                    </button>
                 </section>
 
-                {/* Middle: Visualization & Stats */}
-                <section className="col-span-12 lg:col-span-6 flex flex-col gap-12">
+                 {/* Middle: Visualization & Stats */}
+                <section className="col-span-12 lg:col-span-6 flex flex-col gap-12 relative">
+                    {/* Toast Notification */}
+                    {toast && (
+                        <div className={`absolute top-0 right-0 z-50 px-10 py-5 text-[11px] font-black tracking-[0.2em] uppercase mono animate-in slide-in-from-right-4 ${
+                            toast.ok ? 'bg-white text-black' : 'bg-red-500/90 text-white'
+                        }`}>
+                            {toast.msg}
+                        </div>
+                    )}
                     <MocVisualization mocData={mocData} />
                     
-                    <div className="grid grid-cols-3 gap-1 grid-bg">
+                    <div className="grid grid-cols-4 gap-1 grid-bg">
                         <StatPanel label="VACUUM THRUST" value={result ? (result.thrust_vac/1000).toFixed(0) : '0'} unit="kN" sub="DESIGN_TARGET" />
                         <StatPanel label="SPECIFIC IMPULSE" value={result ? result.isp_delivered?.toFixed(1) : '0.0'} unit="s" sub="SHIFTING_AVG" />
-                        <StatPanel label="MASS FLOW" value={result ? (result.thrust_vac/(result.isp_delivered*9.81)).toFixed(2) : '0.00'} unit="kg/s" sub="COMBUSTION_MASS" />
+                        <StatPanel label="MASS FLOW" value={result ? result.mdot_total?.toFixed(2) : '0.00'} unit="kg/s" sub="COMBUSTION_MASS" />
+                        <StatPanel label="THROAT RADIUS" value={result ? (result.r_throat * 1000).toFixed(1) : '0.0'} unit="mm" sub="GEOMETRIC_SCALE" />
+                        <StatPanel label="EXIT RADIUS" value={result ? (result.r_exit * 1000).toFixed(1) : '0.0'} unit="mm" sub="GEOMETRIC_SCALE" />
+                        <StatPanel label="CHAMBER LENGTH" value={result ? (result.l_chamber * 1000).toFixed(1) : '0.0'} unit="mm" sub="GEOMETRIC_SCALE" />
+                        <StatPanel label="NOZZLE LENGTH" value={result ? (result.l_nozzle * 1000).toFixed(1) : '0.0'} unit="mm" sub="GEOMETRIC_SCALE" />
+                        <StatPanel label="TOTAL LENGTH" value={result ? ((result.l_chamber + result.l_nozzle) * 1000).toFixed(1) : '0.0'} unit="mm" sub="GEOMETRIC_SCALE" />
                     </div>
                 </section>
 
@@ -398,7 +466,9 @@ export default function RocketAnalysis() {
                                 { label: 'ISP (Theoretical)', val: `${result?.isp_ideal?.toFixed(1) || '0.0'} S` },
                                 { label: 'Thrust Coeff (Cf)', val: result?.cf_delivered?.toFixed(4) || '0.0000' },
                                 { label: 'Exit Gamma', val: result?.gamma?.toFixed(4) || '0.0000' },
-                                { label: 'Adiabatic Flame T', val: `${result?.t_chamber?.toFixed(0) || '0'} K` }
+                                { label: 'Adiabatic Flame T', val: `${result?.t_chamber?.toFixed(0) || '0'} K` },
+                                { label: 'Expansion Ratio', val: result?.epsilon?.toFixed(2) || '0.00' },
+                                { label: 'Max Heat Flux', val: result?.heat_transfer?.q_flux_MW_m2[0] ? `${result.heat_transfer.q_flux_MW_m2[0]} MW/m²` : '0.00' }
                             ].map((row, i) => (
                                 <div key={i} className="flex justify-between items-baseline group">
                                     <span className="text-[11px] mono text-white/40 tracking-widest uppercase group-hover:text-white/70 transition-colors">{row.label}</span>
