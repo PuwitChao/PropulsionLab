@@ -46,6 +46,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 # Local analytical modules
@@ -79,14 +80,14 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     """Returns the API status and versioning."""
-    return {"message": "Propulsion Analysis API v2.1.0 is running"}
+    return {"message": "Propulsion Analysis API v2.2.0 is running"}
 
 @app.get("/version")
 def get_version():
     """Returns the structured version info."""
     return {
-        "version": "2.2.0-dev",
-        "build_date": "2026-03-27",
+        "version": "2.2.0",
+        "build_date": "2026-03-30",
         "status": "operational"
     }
 
@@ -103,7 +104,7 @@ def get_diagnostics():
     """
     return {
         "status": "operational",
-        "version": "2.1.0",
+        "version": "2.2.0",
         "components": {
             "gas_turbine_core": "active",
             "rocket_cea_engine": "active",
@@ -111,7 +112,7 @@ def get_diagnostics():
             "cantera_interface": "connected"
         },
         "system_time": datetime.now().isoformat(),
-        "memory_profile": "optimal"
+        "memory_profile": "nominal"
     }
 
 

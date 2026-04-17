@@ -82,7 +82,7 @@ function App() {
              <div className="w-2 h-2 bg-white"></div>
              <h1 className="text-[15px] font-black tracking-[0.4em] text-white font-headline">PROPULSION</h1>
           </div>
-          <p className="text-[10px] tracking-[0.3em] text-white/30 mt-4 font-mono border-l border-white/20 pl-4">SYSTEMS_INTEGRATED_V2</p>
+          <p className="text-[10px] tracking-[0.3em] text-white/30 mt-4 font-mono border-l border-white/20 pl-4">PROPULSION_SYS_V2.2.0</p>
         </div>
         
         <div className="flex flex-col flex-grow px-6 space-y-2">
@@ -136,11 +136,11 @@ function App() {
              <div className="h-8 w-[1px] bg-white/10"></div>
              <div className="flex flex-col items-end pr-6">
               <span className="text-[10px] font-mono tracking-widest text-white/40 uppercase">Status</span>
-              <div className="flex items-center gap-3 mt-1">
-                <div className={`w-2 h-2 ${backendStatus === 'STABLE' ? 'bg-white' : 'bg-red-500'}`}></div>
-                <span className="text-[11px] font-mono text-white tracking-widest uppercase">{backendStatus}</span>
-              </div>
-            </div>
+               <div className="flex items-center gap-3 mt-1">
+                 <div className={`w-2 h-2 transition-all ${backendStatus === 'STABLE' ? 'bg-white' : backendStatus === 'CHECKING' ? 'bg-white/40 animate-pulse' : 'bg-red-500 animate-pulse'}`}></div>
+                 <span className={`text-[11px] font-mono tracking-widest uppercase ${backendStatus === 'OFFLINE' ? 'text-red-400' : 'text-white'}`}>{backendStatus}</span>
+               </div>
+             </div>
           </div>
         </div>
       </header>
@@ -157,17 +157,17 @@ function App() {
         <div className="flex gap-20 items-center">
             <div className="flex gap-4 items-center">
                 <span className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">KERNEL</span>
-                <span className="mono text-[11px] text-white/60 font-medium">CANTERA_V3.0.4</span>
+                <span className="mono text-[11px] text-white/60 font-medium">CANTERA_V3.0.x</span>
             </div>
             <div className="flex gap-4 items-center">
-                <span className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">LOCATION</span>
-                <span className="mono text-[11px] text-white font-medium uppercase tracking-[0.1em]">SEC_04 // LAB_B</span>
+                <span className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">BUILD</span>
+                <span className="mono text-[11px] text-white/60 font-medium uppercase tracking-[0.1em]">PROPULSION_SUITE_V2.2.0</span>
             </div>
         </div>
         <div className="flex gap-12 items-center">
-            <span className="mono text-[11px] text-white/20 tracking-[0.2em]">45.4215 N // 75.6972 W</span>
+            <span className="mono text-[11px] text-white/20 tracking-[0.2em]">{time} // LOCAL</span>
             <div className="flex gap-1.5">
-                <div className="w-1.5 h-1.5 bg-white opacity-40"></div>
+                <div className={`w-1.5 h-1.5 ${backendStatus === 'STABLE' ? 'bg-white opacity-60' : 'bg-red-500 opacity-60'}`}></div>
                 <div className="w-1.5 h-1.5 bg-white opacity-20"></div>
                 <div className="w-1.5 h-1.5 bg-white opacity-5"></div>
             </div>
@@ -250,16 +250,13 @@ function Dashboard({ status, onNavigate }) {
                 </div>
             </div>
             <div className="space-y-8 border-l border-white/10 pl-20">
-                <h4 className="text-[11px] font-black text-white/20 tracking-[0.3em] mb-6">ARCHITECTURE</h4>
-                <a href="/ARCHITECTURE_WIKI.md" target="_blank" className="text-[12px] font-mono text-white/60 hover:text-white transition-all block">SYSTEM_WIKI_LATEST.MD</a>
-                <p className="text-[11px] mono text-white/30 uppercase leading-relaxed tracking-wider">Structural decomposition of the thermodynamic solver core.</p>
-            </div>
-            <div className="space-y-8 border-l border-white/10 pl-20">
-                <h4 className="text-[11px] font-black text-white/20 tracking-[0.3em] mb-6">ENVIRONMENT</h4>
+                <h4 className="text-[11px] font-black text-white/20 tracking-[0.3em] mb-6">BACKEND</h4>
                 <div className="flex flex-col gap-2">
-                    <span className="text-[12px] font-mono text-white/60 uppercase tracking-widest">TLS_ENCRYPTION_ACTIVE</span>
-                    <span className="text-[12px] font-mono text-white/60 uppercase tracking-widest">NODE_STATUS_STABLE</span>
-                    <span className="text-[11px] font-mono text-white/30 mt-4 uppercase font-bold text-white">Core_Temp: 312.4 K</span>
+                    <span className={`text-[12px] font-mono uppercase tracking-widest ${status === 'STABLE' ? 'text-white/60' : 'text-red-400'}`}>
+                      {status === 'STABLE' ? 'API_KERNEL_ONLINE' : status === 'CHECKING' ? 'STATUS_CHECKING...' : 'API_OFFLINE'}
+                    </span>
+                    <span className="text-[12px] font-mono text-white/60 uppercase tracking-widest">LOCAL_COMPUTE_ONLY</span>
+                    <span className="text-[11px] font-mono text-white/30 mt-4 uppercase tracking-widest">REST_API_V2.2.0</span>
                 </div>
             </div>
          </div>

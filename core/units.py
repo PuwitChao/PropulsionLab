@@ -25,24 +25,61 @@ def lbf_to_n(lbf):
 def n_to_lbf(n):
     return n / 4.44822
 
-# Atmospheric Model (Simple ISA)
-def isa_atmosphere(altitude_m):
+# Atmospheric Model (ICAO Standard Atmosphere, 4-layer)
+def isa_atmosphere(altitude_m: float) -> tuple:
     """
     Returns (pressure_pa, temperature_k, density_kgm3) for a given altitude.
-    Simplified version for the troposphere.
+
+    Implements the ICAO Standard Atmosphere (Doc 7488) across four layers:
+      - Troposphere        :  0 - 11 000 m  (lapse -6.5 K/km)
+      - Lower Stratosphere : 11 000 - 20 000 m (isothermal, 216.65 K)
+      - Upper Stratosphere : 20 000 - 32 000 m (lapse +1.0 K/km)
+      - Stratopause        : 32 000 - 47 000 m (lapse +2.8 K/km)
+
+    Args:
+        altitude_m: Geometric altitude above sea-level [m].
+
+    Returns:
+        tuple: (pressure [Pa], temperature [K], density [kg/m3]).
     """
-    T0 = 288.15
-    P0 = 101325
-    L = 0.0065  # Temperature lapse rate (K/m)
-    
-    if altitude_m <= 11000:
-        T = T0 - L * altitude_m
-        P = P0 * (1 - L * altitude_m / T0)**(G / (L * R_AIR))
+    # ICAO layer base values
+    T0 = 288.15    # Sea-level temperature [K]
+    P0 = 101325.0  # Sea-level pressure [Pa]
+    L0 = -0.0065   # Troposphere lapse rate [K/m]
+
+    h = float(altitude_m)
+
+    # Layer 1: Troposphere (0 - 11 000 m)
+    T11 = T0 + L0 * 11000.0                            # 216.65 K
+    P11 = P0 * (T11 / T0) ** (-G / (L0 * R_AIR))       # ~22 632 Pa (computed)
+
+    if h <= 11000.0:
+        T = T0 + L0 * h
+        P = P0 * (T / T0) ** (-G / (L0 * R_AIR))
+
+    # Layer 2: Lower Stratosphere (11 000 - 20 000 m), isothermal
+    elif h <= 20000.0:
+        T = T11
+        P = P11 * math.exp(-G * (h - 11000.0) / (R_AIR * T11))
+
+    # Layer 3: Upper Stratosphere (20 000 - 32 000 m), lapse +1 K/km
     else:
-        # Stratosphere (ISOTHERMAL)
-        T = 216.65
-        P11 = 22632
-        P = P11 * math.exp(-G * (altitude_m - 11000) / (R_AIR * T))
-    
+        T20 = T11                                           # 216.65 K
+        P20 = P11 * math.exp(-G * 9000.0 / (R_AIR * T11)) # pressure at 20 km
+        L2  = 0.001                                         # +1.0 K/km
+        T32 = T20 + L2 * 12000.0                           # 228.65 K
+        P32 = P20 * (T32 / T20) ** (-G / (L2 * R_AIR))
+
+        if h <= 32000.0:
+            T = T20 + L2 * (h - 20000.0)
+            P = P20 * (T / T20) ** (-G / (L2 * R_AIR))
+
+        # Layer 4: Stratopause (32 000 - 47 000 m), lapse +2.8 K/km
+        else:
+            L3 = 0.0028                                     # +2.8 K/km
+            h_clamped = min(h, 47000.0)                     # clamp beyond spec
+            T = T32 + L3 * (h_clamped - 32000.0)
+            P = P32 * (T / T32) ** (-G / (L3 * R_AIR))
+
     rho = P / (R_AIR * T)
     return P, T, rho

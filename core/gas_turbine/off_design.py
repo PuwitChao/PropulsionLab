@@ -94,7 +94,7 @@ class OffDesignSolver:
         self.dp_pt2   = dp.get('stations', {}).get(2, {}).get('pt', 3e4)
         self.dp_pr    = self.dp_pt3 / self.dp_pt2
         self.dp_mdot  = dp.get('stations', {}).get(2, {}).get('m', 10.0)
-        self.dp_f     = dp.get('f', 0.025)
+        self.dp_f     = dp.get('f_total', dp.get('f', 0.025))
 
     def sweep_throttle(
         self,

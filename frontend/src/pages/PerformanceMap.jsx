@@ -4,36 +4,8 @@ import _createPlotlyComponent from 'react-plotly.js/factory'
 const createPlotlyComponent = _createPlotlyComponent.default || _createPlotlyComponent
 const Plot = createPlotlyComponent(Plotly)
 import { fetchData } from '../api'
-
-// ── Components ───────────────────────────────────────────────────────────────
-
-function StatPanel({ label, value, unit, sub, alert }) {
-    return (
-        <div className={`flex flex-col items-end group p-10 border border-white/10 bg-surface-container-low hover:bg-surface-container transition-all ${alert ? 'border-red-500/20' : ''}`}>
-            <span className={`text-[11px] font-black tracking-[0.2em] uppercase mb-5 font-headline transition-colors ${alert ? 'text-red-500' : 'text-white/40 group-hover:text-white'}`}>{label}</span>
-            <div className="flex items-baseline gap-3">
-                <span className="text-4xl font-black mono text-white">{value}</span>
-                <span className="text-[12px] mono text-white/30 uppercase font-bold tracking-[0.1em]">{unit}</span>
-            </div>
-            {sub && <span className="text-[10px] mono text-white/20 uppercase tracking-[0.1em] mt-2 italic">{sub}</span>}
-        </div>
-    )
-}
-
-function SliderControl({ label, value, unit, min, max, onChange, disabled, step }) {
-    return (
-        <div className={`flex flex-col gap-6 transition-all ${disabled ? 'opacity-20 pointer-events-none' : ''}`}>
-            <div className="flex justify-between items-baseline px-2">
-                <span className="text-[11px] mono font-black tracking-[0.1em] text-white/40 uppercase">{label}</span>
-                <span className="text-[12px] font-mono font-black text-white uppercase tracking-widest">{value} {unit}</span>
-            </div>
-            <input 
-                type="range" min={min} max={max} step={step || (max-min)/100}
-                value={value} onChange={e => onChange(parseFloat(e.target.value))}
-            />
-        </div>
-    )
-}
+import StatPanel from '../components/StatPanel'
+import SliderControl from '../components/SliderControl'
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -41,8 +13,9 @@ export default function PerformanceMap() {
     const [loading, setLoading] = useState(false)
     const [mapData, setMapData] = useState(null)
     const [throttleData, setThrottleData] = useState(null)
+    const [error, setError] = useState(null)
     const [activeView, setActiveView] = useState('compressor')
-    
+
     const [dpParams, setDpParams] = useState({
         alt: 0,
         mach: 0.0,
@@ -50,7 +23,7 @@ export default function PerformanceMap() {
         tit: 1550,
     })
 
-    // Compute surge margin from the lowest-throttle operating point
+    // Compute surge margin from the lowest-throttle operating point vs design point
     const surgeMargin = React.useMemo(() => {
         if (!throttleData || throttleData.length === 0) return null
         const dp = throttleData.find(r => r.throttle_pct === 100) || throttleData[throttleData.length - 1]
@@ -78,17 +51,19 @@ export default function PerformanceMap() {
         setLoading(true)
         setMapData(null)
         setThrottleData(null)
+        setError(null)
         try {
             const [m, t] = await Promise.all([
-                fetchData('/analyze/offdesign/map', { method: 'POST', body: JSON.stringify({...dpParams, n_speed_lines: 8}) }),
-                fetchData('/analyze/offdesign/throttle', { method: 'POST', body: JSON.stringify({...dpParams, n_points: 15}) })
+                fetchData('/analyze/offdesign/map',
+                    { method: 'POST', body: JSON.stringify({...dpParams, n_speed_lines: 8}) }),
+                fetchData('/analyze/offdesign/throttle',
+                    { method: 'POST', body: JSON.stringify({...dpParams, n_points: 15}) })
             ])
             setMapData(m)
             setThrottleData(t)
-        } catch (e) { 
+        } catch (e) {
             console.error(e)
-            setMapData(null)
-            setThrottleData(null)
+            setError('Off-design solver failed. Check backend connection and design parameters.')
         }
         setLoading(false)
     }, [dpParams])
@@ -101,26 +76,24 @@ export default function PerformanceMap() {
     const buildMapTraces = () => {
         if (!mapData) return []
         const traces = []
-        
-        // 1. Speed Lines
+
         mapData.speed_lines.forEach((sl, idx) => {
             traces.push({
                 x: sl.flow, y: sl.pr, mode: 'lines', name: sl.label,
                 line: { color: `rgba(255,255,255,${0.05 + (idx/mapData.speed_lines.length)*0.5})`, width: 1.2 },
-                hovertemplate: `W_corr: %{x}<br>PR: %{y}<br>ETA: ${sl.eta[0]}<extra></extra>`
+                hovertemplate: `W_corr: %{x:.3f}<br>PR: %{y:.3f}<br>${sl.label}<extra></extra>`
             })
         })
-        
-        // 2. Surge Line
+
         if (mapData.surge_line) {
-            traces.push({ 
-                x: mapData.surge_line.flow, y: mapData.surge_line.pr, mode: 'lines', name: 'SURGE_LIMIT', 
+            traces.push({
+                x: mapData.surge_line.flow, y: mapData.surge_line.pr,
+                mode: 'lines', name: 'SURGE_LIMIT',
                 line: { color: 'rgba(255, 68, 68, 0.4)', width: 2, dash: 'dash' },
                 hovertemplate: `SURGE_LIMIT<extra></extra>`
             })
         }
 
-        // 3. Operating Line (from throttle sweep)
         if (throttleData && throttleData.length > 0) {
             traces.push({
                 x: throttleData.map(r => r.mdot_corr_norm),
@@ -134,7 +107,6 @@ export default function PerformanceMap() {
             })
         }
 
-        // 4. Design Point Marker
         if (mapData.design_point) {
             traces.push({
                 x: [mapData.design_point.flow],
@@ -142,19 +114,26 @@ export default function PerformanceMap() {
                 name: 'ANCHOR_DESIGN_POINT',
                 mode: 'markers',
                 marker: { color: '#fff', size: 12, symbol: 'star-triangle-up' },
-                hovertemplate: `DESIGN_POINT<br>W_corr: 1.0<br>PR: ${mapData.design_point.pr}<extra></extra>`
+                hovertemplate: `DESIGN_POINT<br>W_corr: 1.0<br>PR: ${mapData.design_point.pr?.toFixed(2)}<extra></extra>`
             })
         }
-
         return traces
     }
 
+    const chartPlaceholder = (msg) => (
+        <div className="w-full h-full flex items-center justify-center">
+            <div className={`text-white/10 uppercase tracking-[0.5em] text-[13px] font-black ${loading ? 'animate-pulse' : ''}`}>
+                {msg}
+            </div>
+        </div>
+    )
+
     return (
         <div className="space-y-16 animate-in pb-20">
-             <div className="flex items-center justify-between border-b border-white/10 pb-6">
+            <div className="flex items-center justify-between border-b border-white/10 pb-6">
                 <div className="flex gap-12 items-center">
                     {['compressor', 'throttle', 'surge_profile'].map(view => (
-                        <button 
+                        <button
                             key={view} onClick={() => setActiveView(view)}
                             className={`text-[12px] tracking-[0.3em] uppercase transition-all pb-3 ${activeView === view ? 'text-white border-b border-white font-black' : 'text-white/30 font-bold hover:text-white'}`}
                         >
@@ -162,28 +141,37 @@ export default function PerformanceMap() {
                         </button>
                     ))}
                 </div>
-                <div className="status-badge">OFF_DESIGN_KERNEL_ACTIVE</div>
+                <div className="status-badge">
+                    {loading ? 'EXECUTING...' : error ? 'SOLVER_ERROR' : 'OFF_DESIGN_KERNEL_ACTIVE'}
+                </div>
             </div>
+
+            {/* Error Banner */}
+            {error && !loading && (
+                <div className="border border-red-500/30 bg-red-950/20 px-12 py-8 flex items-center gap-8">
+                    <span className="material-symbols-outlined text-red-400 !text-[22px] shrink-0">error_outline</span>
+                    <p className="mono text-[11px] text-red-400 uppercase tracking-widest">{error}</p>
+                </div>
+            )}
 
             <div className="grid grid-cols-12 gap-12">
                 {/* Parameters Sidebar */}
-                <section className="col-span-12 lg:col-span-3 space-y-16">
-                   <div className="bg-surface-container-low border border-white/10 p-12 space-y-12">
-                        <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-6">OFF_DESIGN_SPEC</h2>
-                        <div className="space-y-12">
-                            <SliderControl label="Flight Altitude" value={dpParams.alt} unit="m" min={0} max={15000} step={500} onChange={v => setDpParams({...dpParams, alt: v})} />
-                            <SliderControl label="Mach Number" value={dpParams.mach.toFixed(2)} unit="M" min={0} max={1.5} step={0.01} onChange={v => setDpParams({...dpParams, mach: v})} />
-                            <SliderControl label="Core PR" value={dpParams.prc} unit="" min={5} max={50} step={1} onChange={v => setDpParams({...dpParams, prc: v})} />
-                            <SliderControl label="Turbine Inlet T" value={dpParams.tit} unit="K" min={1000} max={2000} step={25} onChange={v => setDpParams({...dpParams, tit: v})} />
-                        </div>
+                <section className="col-span-12 lg:col-span-3 space-y-4">
+                   <div className="bg-surface-container-low border border-white/10 p-12 space-y-4">
+                        <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-2">OFF_DESIGN_SPEC</h2>
+                        <SliderControl label="Flight Altitude" value={Math.round(dpParams.alt)} unit="m" min={0} max={15000} step={500} onChange={v => setDpParams({...dpParams, alt: v})} />
+                        <SliderControl label="Mach Number" value={dpParams.mach.toFixed(2)} unit="M" min={0} max={1.5} step={0.01} onChange={v => setDpParams({...dpParams, mach: v})} />
+                        <SliderControl label="Core PR" value={Math.round(dpParams.prc)} unit="–" min={5} max={50} step={1} onChange={v => setDpParams({...dpParams, prc: v})} />
+                        <SliderControl label="Turbine Inlet T" value={Math.round(dpParams.tit)} unit="K" min={1000} max={2000} step={25} onChange={v => setDpParams({...dpParams, tit: v})} />
                    </div>
 
-                   <button 
+                   <button
                         onClick={runAnalysis}
-                        className="w-full bg-white text-black py-5 font-black text-[13px] tracking-[0.3em] uppercase hover:bg-white/90 transition-all font-headline flex items-center justify-center gap-4"
+                        disabled={loading}
+                        className="w-full bg-white text-black py-5 font-black text-[13px] tracking-[0.3em] uppercase hover:bg-white/90 transition-all font-headline flex items-center justify-center gap-4 disabled:opacity-60"
                     >
-                        <span className="material-symbols-outlined !text-[20px]">cached</span>
-                        RECALIBRATE_ENGINE_MAP
+                        <span className="material-symbols-outlined !text-[20px]">{loading ? 'sync' : 'cached'}</span>
+                        {loading ? 'COMPUTING...' : 'RECALIBRATE_ENGINE_MAP'}
                    </button>
                 </section>
 
@@ -193,62 +181,64 @@ export default function PerformanceMap() {
                         <>
                             <div className="h-[600px] bg-surface-container-lowest border border-white/10 relative overflow-hidden flex flex-col group p-12">
                                 <div className="panel-accent"></div>
-                                
                                 <div className="absolute top-12 right-12 z-20 space-y-3 text-right">
                                     <h3 className="mono text-[12px] font-black text-white tracking-[0.2em] uppercase">COMPRESSOR_RECOVERY_PLOT</h3>
                                     <p className="mono text-[11px] text-white/30 tracking-widest">[SPEED_LINES: 0.70 {"->"} 1.05]</p>
                                 </div>
-                                
-                                <Plot 
-                                    data={buildMapTraces()}
-                                    layout={{
-                                        plot_bgcolor: 'transparent',
-                                        paper_bgcolor: 'transparent',
-                                        autosize: true,
-                                        margin: { t: 80, b: 80, l: 100, r: 80 },
-                                        xaxis: { 
-                                            title: { text: 'Corrected Mass Flow [kg/s]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
-                                            gridcolor: 'rgba(255,255,255,0.05)',
-                                            tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
-                                            showline: true, linecolor: 'rgba(255,255,255,0.1)'
-                                        },
-                                        yaxis: { 
-                                            title: { text: 'Pressure Ratio [PR]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
-                                            gridcolor: 'rgba(255,255,255,0.05)',
-                                            tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
-                                            showline: true, linecolor: 'rgba(255,255,255,0.1)'
-                                        },
-                                        showlegend: false,
-                                        hovermode: 'closest',
-                                        font: { family: 'Inter', size: 14, color: '#fff' }
-                                    }}
-                                    className="w-full h-full"
-                                    config={{ displayModeBar: false, responsive: true }}
-                                />
+
+                                {loading ? (
+                                    chartPlaceholder('EXECUTING_ENGINE_MAP_SOLVER...')
+                                ) : mapData ? (
+                                    <Plot
+                                        data={buildMapTraces()}
+                                        layout={{
+                                            plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
+                                            autosize: true, margin: { t: 80, b: 80, l: 100, r: 80 },
+                                            xaxis: {
+                                                title: { text: 'Corrected Mass Flow [kg/s]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                                gridcolor: 'rgba(255,255,255,0.05)',
+                                                tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
+                                                showline: true, linecolor: 'rgba(255,255,255,0.1)'
+                                            },
+                                            yaxis: {
+                                                title: { text: 'Pressure Ratio [PR]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                                gridcolor: 'rgba(255,255,255,0.05)',
+                                                tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
+                                                showline: true, linecolor: 'rgba(255,255,255,0.1)'
+                                            },
+                                            showlegend: false, hovermode: 'closest',
+                                            font: { family: 'Inter', size: 14, color: '#fff' }
+                                        }}
+                                        className="w-full h-full"
+                                        config={{ displayModeBar: false, responsive: true }}
+                                    />
+                                ) : chartPlaceholder(error ? 'SOLVER_ERROR — CHECK BACKEND' : 'Awaiting_Analysis...')}
                             </div>
 
                             <div className="grid grid-cols-4 gap-1 grid-bg shrink-0">
-                                <StatPanel 
-                                    label="SURGE MARGIN" 
-                                    value={surgeMargin ?? (loading ? 'CALC' : '—')} 
-                                    unit="%" sub="OPERATIONAL_STATUS" 
+                                <StatPanel
+                                    label="SURGE MARGIN"
+                                    value={surgeMargin ?? (loading ? '—' : '—')}
+                                    unit="%" sub="OPERATIONAL_STATUS"
                                 />
-                                <StatPanel 
-                                    label="PEAK EFFICIENCY" 
-                                    value={mapData?.speed_lines?.[0]?.eta?.[0] ? (mapData.speed_lines[0].eta[0] * 100).toFixed(1) : '0.0'} 
-                                    unit="%" sub="POLYTROPIC_PEAK" 
+                                <StatPanel
+                                    label="PEAK EFFICIENCY"
+                                    value={mapData?.speed_lines?.[0]?.eta?.[0]
+                                        ? (mapData.speed_lines[0].eta[0] * 100).toFixed(1)
+                                        : '—'}
+                                    unit="%" sub="POLYTROPIC_PEAK"
                                 />
-                                <StatPanel 
-                                    label="NORM. FLOW" 
-                                    value={throttleData?.[0]?.mdot_corr_norm?.toFixed(3) || '0.000'} 
-                                    unit="W" sub="NORMALIZED_REF" 
+                                <StatPanel
+                                    label="NORM. FLOW"
+                                    value={throttleData?.[0]?.mdot_corr_norm?.toFixed(3) || '—'}
+                                    unit="[-]" sub="NORMALIZED_REF"
                                 />
-                                <StatPanel 
-                                    label="THROTTLE STATUS" 
-                                    value={loading ? 'CALC' : (throttleData?.some(r => r.surge) ? 'SURGE' : 'PASS')} 
-                                    unit="" 
+                                <StatPanel
+                                    label="THROTTLE STATUS"
+                                    value={loading ? '—' : (throttleData?.some(r => r.surge) ? 'SURGE' : throttleData ? 'PASS' : '—')}
+                                    unit=""
                                     sub={loading ? 'EXECUTING_ENGINE_DECK' : 'SENSORS_STABLE'}
-                                    alert={throttleData?.some(r => r.surge)}
+                                    alert={!loading && throttleData?.some(r => r.surge)}
                                 />
                             </div>
                         </>
@@ -261,44 +251,39 @@ export default function PerformanceMap() {
                                     <span className="material-symbols-outlined !text-[22px] text-white/40">dns</span>
                                     <h3 className="text-[13px] font-black tracking-[0.3em]">THROTTLE PERFORMANCE SUITE</h3>
                                 </div>
-                                <div className="flex gap-12">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-                                        <span className="mono text-[10px] uppercase text-white/40 tracking-[0.2em]">DECK_GENERATION_ACTIVE</span>
-                                    </div>
                                 <button
-                                        onClick={handleExportDeck}
-                                        disabled={!throttleData}
-                                        className={`mono text-[11px] font-black uppercase tracking-widest transition-colors ${throttleData ? 'text-white/60 hover:text-white cursor-pointer' : 'text-white/20 cursor-not-allowed'}`}
-                                    >EXPORT ENGINE DECK</button>
-                                </div>
+                                    onClick={handleExportDeck}
+                                    disabled={!throttleData}
+                                    className={`mono text-[11px] font-black uppercase tracking-widest transition-colors ${throttleData ? 'text-white/60 hover:text-white cursor-pointer' : 'text-white/20 cursor-not-allowed'}`}
+                                >EXPORT ENGINE DECK</button>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 grow h-[500px]">
                                 <div className="bg-surface-container-lowest border border-white/10 p-8 flex flex-col group">
                                     <h4 className="mono text-[11px] font-black text-white/30 mb-8 uppercase tracking-[0.3em]">TSFC_THRUST_CORRELATION (FISHHOOK)</h4>
-                                    <Plot 
-                                        data={[{
-                                            x: throttleData?.map(r => r.spec_thrust),
-                                            y: throttleData?.map(r => r.tsfc),
-                                            mode: 'lines+markers',
-                                            name: 'FISHHOOK',
-                                            line: { color: '#fff', width: 2, shape: 'spline' },
-                                            marker: { size: 6, color: '#fff', opacity: 0.6 },
-                                            hovertemplate: `TSFC: %{y:.4f}<br>Thrust: %{x:.1f}<extra></extra>`
-                                        }]}
-                                        layout={{
-                                            plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
-                                            autosize: true, margin: { t: 10, b: 60, l: 80, r: 20 },
-                                            xaxis: { title: { text: 'SPEC_THRUST [Ns/kg]', font: { size: 10, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.05)', tickfont: { size: 10, color: 'rgba(255,255,255,0.3)' } },
-                                            yaxis: { title: { text: 'TSFC [mg/Ns]', font: { size: 10, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.05)', tickfont: { size: 10, color: 'rgba(255,255,255,0.3)' } },
-                                            showlegend: false, font: { family: 'JetBrains Mono' }
-                                        }}
-                                        className="w-full h-full"
-                                        config={{ displayModeBar: false, responsive: true }}
-                                    />
+                                    {loading ? chartPlaceholder('COMPUTING...') : throttleData ? (
+                                        <Plot
+                                            data={[{
+                                                x: throttleData.map(r => r.spec_thrust),
+                                                y: throttleData.map(r => r.tsfc),
+                                                mode: 'lines+markers', name: 'FISHHOOK',
+                                                line: { color: '#fff', width: 2, shape: 'spline' },
+                                                marker: { size: 6, color: '#fff', opacity: 0.6 },
+                                                hovertemplate: `TSFC: %{y:.4f}<br>Thrust: %{x:.1f}<extra></extra>`
+                                            }]}
+                                            layout={{
+                                                plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
+                                                autosize: true, margin: { t: 10, b: 60, l: 80, r: 20 },
+                                                xaxis: { title: { text: 'SPEC_THRUST [Ns/kg]', font: { size: 10, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.05)', tickfont: { size: 10, color: 'rgba(255,255,255,0.3)' } },
+                                                yaxis: { title: { text: 'TSFC [mg/Ns]', font: { size: 10, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.05)', tickfont: { size: 10, color: 'rgba(255,255,255,0.3)' } },
+                                                showlegend: false, font: { family: 'JetBrains Mono' }
+                                            }}
+                                            className="w-full h-full"
+                                            config={{ displayModeBar: false, responsive: true }}
+                                        />
+                                    ) : chartPlaceholder('Awaiting_Analysis...')}
                                 </div>
-                                
+
                                 <div className="bg-surface-container-lowest border border-white/10 p-8 flex flex-col overflow-hidden">
                                      <h4 className="mono text-[11px] font-black text-white/30 mb-8 uppercase tracking-[0.3em]">TABULAR_STATE_AUDIT</h4>
                                      <div className="overflow-y-auto grow custom-scrollbar">
@@ -306,9 +291,9 @@ export default function PerformanceMap() {
                                             <thead className="sticky top-0 bg-surface-container-lowest z-10 border-b border-white/10">
                                                 <tr className="text-white/30 uppercase font-black tracking-widest text-[10px]">
                                                     <th className="pb-4 pr-12">THROT_%</th>
-                                                    <th className="pb-4 pr-12">STHRUST</th>
+                                                    <th className="pb-4 pr-12">S_THRUST</th>
                                                     <th className="pb-4 pr-12">TSFC</th>
-                                                    <th className="pb-4">SURGE_M</th>
+                                                    <th className="pb-4">SURGE</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
@@ -317,9 +302,13 @@ export default function PerformanceMap() {
                                                         <td className="py-4 font-black text-white">{r.throttle_pct}%</td>
                                                         <td className="py-4 text-white/40 group-hover:text-white/80">{r.spec_thrust?.toFixed(1)}</td>
                                                         <td className="py-4 text-white/40 group-hover:text-white/80">{r.tsfc?.toFixed(3)}</td>
-                                                        <td className={`py-4 font-black ${r.surge ? 'text-red-500' : 'text-green-500/40'}`}>{r.surge ? 'CRIT' : 'SAFE'}</td>
+                                                        <td className={`py-4 font-black ${r.surge ? 'text-red-500' : 'text-white/20'}`}>{r.surge ? 'CRIT' : 'SAFE'}</td>
                                                     </tr>
-                                                ))}
+                                                )) ?? (
+                                                    <tr><td colSpan={4} className="py-10 text-center text-white/20 text-[11px] uppercase tracking-widest">
+                                                        {loading ? 'Computing...' : 'No data'}
+                                                    </td></tr>
+                                                )}
                                             </tbody>
                                         </table>
                                      </div>
@@ -335,31 +324,32 @@ export default function PerformanceMap() {
                                 <h3 className="mono text-[12px] font-black text-white tracking-[0.2em] uppercase">SURGE_PROXIMITY_PROFILE</h3>
                                 <p className="mono text-[11px] text-white/30 tracking-widest">SM vs. throttle setting</p>
                             </div>
-                            <Plot
-                                data={[{
-                                    x: throttleData?.map(r => r.throttle_pct),
-                                    y: throttleData?.map((r, i, arr) => {
-                                        const dp = arr[arr.length - 1]
-                                        return dp?.pr ? (((dp.pr - r.pr) / dp.pr) * 100).toFixed(2) : 0
-                                    }),
-                                    mode: 'lines+markers',
-                                    name: 'SURGE_MARGIN',
-                                    line: { color: '#fff', width: 2 },
-                                    marker: { size: 6, color: throttleData?.map(r => r.surge ? 'rgba(255,68,68,0.9)' : '#fff') },
-                                    hovertemplate: 'Throttle: %{x}%<br>SM: %{y}%<extra></extra>'
-                                }]}
-                                layout={{
-                                    plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
-                                    autosize: true, margin: { t: 60, b: 60, l: 80, r: 60 },
-                                    xaxis: { title: { text: 'Throttle [%]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
-                                    yaxis: { title: { text: 'Surge Margin [%]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
-                                    shapes: [{ type: 'line', x0: 0, x1: 100, y0: 10, y1: 10, line: { color: 'rgba(255,68,68,0.4)', width: 1, dash: 'dash' } }],
-                                    annotations: [{ x: 50, y: 10, text: 'MIN_SM_THRESHOLD (10%)', showarrow: false, font: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,68,68,0.6)' }, yshift: 10 }],
-                                    showlegend: false, font: { family: 'Inter', color: '#fff' }
-                                }}
-                                className="w-full h-full"
-                                config={{ displayModeBar: false, responsive: true }}
-                            />
+                            {loading ? chartPlaceholder('COMPUTING_SURGE_PROFILE...') : throttleData ? (
+                                <Plot
+                                    data={[{
+                                        x: throttleData.map(r => r.throttle_pct),
+                                        y: throttleData.map((r, i, arr) => {
+                                            const dp = arr[arr.length - 1]
+                                            return dp?.pr ? (((dp.pr - r.pr) / dp.pr) * 100).toFixed(2) : 0
+                                        }),
+                                        mode: 'lines+markers', name: 'SURGE_MARGIN',
+                                        line: { color: '#fff', width: 2 },
+                                        marker: { size: 6, color: throttleData.map(r => r.surge ? 'rgba(255,68,68,0.9)' : '#fff') },
+                                        hovertemplate: 'Throttle: %{x}%<br>SM: %{y}%<extra></extra>'
+                                    }]}
+                                    layout={{
+                                        plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
+                                        autosize: true, margin: { t: 60, b: 60, l: 80, r: 60 },
+                                        xaxis: { title: { text: 'Throttle [%]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
+                                        yaxis: { title: { text: 'Surge Margin [%]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
+                                        shapes: [{ type: 'line', x0: 0, x1: 100, y0: 10, y1: 10, line: { color: 'rgba(255,68,68,0.4)', width: 1, dash: 'dash' } }],
+                                        annotations: [{ x: 50, y: 10, text: 'MIN_SM_THRESHOLD (10%)', showarrow: false, font: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,68,68,0.6)' }, yshift: 10 }],
+                                        showlegend: false, font: { family: 'Inter', color: '#fff' }
+                                    }}
+                                    className="w-full h-full"
+                                    config={{ displayModeBar: false, responsive: true }}
+                                />
+                            ) : chartPlaceholder('Awaiting_Analysis...')}
                         </div>
                     )}
                 </section>

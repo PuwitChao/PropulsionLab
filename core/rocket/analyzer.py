@@ -47,7 +47,7 @@ class RocketAnalyzer:
             'CH4/O2'      : {'fuel': 'CH4',     'ox': 'O2',     'stoich': 4.00},
             'RP1/O2'      : {'fuel': 'C3H8',    'ox': 'O2',     'stoich': 3.63},  # Surrogate (Propane)
             'Propane/O2'  : {'fuel': 'C3H8',    'ox': 'O2',     'stoich': 3.63},
-            'Ethanol/O2'  : {'fuel': 'CH3OH',   'ox': 'O2',     'stoich': 1.50},  # Surrogate (Methanol)
+            'Ethanol/O2'  : {'fuel': 'C2H5OH',  'ox': 'O2',     'stoich': 2.09},  # Ethanol (actual species)
             'Methanol/O2' : {'fuel': 'CH3OH',   'ox': 'O2',     'stoich': 1.50},
             'Ammonia/O2'  : {'fuel': 'NH3',     'ox': 'O2',     'stoich': 1.41},
             
@@ -296,8 +296,8 @@ class RocketAnalyzer:
             r_throat = math.sqrt(A_throat / math.pi)
             r_exit   = math.sqrt(A_exit   / math.pi)
             mdot     = self.pc * A_throat / c_star
-            mdot_fuel = mdot * of_ratio / (1.0 + of_ratio)
-            mdot_ox   = mdot / (1.0 + of_ratio)
+            mdot_fuel = mdot / (1.0 + of_ratio)
+            mdot_ox   = mdot * of_ratio / (1.0 + of_ratio)
         else:
             # Default: assume At = 1 cm² for reporting ratios only
             A_throat = 1e-4
@@ -305,8 +305,8 @@ class RocketAnalyzer:
             r_throat = math.sqrt(A_throat / math.pi)
             r_exit   = math.sqrt(A_exit   / math.pi)
             mdot     = self.pc * A_throat / c_star
-            mdot_fuel = mdot * of_ratio / (1.0 + of_ratio)
-            mdot_ox   = mdot / (1.0 + of_ratio)
+            mdot_fuel = mdot / (1.0 + of_ratio)
+            mdot_ox   = mdot * of_ratio / (1.0 + of_ratio)
 
         # ── Structural / mass estimation ──────────────────────────────────
         safety_factor = 2.0

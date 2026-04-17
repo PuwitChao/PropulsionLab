@@ -4,15 +4,21 @@ import cantera as ct
 from ..units import R_AIR
 
 # ── Thermodynamic constants ──────────────────────────────────────────
-# We now use Cantera for high-fidelity gas properties.
-# Defaulting to GRI 3.0 for combustion products and air.
-GAS = ct.Solution('gri30.yaml')
+# Cantera is used for high-fidelity real-gas properties.
+# NOTE: A fresh ct.Solution is created per call to avoid state-mutation
+# race conditions under concurrent FastAPI async workers. ct.Solution
+# construction is lightweight (~0.3 ms for gri30).
+
+def _new_gas() -> ct.Solution:
+    """Returns a fresh, isolated Cantera GRI30 solution object."""
+    return ct.Solution('gri30.yaml')
 
 def get_gas_props(t_k: float, p_pa: float, f: float = 0.0, species: str = 'CH4:1.0') -> tuple[float, float, float]:
     """
     Returns (gamma, cp, mw) at a given (T, P) and fuel-to-air ratio.
 
-    Utilizes Cantera for high-fidelity real-gas properties.
+    Creates a fresh Cantera GRI30 solution per call to ensure thread safety
+    under concurrent FastAPI requests.
 
     Args:
         t_k: Stagnation temperature [K].
@@ -23,21 +29,22 @@ def get_gas_props(t_k: float, p_pa: float, f: float = 0.0, species: str = 'CH4:1
     Returns:
         tuple: (gamma, cp [J/kg/K], mean_molecular_weight [kg/kmol]).
     """
-    GAS.TP = t_k, p_pa
+    gas = _new_gas()
+    gas.TP = t_k, p_pa
     if f > 0:
-        # Equivalence ratio from fuel-to-air ratio
-        # Assumes stoichiometric f = 0.068 (typical for Jet-A/CH4)
-        phi = f / 0.068 
-        phi = max(0.0, min(phi, 1.2)) # Bound for stability
-        GAS.set_equivalence_ratio(phi, species, 'O2:1.0, N2:3.76')
-        GAS.TP = t_k, p_pa
+        # Equivalence ratio from fuel-to-air ratio.
+        # Stoichiometric f ≈ 0.068 for Jet-A/CH4 at standard conditions.
+        phi = f / 0.068
+        phi = max(0.0, min(phi, 1.2))  # Bound for solver stability
+        gas.set_equivalence_ratio(phi, species, 'O2:1.0, N2:3.76')
+        gas.TP = t_k, p_pa
     else:
-        # Set to pure air (simplified with N2 and O2)
-        GAS.X = 'N2:0.79, O2:0.21'
-        GAS.TP = t_k, p_pa
-    
-    cp = GAS.cp
-    mw = GAS.mean_molecular_weight
+        # Pure air composition
+        gas.X = 'N2:0.79, O2:0.21'
+        gas.TP = t_k, p_pa
+
+    cp = gas.cp
+    mw = gas.mean_molecular_weight
     gamma = cp / (cp - ct.gas_constant / mw)
     return gamma, cp, mw
 
