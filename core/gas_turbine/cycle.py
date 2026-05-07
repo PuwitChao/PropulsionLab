@@ -571,8 +571,139 @@ class CycleAnalyzer:
         Raises:
             NotImplementedError: Always, until Sprint 5 implementation.
         """
-        # TODO (Sprint 5): Implement full iterative work-matching loop.
-        raise NotImplementedError(
-            "solve_multispool() is a Sprint 5 deliverable. "
-            "Use solve_turbofan() with lpc_pr parameter for interim analysis."
+        inlet_recovery = 0.98
+        burner_eta = 0.99
+        burner_dp_frac = 0.04
+
+        # ── Station 2: Inlet exit ─────────────────────────────────────────
+        tt2 = self.tt0
+        pt2 = self.pt0 * inlet_recovery
+        self.stations[2] = EngineStation(t_total=tt2, p_total=pt2)
+        g2, cp2, _ = get_gas_props(tt2, pt2)
+        self.math_trace.append(f"Station 2: Tt2={tt2:.1f} K, Pt2={pt2/1e3:.1f} kPa")
+
+        # ── Station 21: Fan exit ──────────────────────────────────────────
+        eta_isen_fan = self._poly_to_isen_comp(fpr, eta_fan, g2)
+        tt21 = tt2 + tt2 * (fpr ** ((g2 - 1.0) / g2) - 1.0) / eta_isen_fan
+        pt21 = pt2 * fpr
+        _, cp_fan_avg, _ = get_gas_props(0.5 * (tt2 + tt21), pt21)
+        w_fan = cp_fan_avg * (tt21 - tt2)  # J/kg total air
+        self.stations[21] = EngineStation(t_total=tt21, p_total=pt21, mdot_frac=bpr)
+        self.math_trace.append(f"Station 21 (Fan): Tt21={tt21:.1f} K, W_fan={w_fan/1e3:.2f} kJ/kg")
+
+        # ── Station 25: LPC exit ──────────────────────────────────────────
+        g21, cp21, _ = get_gas_props(tt21, pt21)
+        eta_isen_lpc = self._poly_to_isen_comp(lpc_pr, eta_lpc, g21)
+        tt25 = tt21 + tt21 * (lpc_pr ** ((g21 - 1.0) / g21) - 1.0) / eta_isen_lpc
+        pt25 = pt21 * lpc_pr
+        _, cp_lpc_avg, _ = get_gas_props(0.5 * (tt21 + tt25), pt25)
+        w_lpc = cp_lpc_avg * (tt25 - tt21)  # J/kg core air
+        self.stations[25] = EngineStation(t_total=tt25, p_total=pt25)
+        self.math_trace.append(f"Station 25 (LPC): Tt25={tt25:.1f} K, W_lpc={w_lpc/1e3:.2f} kJ/kg")
+
+        # ── Station 3: HPC exit ───────────────────────────────────────────
+        hpc_pr = max(opr / (fpr * lpc_pr), 1.0)
+        g25, cp25, _ = get_gas_props(tt25, pt25)
+        eta_isen_hpc = self._poly_to_isen_comp(hpc_pr, eta_hpc, g25)
+        tt3 = tt25 + tt25 * (hpc_pr ** ((g25 - 1.0) / g25) - 1.0) / eta_isen_hpc
+        pt3 = pt25 * hpc_pr
+        _, cp_hpc_avg, _ = get_gas_props(0.5 * (tt25 + tt3), pt3)
+        w_hpc = cp_hpc_avg * (tt3 - tt25)  # J/kg core air
+        self.stations[3] = EngineStation(t_total=tt3, p_total=pt3)
+        self.math_trace.append(f"Station 3 (HPC): Tt3={tt3:.1f} K, hpc_pr={hpc_pr:.2f}, W_hpc={w_hpc/1e3:.2f} kJ/kg")
+
+        # ── Station 4: Combustor ──────────────────────────────────────────
+        tt4 = tit
+        pt4 = pt3 * (1.0 - burner_dp_frac)
+        _, cp4_0, _ = get_gas_props(tt4, pt4, f=0.02)
+        f = (cp4_0 * tt4 - cp_hpc_avg * tt3) / (burner_eta * h_fuel - cp4_0 * tt4)
+        f = max(f, 0.0)
+        g4, cp4, mw4 = get_gas_props(tt4, pt4, f=f)
+        self.stations[4] = EngineStation(t_total=tt4, p_total=pt4)
+        self.math_trace.append(f"Station 4 (Combustor): Tt4={tt4:.1f} K, f={f:.4f}")
+
+        # ── Iterative Work-Matching (HP and LP spools) ────────────────────
+        # LP spool total work demand per kg core flow
+        w_lp_req = w_fan * (1.0 + bpr) + w_lpc
+
+        # Seed turbine exit temperatures from station 4 gas properties
+        tt45 = tt4 - w_hpc / (cp4 * (1.0 + f) * eta_mech_hp)
+        tt5 = tt45 - w_lp_req / (cp4 * (1.0 + f) * eta_mech_lp)
+        pt45 = pt4 * 0.5  # initial pressure guess for mid-point evaluation
+
+        for _ in range(8):
+            # HPT: refine with mid-point gas properties
+            _, cp_hpt, _ = get_gas_props(0.5 * (tt4 + tt45), pt4, f=f)
+            tt45_new = tt4 - w_hpc / (cp_hpt * (1.0 + f) * eta_mech_hp)
+            tau_hpt = tt45_new / tt4
+            eta_isen_hpt = self._poly_to_isen_turb(tau_hpt, eta_hpt, g4)
+            pt45_new = pt4 * max((1.0 - (1.0 - tau_hpt) / eta_isen_hpt), 1e-4) ** (g4 / (g4 - 1.0))
+
+            # LPT: refine with mid-point gas properties
+            g45, _, _ = get_gas_props(tt45_new, pt45_new, f=f)
+            _, cp_lpt, _ = get_gas_props(0.5 * (tt45_new + tt5), pt45_new, f=f)
+            tt5_new = tt45_new - w_lp_req / (cp_lpt * (1.0 + f) * eta_mech_lp)
+
+            # Convergence: < 0.1% change on both turbine exit temperatures
+            conv_hpt = abs(tt45_new - tt45) / max(abs(tt45), 1.0)
+            conv_lpt = abs(tt5_new - tt5) / max(abs(tt5), 1.0)
+            tt45, pt45, tt5 = tt45_new, pt45_new, tt5_new
+
+            if conv_hpt < 1e-3 and conv_lpt < 1e-3:
+                break
+
+        # Final LPT pressure from converged temperatures
+        tau_lpt = tt5 / tt45
+        g45_fin, _, _ = get_gas_props(tt45, pt45, f=f)
+        eta_isen_lpt = self._poly_to_isen_turb(tau_lpt, eta_lpt, g45_fin)
+        pt5 = pt45 * max((1.0 - (1.0 - tau_lpt) / eta_isen_lpt), 1e-4) ** (g45_fin / (g45_fin - 1.0))
+
+        self.stations[45] = EngineStation(t_total=tt45, p_total=pt45)
+        self.stations[5] = EngineStation(t_total=tt5, p_total=pt5)
+        self.math_trace.append(
+            f"Work-match converged: Tt45={tt45:.1f} K, Tt5={tt5:.1f} K, Pt5={pt5/1e3:.1f} kPa"
         )
+
+        # ── Station 9 / 19: Separate nozzles ─────────────────────────────
+        v0 = self.m0 * math.sqrt(g2 * R_AIR * self.t0)
+
+        pt9_in = pt5 * 0.98
+        gn_c, cpn_c, mwn_c = get_gas_props(tt5, pt9_in, f=f)
+        v9, ps9, ts9, m9 = self._nozzle_exit(pt9_in, tt5, self.p0, gn_c, ct.gas_constant / mwn_c)
+
+        pt19_in = pt21 * 0.99
+        gn_b, cpn_b, mwn_b = get_gas_props(tt21, pt19_in)
+        v19, ps19, ts19, m19 = self._nozzle_exit(pt19_in, tt21, self.p0, gn_b, ct.gas_constant / mwn_b)
+
+        rn_c = ct.gas_constant / mwn_c
+        rn_b = ct.gas_constant / mwn_b
+        fg_core = (1.0 + f) * v9 + (ps9 - self.p0) * (rn_c * ts9 / ps9 * (1.0 + f) / max(v9, 1.0))
+        fg_byp = bpr * v19 + (ps19 - self.p0) * (rn_b * ts19 / ps19 * bpr / max(v19, 1.0))
+
+        spec_thrust = (fg_core + fg_byp - (1.0 + bpr) * v0) / (1.0 + bpr)
+        tsfc = f / ((1.0 + bpr) * spec_thrust) if spec_thrust > 0 else 0.0
+
+        # ── Efficiency metrics ────────────────────────────────────────────
+        q_in = f * h_fuel
+        v9_fe = math.sqrt(max(0.0, 2.0 * cpn_c * tt5 * (1.0 - (self.p0 / pt9_in) ** ((gn_c - 1.0) / gn_c))))
+        eta_thermal = (0.5 * (1.0 + f) * v9_fe ** 2 - 0.5 * v0 ** 2) / q_in if q_in > 0 else 0.0
+        eta_prop = 2.0 * v0 / (v9 + v0) if (v9 + v0) > 1e-3 else 0.0
+
+        return {
+            'engine_type'     : 'multispool_turbofan',
+            'spec_thrust'     : spec_thrust,
+            'tsfc'            : tsfc,
+            'f_total'         : f,
+            'eta_thermal'     : eta_thermal,
+            'eta_propulsive'  : eta_prop,
+            'eta_overall'     : eta_thermal * eta_prop,
+            'tt3'             : tt3,
+            'tt45'            : tt45,
+            'tt5'             : tt5,
+            'pt5'             : pt5,
+            'v9'              : v9,
+            'm9'              : m9,
+            'hpc_pr'          : round(hpc_pr, 3),
+            'math_trace'      : self.math_trace,
+            'stations'        : {k: {'tt': v.tt, 'pt': v.pt, 's': v.get_entropy()} for k, v in self.stations.items()},
+        }
