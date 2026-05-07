@@ -245,11 +245,14 @@ class CycleAnalyzer:
         tau_t = tt5 / tt4
         eta_isen_t = self._poly_to_isen_turb(tau_t, eta_t, g4)
         pt5_ratio  = (1.0 - (1.0 - tau_t) / eta_isen_t) if (eta_isen_t > 0 and abs(1-tau_t) > 1e-6) else 1.0
-        pt5        = pt4 * max(pt5_ratio, 1e-4) ** (g4 / (g4 - 1.0))
+        # Clamp to a physically meaningful minimum (5 % of ambient pressure as floor)
+        pt5        = pt4 * max(pt5_ratio, 0.05) ** (g4 / (g4 - 1.0))
         
         # Refine tt5 with mid-point properties
         _, cp_t_avg, _ = get_gas_props(0.5*(tt4+tt5), 0.5*(pt4+pt5), f=f)
         tt5   = tt4 - w_comp / (cp_t_avg * (1.0 + f) * eta_mech_hp)
+        if tt5 <= 0:
+            raise ValueError(f"Turbine exit temperature non-physical: Tt5={tt5:.1f} K")
         self.stations[5] = EngineStation(t_total=tt5, p_total=pt5)
         self.math_trace.append(f"Turbine: Tt5={tt5:.1f} K, Pt5/Pt4={pt5/pt4:.3f}, η_is={eta_isen_t:.4f}")
 
@@ -259,10 +262,16 @@ class CycleAnalyzer:
         tt9_in = tt5
         if ab_enabled:
             tt9_in = ab_temp
-            pt9_in = pt5 * 0.95
-            _, cp7, _ = get_gas_props(tt9_in, pt9_in, f=f+0.05)
-            f_ab   = cp4 * (ab_temp - tt5) / (eta_ab * h_fuel - cp7 * ab_temp)
-            f_ab   = max(f_ab, 0.0)
+            # Apply the same nozzle_dp_frac consistently (was hardcoded 0.95 before)
+            pt9_in = pt5 * (1.0 - nozzle_dp_frac)
+            # Energy balance: per kg of air, (1+f)*cp5*Tt5 + f_ab*eta_ab*h_fuel
+            #                              = (1+f+f_ab)*cp7*ab_temp
+            # => f_ab = (1+f)*cp5*(ab_temp-Tt5) / (eta_ab*h_fuel - cp7*ab_temp)
+            _, cp5_ab, _ = get_gas_props(tt5, pt9_in, f=f)
+            _, cp7, _    = get_gas_props(tt9_in, pt9_in, f=f + 0.05)
+            denom = eta_ab * h_fuel - cp7 * ab_temp
+            f_ab  = (1.0 + f) * cp5_ab * (ab_temp - tt5) / denom if denom > 0 else 0.0
+            f_ab  = max(f_ab, 0.0)
             self.math_trace.append(f"Afterburner: Tt7={tt9_in:.1f} K, f_ab={f_ab:.4f}")
         self.stations[7] = EngineStation(t_total=tt9_in, p_total=pt9_in)
 
@@ -438,8 +447,9 @@ class CycleAnalyzer:
             
             # Resulting Tt_mix (initial guess)
             tt_mix = h_tot_mix / ((m_core*cp5_m + m_bypass*cp21_m)/m_total)
-            # Refine Tt_mix with mixed gas props
-            g_mix, cp_mix, _ = get_gas_props(tt_mix, min(pt5, pt21), f=(f/m_total))
+            # Fuel fraction on a per-total-air basis (not divided by m_total which includes fuel)
+            f_mix_ref = f / (1.0 + bpr)
+            g_mix, cp_mix, _ = get_gas_props(tt_mix, min(pt5, pt21), f=f_mix_ref)
             tt_mix = h_tot_mix / cp_mix
             
             pt_mix = min(pt5, pt21) * 0.98

@@ -49,6 +49,14 @@ def isa_atmosphere(altitude_m: float) -> tuple:
 
     h = float(altitude_m)
 
+    if h < 0:
+        raise ValueError(f"altitude_m must be >= 0, got {h}")
+    if h > 47000.0:
+        raise ValueError(
+            f"altitude_m={h} m exceeds the 47 km limit of the 4-layer ICAO ISA model. "
+            "Use a higher-fidelity model for mesosphere / thermosphere analysis."
+        )
+
     # Layer 1: Troposphere (0 - 11 000 m)
     T11 = T0 + L0 * 11000.0                            # 216.65 K
     P11 = P0 * (T11 / T0) ** (-G / (L0 * R_AIR))       # ~22 632 Pa (computed)

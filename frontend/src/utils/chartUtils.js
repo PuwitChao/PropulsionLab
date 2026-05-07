@@ -63,9 +63,3 @@ export const getLayout = (theme, extra = {}) => {
   };
 };
 
-export const ax = (theme, title) => ({ 
-  title: { text: typeof title === 'string' ? title.toUpperCase() : title }, 
-  gridcolor: 'rgba(255,255,255,0.05)', 
-  zeroline: false, 
-  linecolor: 'rgba(255,255,255,0.1)' 
-})

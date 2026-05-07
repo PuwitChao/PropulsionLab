@@ -1,6 +1,33 @@
 import React, { useState, useEffect } from 'react'
 import API_BASE_URL from './api'
 import './index.css'
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-full min-h-[300px]">
+          <div className="border border-red-500/30 bg-red-950/20 p-16 max-w-xl">
+            <p className="mono text-[12px] text-red-400 uppercase tracking-widest font-black mb-6">RENDER_ERROR</p>
+            <p className="mono text-[11px] text-red-400/60 break-all">{this.state.error?.message}</p>
+            <button
+              onClick={() => this.setState({ hasError: false, error: null })}
+              className="mt-10 mono text-[11px] text-white/40 hover:text-white uppercase tracking-widest transition-colors"
+            >RESET_NODE</button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 import MissionAnalysis from './pages/MissionAnalysis'
 import ParametricCycle from './pages/ParametricCycle'
 import RocketAnalysis from './pages/RocketAnalysis'
@@ -148,7 +175,9 @@ function App() {
       {/* ── Main Content Area ──────────────────────────────────────────── */}
       <main className="ml-[280px] mt-20 p-16 w-[calc(100%-280px)] h-[calc(100vh-80px)] overflow-y-auto scrollbar-hide grid-bg">
         <div className="max-w-[1400px] mx-auto">
-            {renderContent()}
+            <ErrorBoundary key={activeTab}>
+              {renderContent()}
+            </ErrorBoundary>
         </div>
       </main>
 

@@ -7,8 +7,12 @@ class MissionAnalyzer:
     versus Wing Loading (W/S).
     """
     def __init__(self, aircraft_data):
-        self.k = aircraft_data.get('k', 0.1)  # Induced drag factor
-        self.cd0 = aircraft_data.get('cd0', 0.02)  # Zero-lift drag coefficient
+        self.k   = aircraft_data.get('k',   0.1)    # Induced drag factor
+        self.cd0 = aircraft_data.get('cd0', 0.02)   # Zero-lift drag coefficient
+        # k_to: empirical takeoff parameter; typical range 1.5–3.0 depending on
+        # runway surface and propulsion type (jet ~ 2.0, piston/turboprop ~ 2.5–3.0).
+        # Can be overridden via aircraft_data['k_to'].
+        self.k_to = aircraft_data.get('k_to', 2.0)
         self.q = 0  # Dynamic pressure (calculated later)
         
     def calculate_dynamic_pressure(self, altitude_m, mach):
@@ -51,10 +55,7 @@ class MissionAnalyzer:
         cl_max: Max lift coefficient
         sigma: Density ratio (rho/rho0)
         """
-        # Simplified takeoff constraint: T/W = (W/S) / (sto * sigma * CL_max * k_to)
-        # Using a typical empirical constant for jet aircraft k_to ~ 1.2
-        k_to = 1.2
-        return ws / (sto * sigma * cl_max * k_to)
+        return ws / (sto * sigma * cl_max * self.k_to)
 
     def generate_constraint_data(self, ws_range, constraints):
         """
@@ -69,6 +70,9 @@ class MissionAnalyzer:
             values = []
             
             for ws in ws_range:
+                if ws <= 0:
+                    values.append(0)
+                    continue
                 if ctype == 'level':
                     val = self.tw_level_flight(ws, c['alt'], c['mach'])
                 elif ctype == 'ps':

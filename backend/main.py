@@ -22,7 +22,7 @@ POST /analyze/rocket/export/csv    — Nozzle contour coordinates as CSV
 POST /analyze/cycle/sensitivity    — Multi-parameter sensitivity sweep (T4/Alt/OPR)
 Propulsion Analysis Suite — Backend API (v2.2.0-dev)
 
-System architect for high-fidelity gas turbine cycle analysis, rocket equilibriumCEA,
+System architect for high-fidelity gas turbine cycle analysis, rocket equilibrium (CEA),
 and mission performance synthesis.
 
 Core dependencies: Cantera (Equilibrium), FastAPI (REST), Pydantic (Validation).
@@ -64,14 +64,24 @@ app = FastAPI(
 )
 
 # ── Security & Policy ────────────────────────────────────────────────────────
-# Configure CORS for local development and research origins.
+_ALLOWED_ORIGINS = [
+    o.strip() for o in
+    os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
+
+
+def _api_error(e: Exception, status: int = 500) -> HTTPException:
+    """Log full exception internally; return sanitised HTTPException to caller."""
+    logger.error("API error: %s", e, exc_info=True)
+    return HTTPException(status_code=status, detail=str(e))
 
 # ════════════════════════════════════════════════════════════════════════════
 # Health
@@ -126,7 +136,7 @@ class MissionConstraintRequest(BaseModel):
     constraints:   List[Dict[str, Any]]
     ws_min:   float = 1000.0
     ws_max:   float = 8000.0
-    ws_steps: int   = 50
+    ws_steps: int   = Field(50, ge=1, le=500)
 
 @app.post("/analyze/mission")
 async def analyze_mission(request: MissionConstraintRequest):
@@ -142,7 +152,7 @@ async def analyze_mission(request: MissionConstraintRequest):
         ]
         return analyzer.generate_constraint_data(ws_range, request.constraints)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -151,7 +161,7 @@ async def analyze_mission(request: MissionConstraintRequest):
 
 class CycleRequest(BaseModel):
     """Thermodynamic parameters for gas turbine cycle synthesis."""
-    alt:        float = Field(...,  ge=0,    le=50000, description="Altitude [m]")
+    alt:        float = Field(...,  ge=0,    le=47000, description="Altitude [m]")
     mach:       float = Field(...,  ge=0,    le=4.0,   description="Flight Mach number")
     prc:        float = Field(...,  ge=1.1,  le=80.0,  description="Compressor Pressure Ratio")
     tit:        float = Field(...,  ge=300,  le=2500,  description="Turbine Inlet Temperature [K]")
@@ -195,7 +205,7 @@ async def analyze_cycle(request: CycleRequest):
         )
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 # ── Turbofan On-Design ─────────────────────────────────────────────────────
@@ -234,7 +244,7 @@ async def analyze_turbofan(request: TurbofanRequest):
         )
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 # ── Parametric Sweep (pressure ratio) ─────────────────────────────────────
@@ -273,7 +283,7 @@ async def analyze_cycle_sweep(request: CycleSweepRequest):
             })
         return results
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -310,7 +320,7 @@ async def offdesign_map(request: OffDesignMapRequest):
         map_data['design_point'] = {'flow': 1.0, 'pr': solver.dp_pr}
         return map_data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 class ThrottleSweepRequest(BaseModel):
@@ -337,7 +347,7 @@ async def offdesign_throttle(request: ThrottleSweepRequest):
         results = solver.sweep_throttle(p0, t0, request.mach, request.h_fuel, request.n_points)
         return results
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -378,10 +388,7 @@ async def analyze_rocket(request: RocketRequest):
         )
         return result
     except Exception as e:
-        import traceback
-        v_err = f"BACKEND_ERROR: {str(e)}\n{traceback.format_exc()}"
-        logger.error(v_err)
-        raise HTTPException(status_code=500, detail=f"Computational Kernel Error: {str(e)}")
+        raise _api_error(e)
 
 
 @app.post("/analyze/rocket/sweep")
@@ -408,11 +415,11 @@ async def analyze_rocket_sweep(request: RocketRequest):
                     "gamma"         : res.get("gamma"),
                     "mw_chamber"    : res.get("mw_chamber"),
                 })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("O/F sweep: skipped of=%.2f (%s)", of, e)
         return results
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 # ── Altitude Performance ───────────────────────────────────────────────────
@@ -438,7 +445,7 @@ async def analyze_rocket_altitude(request: AltitudeRequest):
         analyzer  = RocketAnalyzer(request.pc)
         return analyzer.altitude_performance(request.propellant, request.of_ratio, altitudes, request.mode)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 # ── Engine Sizing from Thrust Target ──────────────────────────────────────
@@ -492,7 +499,7 @@ async def analyze_sizing(request: SizingRequest):
             'math_trace': result.get('math_trace'),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 # ── Method of Characteristics ─────────────────────────────────────────────
@@ -510,13 +517,12 @@ async def analyze_rocket_moc(request: MoCRequest):
         mesh     = designer.get_mesh_data()
         return {"x": x, "y": y, "mesh": mesh}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 @app.post("/analyze/rocket/export/stl")
 async def export_rocket_stl(request: MoCRequest):
     try:
-        from fastapi.responses import PlainTextResponse
         designer = MoCNozzle(request.gamma, request.mach_exit, request.throat_radius)
         stl_text = designer.generate_stl_mesh()
         return PlainTextResponse(
@@ -525,7 +531,7 @@ async def export_rocket_stl(request: MoCRequest):
             headers={"Content-Disposition": "attachment; filename=nozzle_moc.stl"}
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 @app.post("/analyze/rocket/export/csv")
@@ -535,7 +541,6 @@ async def export_rocket_csv(request: MoCRequest):
     Returns (X [m], R [m]) coordinate pairs for CFD meshing or CAD import.
     """
     try:
-        from fastapi.responses import PlainTextResponse
         designer = MoCNozzle(request.gamma, request.mach_exit, request.throat_radius)
         x_vals, y_vals = designer.solve_contour()
 
@@ -555,7 +560,7 @@ async def export_rocket_csv(request: MoCRequest):
         )
     except Exception as e:
         logger.error(f"CSV export error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -568,7 +573,7 @@ class SensitivityRequest(BaseModel):
     Sweeps one parameter (T4, altitude, or OPR) while holding others fixed.
     """
     sweep_type: str   = Field("t4", description="'t4', 'alt', or 'opr'")
-    alt:        float = Field(10000.0, ge=0,   le=50000)
+    alt:        float = Field(10000.0, ge=0,   le=47000)
     mach:       float = Field(0.8,     ge=0,   le=4.0)
     prc:        float = Field(20.0,    ge=1.1, le=80.0)
     tit:        float = Field(1600.0,  ge=300, le=2500)
@@ -622,7 +627,7 @@ async def analyze_cycle_sensitivity(request: SensitivityRequest):
             "data"         : results,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -663,7 +668,7 @@ async def analyze_multispool(request: MultispoolRequest):
         )
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _api_error(e)
 
 
 

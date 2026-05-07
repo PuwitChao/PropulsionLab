@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Plotly from 'plotly.js-dist-min'
 import _createPlotlyComponent from 'react-plotly.js/factory'
 const createPlotlyComponent = _createPlotlyComponent.default || _createPlotlyComponent
@@ -22,13 +22,14 @@ export default function PerformanceMap() {
         prc: 20,
         tit: 1550,
     })
+    const abortRef = useRef(null)
 
     // Compute surge margin from the lowest-throttle operating point vs design point
     const surgeMargin = React.useMemo(() => {
         if (!throttleData || throttleData.length === 0) return null
-        const dp = throttleData.find(r => r.throttle_pct === 100) || throttleData[throttleData.length - 1]
+        const dp  = throttleData.find(r => r.throttle_pct === 100) || throttleData[throttleData.length - 1]
         const low = throttleData[0]
-        if (!dp || !low || !dp.pr || !low.pr) return null
+        if (!dp || !low || !dp.pr || dp.pr === 0) return null
         return (((dp.pr - low.pr) / dp.pr) * 100).toFixed(1)
     }, [throttleData])
 
@@ -69,8 +70,11 @@ export default function PerformanceMap() {
     }, [dpParams])
 
     useEffect(() => {
+        // Cancel any in-flight request before scheduling a new one
+        if (abortRef.current) abortRef.current.abort()
+        abortRef.current = new AbortController()
         const t = setTimeout(runAnalysis, 300)
-        return () => clearTimeout(t)
+        return () => { clearTimeout(t); abortRef.current?.abort() }
     }, [dpParams, runAnalysis])
 
     const buildMapTraces = () => {

@@ -342,3 +342,92 @@ def test_turbojet_prc_sweep_aggregation():
         assert pt["tsfc"] > 0,        f"Non-positive tsfc at OPR={pt['prc']}"
         assert 0.0 <= pt["eta_thermal"] <= 1.0, \
             f"eta_thermal out of [0,1] at OPR={pt['prc']}: {pt['eta_thermal']}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Input Validation — Invalid Inputs Must Raise, Not Silently Fail
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_rocket_invalid_chamber_pressure():
+    """Negative or zero chamber pressure must raise ValueError."""
+    with pytest.raises((ValueError, Exception)):
+        RocketAnalyzer(-1e5)
+    with pytest.raises((ValueError, Exception)):
+        RocketAnalyzer(0.0)
+
+
+def test_rocket_unknown_propellant():
+    """An unknown propellant name must raise KeyError, not silently use H2/O2."""
+    analyzer = RocketAnalyzer(10e6)
+    with pytest.raises(KeyError):
+        analyzer.solve_equilibrium("UNKNOWN_PROP/XX", of_ratio=6.0)
+
+
+def test_rocket_invalid_of_ratio():
+    """OF ratio <= 0 must raise ValueError."""
+    analyzer = RocketAnalyzer(10e6)
+    with pytest.raises((ValueError, Exception)):
+        analyzer.solve_equilibrium("H2/O2", of_ratio=0.0)
+    with pytest.raises((ValueError, Exception)):
+        analyzer.solve_equilibrium("H2/O2", of_ratio=-1.0)
+
+
+def test_moc_invalid_mach():
+    """Subsonic or exactly-sonic mach_exit must raise ValueError."""
+    with pytest.raises(ValueError):
+        MoCNozzle(gamma=1.2, mach_exit=0.8, throat_radius=0.1)
+    with pytest.raises(ValueError):
+        MoCNozzle(gamma=1.2, mach_exit=1.0, throat_radius=0.1)
+
+
+def test_moc_invalid_gamma():
+    """Gamma outside [1.05, 1.67] must raise ValueError."""
+    with pytest.raises(ValueError):
+        MoCNozzle(gamma=0.5, mach_exit=2.0, throat_radius=0.1)
+    with pytest.raises(ValueError):
+        MoCNozzle(gamma=2.5, mach_exit=2.0, throat_radius=0.1)
+
+
+def test_isa_negative_altitude():
+    """Negative altitude must raise ValueError."""
+    with pytest.raises(ValueError):
+        isa_atmosphere(-100.0)
+
+
+def test_isa_above_47km():
+    """Altitude above 47 km must raise ValueError (beyond 4-layer ISA model)."""
+    with pytest.raises(ValueError):
+        isa_atmosphere(50000.0)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Tightened Physics Assertions
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_rocket_h2o2_isp_bounds():
+    """H2/O2 at 10 MPa should deliver Isp in realistic range [400, 470] s."""
+    analyzer = RocketAnalyzer(10e6)
+    result = analyzer.solve_equilibrium("H2/O2", of_ratio=6.0, compute_heat_transfer=False)
+    isp = result["isp_delivered"]
+    assert 400 < isp < 470, f"H2/O2 Isp={isp:.1f} s outside expected [400, 470] s"
+
+
+def test_rocket_mdot_relative_tolerance():
+    """mdot_fuel + mdot_ox should equal mdot_total within 1e-9 relative tolerance."""
+    analyzer = RocketAnalyzer(10e6)
+    result = analyzer.solve_equilibrium(
+        "H2/O2", of_ratio=6.0, thrust_target_N=50000.0, compute_heat_transfer=False
+    )
+    mdot_total = result["mdot_total"]
+    mdot_sum   = result["mdot_fuel"] + result["mdot_ox"]
+    rel_err    = abs(mdot_sum - mdot_total) / mdot_total
+    assert rel_err < 1e-9, f"mdot relative error {rel_err:.2e} exceeds 1e-9"
+
+
+def test_moc_contour_radius_monotonic():
+    """Nozzle wall radius R must be monotonically non-decreasing along X."""
+    designer = MoCNozzle(gamma=1.3, mach_exit=2.5, throat_radius=0.05)
+    _, r_vals = designer.solve_contour(subdivisions=30)
+    for i in range(1, len(r_vals)):
+        assert r_vals[i] >= r_vals[i - 1] - 1e-12, \
+            f"Radius non-monotonic at index {i}: {r_vals[i-1]:.6f} -> {r_vals[i]:.6f}"

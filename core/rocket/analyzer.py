@@ -35,8 +35,10 @@ class RocketAnalyzer:
         Initialize the analyzer with design chamber pressure.
 
         Args:
-            chamber_p_pa: Combustion chamber stagnation pressure [Pa].
+            chamber_p_pa: Combustion chamber stagnation pressure [Pa]. Must be > 0.
         """
+        if chamber_p_pa <= 0:
+            raise ValueError(f"chamber_p_pa must be positive, got {chamber_p_pa}")
         # Load the chemical mechanism. GRI30 provides excellent coverage for CH4, H2, and RP1 surrogates.
         # Note: transport_model='mixture-averaged' is required for viscosity/thermal_conductivity
         self.gas  = ct.Solution('gri30.yaml', transport_model='mixture-averaged')
@@ -198,8 +200,14 @@ class RocketAnalyzer:
         Returns:
             dict: Comprehensive results including Isp, thrust, dimensions, and composition.
         """
+        if of_ratio <= 0:
+            raise ValueError(f"of_ratio must be positive, got {of_ratio}")
+        if propellant_name not in self.propellants:
+            available = ', '.join(sorted(self.propellants.keys()))
+            raise KeyError(f"Unknown propellant '{propellant_name}'. Available: {available}")
+
         math_trace = []
-        prop = self.propellants.get(propellant_name, self.propellants['H2/O2'])
+        prop = self.propellants[propellant_name]
         phi  = prop['stoich'] / of_ratio
         math_trace.append(f"Propellants: {propellant_name} (Stoich O/F: {prop['stoich']})")
         math_trace.append(f"Equivalence Ratio φ = {phi:.4f}")
@@ -236,6 +244,9 @@ class RocketAnalyzer:
         else:
             self.gas.X = frozen_X
             self.gas.SP = s_chamber, p_exit_pa
+            # In frozen mode composition must remain constant; re-assert the
+            # saved mole fractions to prevent Cantera from re-equilibrating.
+            self.gas.X = frozen_X
 
         t_exit   = self.gas.T
         h_exit   = self.gas.h
@@ -289,8 +300,9 @@ class RocketAnalyzer:
         # F (vacuum) = mdot * (v_exit + Pe/rho_exit/v_exit)
         # Solve At given thrust target
         if thrust_target_N is not None and thrust_target_N > 0 and c_star > 0:
-            # Vacuum thrust: F_vac ≈ Cf_vac * Pc * At
-            cf_vac = cf_delivered + p_exit_pa * epsilon / self.pc  # approx Cf in vacuum
+            # Vacuum thrust coefficient: Cf_vac = Cf_delivered + (Pe/Pc)*epsilon
+            # Standard form (Sutton & Biblarz, Rocket Propulsion Elements eq 3-30)
+            cf_vac = cf_delivered + (p_exit_pa / self.pc) * epsilon
             A_throat = thrust_target_N / (cf_vac * self.pc) if cf_vac * self.pc > 0 else 0.001
             A_exit   = A_throat * epsilon
             r_throat = math.sqrt(A_throat / math.pi)
@@ -341,8 +353,10 @@ class RocketAnalyzer:
                     cond_chamber=cond_chamber,
                     c_star=c_star,
                 )
-            except Exception:
-                heat_transfer = None
+            except Exception as ht_err:
+                import logging as _logging
+                _logging.getLogger(__name__).warning("Bartz heat transfer failed: %s", ht_err)
+                heat_transfer = {'error': str(ht_err)}
 
         # ── Flow regime ───────────────────────────────────────────────────
         regime = 'Ideally Expanded'
@@ -359,7 +373,8 @@ class RocketAnalyzer:
         gn_exit  = cpn_exit / (cpn_exit - ct.gas_constant / mwn_exit)
         rn_exit = ct.gas_constant / mwn_exit
         a_exit  = math.sqrt(max(0.1, gn_exit * rn_exit * t_exit))
-        mach_exit = v_exit_ideal / a_exit if a_exit > 0 else 1.0
+        # Use delivered exit velocity (accounts for divergence and friction losses)
+        mach_exit = v_exit_delivered / a_exit if a_exit > 0 else 1.0
 
         return {
             # ── Thermochemistry ──────────────────────────────────────────

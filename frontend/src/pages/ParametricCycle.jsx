@@ -69,10 +69,12 @@ export default function ParametricCycle() {
   })
   const [sensData, setSensData] = useState(null)
   const [sensLoading, setSensLoading] = useState(false)
+  const [sensError, setSensError] = useState(null)
 
   const runSensitivity = useCallback(async () => {
     setSensLoading(true)
     setSensData(null)
+    setSensError(null)
     try {
       const data = await fetchData('/analyze/cycle/sensitivity', {
         method: 'POST',
@@ -81,6 +83,7 @@ export default function ParametricCycle() {
       setSensData(data)
     } catch (e) {
       console.error('Sensitivity sweep error:', e)
+      setSensError(e.message || 'Sensitivity solver failed.')
     }
     setSensLoading(false)
   }, [sensParams])
