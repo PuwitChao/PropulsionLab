@@ -631,13 +631,8 @@ async def analyze_cycle_sensitivity(request: SensitivityRequest):
 
 class MultispoolRequest(BaseModel):
     """
-    [STUB] Request model for high-fidelity multi-spool turbofan work matching.
+    Request model for high-fidelity multi-spool turbofan work matching.
     Intended for military turbofan architectures with LPC/HPC work balancing.
-
-    TODO (Sprint 5):
-      - Implement LPC/HPC work matching via iterative N1/N2 spool speed coupling.
-      - Add HPT/LPT expansion split control.
-      - Support cooling flow insertion between HPT stages.
     """
     alt:    float = Field(0.0,    ge=0,   le=30000)
     mach:   float = Field(0.0,   ge=0,   le=3.0)
@@ -651,15 +646,24 @@ class MultispoolRequest(BaseModel):
 @app.post("/analyze/cycle/multispool")
 async def analyze_multispool(request: MultispoolRequest):
     """
-    [STUB] Multi-spool high-fidelity turbofan cycle solver.
-    Currently routes to the standard turbofan solver as a placeholder.
-    Full LPC/HPC work-matching logic is scheduled for Sprint 5.
+    Multi-spool high-fidelity turbofan cycle solver with iterative work matching.
+    Balances HP spool (HPT drives HPC) and LP spool (LPT drives Fan + LPC)
+    using separate per-component polytropic efficiencies. Converges to < 0.1 %
+    on turbine exit temperatures via mid-point Cantera gas-property refinement.
     """
-    # TODO (Sprint 5): Replace with dedicated work-matching solver.
-    raise HTTPException(
-        status_code=501,
-        detail="Multi-spool work matching is scheduled for Sprint 5. Use /analyze/cycle/turbofan for now."
-    )
+    try:
+        p0, t0, _ = isa_atmosphere(request.alt)
+        analyzer = CycleAnalyzer(p0, t0, request.mach)
+        result = analyzer.solve_multispool(
+            opr=request.opr,
+            bpr=request.bpr,
+            fpr=request.fpr,
+            lpc_pr=request.lpc_pr,
+            tit=request.tit,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 
