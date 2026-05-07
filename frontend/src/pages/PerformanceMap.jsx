@@ -346,8 +346,8 @@ export default function PerformanceMap() {
                                         autosize: true, margin: { t: 60, b: 60, l: 80, r: 60 },
                                         xaxis: { title: { text: 'Throttle [%]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
                                         yaxis: { title: { text: 'Surge Margin [%]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
-                                        shapes: [{ type: 'line', x0: 0, x1: 100, y0: 10, y1: 10, line: { color: 'rgba(255,68,68,0.4)', width: 1, dash: 'dash' } }],
-                                        annotations: [{ x: 50, y: 10, text: 'MIN_SM_THRESHOLD (10%)', showarrow: false, font: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,68,68,0.6)' }, yshift: 10 }],
+                                        shapes: [{ type: 'line', x0: 0, x1: 100, y0: 15, y1: 15, line: { color: 'rgba(255,68,68,0.4)', width: 1, dash: 'dash' } }],
+                                        annotations: [{ x: 50, y: 15, text: 'MIN_SM_THRESHOLD (15%)', showarrow: false, font: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,68,68,0.6)' }, yshift: 10 }],
                                         showlegend: false, font: { family: 'Inter', color: '#fff' }
                                     }}
                                     className="w-full h-full"

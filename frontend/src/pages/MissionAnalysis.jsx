@@ -59,8 +59,11 @@ export default function MissionAnalysis() {
     }, [aircraftData, runAnalysis])
 
     // Compute envelope compliance: fraction of W/S range where all constraints are met below T/W=1.0
-    const feasibleTW = data ? data.ws.map((_, i) => Math.max(...data.series.map(s => s.values[i]))) : []
-    const envelopeCompliance = data
+    const feasibleTW = data ? data.ws.map((_, i) => {
+        const vals = data.series.map(s => s.values[i]).filter(v => typeof v === 'number' && isFinite(v))
+        return vals.length > 0 ? Math.max(...vals) : 0
+    }) : []
+    const envelopeCompliance = data && feasibleTW.length > 0
         ? Math.round((feasibleTW.filter(v => v <= 1.0).length / feasibleTW.length) * 100)
         : null
 

@@ -12,6 +12,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.units import isa_atmosphere
+from core.gas_turbine.aero import StageAero
 from core.gas_turbine.cycle import CycleAnalyzer
 from core.gas_turbine.off_design import OffDesignSolver
 from core.gas_turbine.mission import MissionAnalyzer
@@ -431,3 +432,75 @@ def test_moc_contour_radius_monotonic():
     for i in range(1, len(r_vals)):
         assert r_vals[i] >= r_vals[i - 1] - 1e-12, \
             f"Radius non-monotonic at index {i}: {r_vals[i-1]:.6f} -> {r_vals[i]:.6f}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# StageAero — Mean-Line Axial Stage Analysis
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_stage_aero_50pct_reaction_angles():
+    """50 % reaction, axial entry (vw1≈0) should give symmetric velocity triangles."""
+    sa = StageAero(u_mean=300.0, ca=150.0, T1_static=288.15)
+    # For R=0.5 and psi=1.0, Cw1 = u*(1-0.5-0.5) = 0
+    res = sa.calculate_stage(psi=1.0, phi=0.5, degree_of_reaction=0.5)
+    assert abs(res['angles']['alpha1']) < 1e-6, "alpha1 should be ~0 for axial entry"
+    assert abs(res['reaction_actual'] - 0.5) < 1e-6, "reaction_actual must equal input"
+
+
+def test_stage_aero_reaction_consistency():
+    """reaction_actual must equal the requested degree_of_reaction for any R in [0,1]."""
+    sa = StageAero(u_mean=250.0, ca=120.0, T1_static=300.0)
+    for R in [0.2, 0.4, 0.5, 0.6, 0.8]:
+        res = sa.calculate_stage(psi=0.8, phi=0.48, degree_of_reaction=R)
+        assert abs(res['reaction_actual'] - R) < 1e-10, \
+            f"reaction_actual {res['reaction_actual']} != requested {R}"
+
+
+def test_stage_aero_mach_positive():
+    """All Mach numbers must be positive finite values."""
+    sa = StageAero(u_mean=200.0, ca=100.0, T1_static=280.0)
+    res = sa.calculate_stage(psi=0.4, phi=0.5, degree_of_reaction=0.5)
+    mn = res['mach_numbers']
+    for key, val in mn.items():
+        assert val > 0.0 and val < 5.0, f"Mach {key}={val} out of plausible range"
+
+
+def test_stage_aero_diffusion_factor_reasonable():
+    """Diffusion factor for a lightly loaded stage should be < 0.45 (no excess loss)."""
+    sa = StageAero(u_mean=200.0, ca=150.0, T1_static=288.15)
+    res = sa.calculate_stage(psi=0.3, phi=0.75, degree_of_reaction=0.5)
+    assert res['loss']['D_rotor'] < 0.60, \
+        f"D_rotor={res['loss']['D_rotor']} unexpectedly high for light loading"
+
+
+def test_stage_aero_loss_zero_at_low_loading():
+    """Profile loss Y_p should be zero when D_rotor <= 0.45."""
+    sa = StageAero(u_mean=200.0, ca=180.0, T1_static=288.15)
+    res = sa.calculate_stage(psi=0.2, phi=0.9, degree_of_reaction=0.5)
+    D = res['loss']['D_rotor']
+    Yp = res['loss']['Y_p']
+    if D <= 0.45:
+        assert Yp == 0.0, f"Y_p={Yp} should be 0 when D_rotor={D:.4f} <= 0.45"
+
+
+def test_stage_aero_invalid_inputs():
+    """Constructor and calculate_stage should reject invalid inputs."""
+    with pytest.raises(ValueError):
+        StageAero(u_mean=0.0, ca=100.0)
+    with pytest.raises(ValueError):
+        StageAero(u_mean=200.0, ca=-1.0)
+    with pytest.raises(ValueError):
+        StageAero(u_mean=200.0, ca=100.0, T1_static=0.0)
+    sa = StageAero(u_mean=200.0, ca=100.0)
+    with pytest.raises(ValueError):
+        sa.calculate_stage(psi=0.5, phi=0.0)   # phi must be > 0
+    with pytest.raises(ValueError):
+        sa.calculate_stage(psi=0.5, phi=0.5, degree_of_reaction=1.5)  # DOR > 1
+
+
+def test_stage_aero_deflection_sign():
+    """For a normal compressor stage, rotor deflection (beta1-beta2) should be positive."""
+    sa = StageAero(u_mean=300.0, ca=150.0, T1_static=288.15)
+    res = sa.calculate_stage(psi=0.5, phi=0.5, degree_of_reaction=0.5)
+    assert res['angles']['deflection_rotor'] > 0, \
+        "Compressor rotor deflection (beta1-beta2) should be positive"

@@ -14,14 +14,14 @@ export const SettingsProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => loadFromStorage('theme', 'dark'));
 
   useEffect(() => {
-    try { localStorage.setItem('textSize', textSize); } catch {}
+    try { localStorage.setItem('textSize', textSize); } catch (err) { console.warn('localStorage write failed (textSize):', err); }
     // Apply to root font-size so all rem-based and px-based text scales with it
     document.documentElement.style.fontSize = `${textSize * 14}px`;
     document.documentElement.style.setProperty('--font-scale', textSize);
   }, [textSize]);
 
   useEffect(() => {
-    try { localStorage.setItem('theme', theme); } catch {}
+    try { localStorage.setItem('theme', theme); } catch (err) { console.warn('localStorage write failed (theme):', err); }
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
