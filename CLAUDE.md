@@ -75,7 +75,7 @@ Single-file FastAPI app. Pydantic models validate every request. Analytical core
 ### Frontend (`frontend/src/`)
 
 - **`App.jsx`**: Shell — sidebar nav, header status bar, footer. Renders one page component at a time via `activeTab` state; polls `/health` every 30 s.
-- **`api.js`**: `fetchData` (JSON) and `fetchBlob` (binary downloads). Base URL hardcoded to `http://127.0.0.1:8000`.
+- **`api.js`**: `fetchData` (JSON) and `fetchBlob` (binary downloads). Base URL read from `import.meta.env.VITE_API_URL`; falls back to `http://127.0.0.1:8000` for local dev.
 - **Pages** (`pages/`): `ParametricCycle`, `PerformanceMap`, `RocketAnalysis`, `MissionAnalysis`, `Settings`. Each page owns its own state and calls the API directly.
 - **`context/SettingsContext.jsx`**: `theme` and `textSize` persisted to `localStorage`; `textSize` drives `--font-scale` CSS variable.
 - **`hooks/usePersistentState.js`**: `localStorage`-backed `useState` — used for `MissionAnalysis` aircraft configs.
@@ -86,4 +86,8 @@ Single-file FastAPI app. Pydantic models validate every request. Analytical core
 - **Cantera thread safety**: Never share a `ct.Solution` instance across calls. Always create a fresh one — the overhead is negligible (~0.3 ms for gri30).
 - **`to-be-deleted/`**: Ignore this directory — legacy debug scripts, not part of the active codebase.
 - **`FromStitich/`**: Static HTML design mockups from an earlier prototyping stage, not connected to the running app.
-- **Pending work (Sprint 5)**: `solve_multispool()` stub in `core/gas_turbine/cycle.py` needs LPC/HPC iterative work matching. Frontend export buttons (CSV/STL) and the sensitivity sweep chart panel are wired in the backend but not yet connected in the frontend.
+- **Multispool solver**: `solve_multispool()` in `core/gas_turbine/cycle.py` is fully implemented (8-iter HP/LP work-matching). The `/analyze/cycle/multispool` endpoint is live. Test coverage in `tests/test_multispool.py`.
+- **Frontend wiring**: CSV/STL export, sensitivity sweep, O/F sweep, and altitude performance table are all wired to their respective backend endpoints.
+- **Deployment**: `Dockerfile` + `docker-compose.yml` in repo root. Set `VITE_API_URL` at build time and `CORS_ORIGINS` at runtime. See `.env.example`.
+- **CI**: `.github/workflows/ci.yml` runs `pytest` + `npm run lint` + `npm run build` on every PR.
+- **Pending (Sprint 8 physics)**: `MoCNozzle` in `core/rocket/moc.py` uses a quadratic bell contour — real MoC characteristics integration is planned.

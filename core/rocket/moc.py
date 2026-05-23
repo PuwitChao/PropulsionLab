@@ -1,6 +1,19 @@
 import math
 import numpy as np
 
+
+def _face_normal(v1, v2, v3):
+    """Return the unit outward normal for a triangle defined by three vertices."""
+    e1 = (v2[0]-v1[0], v2[1]-v1[1], v2[2]-v1[2])
+    e2 = (v3[0]-v1[0], v3[1]-v1[1], v3[2]-v1[2])
+    nx = e1[1]*e2[2] - e1[2]*e2[1]
+    ny = e1[2]*e2[0] - e1[0]*e2[2]
+    nz = e1[0]*e2[1] - e1[1]*e2[0]
+    mag = math.sqrt(nx*nx + ny*ny + nz*nz)
+    if mag < 1e-12:
+        return (0.0, 0.0, 0.0)
+    return (nx/mag, ny/mag, nz/mag)
+
 class MoCNozzle:
     """
     Supersonic nozzle contour design using Method of Characteristics.
@@ -111,16 +124,18 @@ class MoCNozzle:
                 v4 = (x1, r1 * math.cos(t2), r1 * math.sin(t2))
                 
                 # Triangle 1
-                stl_lines.append("  facet normal 0 0 0")
+                n1 = _face_normal(v1, v2, v3)
+                stl_lines.append(f"  facet normal {n1[0]:.6f} {n1[1]:.6f} {n1[2]:.6f}")
                 stl_lines.append("    outer loop")
                 stl_lines.append(f"      vertex {v1[0]:.6f} {v1[1]:.6f} {v1[2]:.6f}")
                 stl_lines.append(f"      vertex {v2[0]:.6f} {v2[1]:.6f} {v2[2]:.6f}")
                 stl_lines.append(f"      vertex {v3[0]:.6f} {v3[1]:.6f} {v3[2]:.6f}")
                 stl_lines.append("    endloop")
                 stl_lines.append("  endfacet")
-                
+
                 # Triangle 2
-                stl_lines.append("  facet normal 0 0 0")
+                n2 = _face_normal(v1, v3, v4)
+                stl_lines.append(f"  facet normal {n2[0]:.6f} {n2[1]:.6f} {n2[2]:.6f}")
                 stl_lines.append("    outer loop")
                 stl_lines.append(f"      vertex {v1[0]:.6f} {v1[1]:.6f} {v1[2]:.6f}")
                 stl_lines.append(f"      vertex {v3[0]:.6f} {v3[1]:.6f} {v3[2]:.6f}")

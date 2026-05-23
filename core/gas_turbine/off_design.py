@@ -13,8 +13,11 @@ Reference:
 """
 
 import math
+import logging
 from ..units import R_AIR, isa_atmosphere
 from .cycle import get_gas_props
+
+logger = logging.getLogger(__name__)
 
 # ─── Parametric compressor map ─────────────────────────────────────────────
 def _compressor_map(N_corr_norm: float, mdot_corr_norm: float):
@@ -93,7 +96,9 @@ class OffDesignSolver:
         self.dp_pt3   = dp.get('stations', {}).get(3, {}).get('pt', 1.5e6)
         self.dp_pt2   = dp.get('stations', {}).get(2, {}).get('pt', 3e4)
         self.dp_pr    = self.dp_pt3 / self.dp_pt2
-        self.dp_mdot  = dp.get('stations', {}).get(2, {}).get('m', 10.0)
+        # Station 2 doesn't carry 'm' in the current result schema; dp_mdot is
+        # stored for future anchoring but not yet consumed by sweep_throttle.
+        self.dp_mdot  = dp.get('mdot', dp.get('stations', {}).get(2, {}).get('m', None))
         self.dp_f     = dp.get('f_total', dp.get('f', 0.025))
 
     def sweep_throttle(
@@ -162,12 +167,17 @@ class OffDesignSolver:
                     'eta_thermal'  : round(res.get('eta_thermal', 0), 3),
                     'eta_overall'  : round(res.get('eta_overall', 0), 3),
                 })
-            except Exception:
+            except Exception as exc:
+                logger.warning(
+                    "Off-design throttle point failed at %.1f%% (PR=%.2f, TIT=%.0f K): %s",
+                    throttle * 100, pr, tt4, exc,
+                )
                 results.append({
                     'throttle_pct': round(throttle * 100, 1),
                     'pr': round(pr, 2), 'tt4': round(tt4, 1),
                     'spec_thrust': 0, 'tsfc': 0,
-                    'error': True
+                    'error': True,
+                    'error_detail': str(exc),
                 })
 
         return results

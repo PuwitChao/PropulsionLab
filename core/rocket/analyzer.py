@@ -198,8 +198,16 @@ class RocketAnalyzer:
         Returns:
             dict: Comprehensive results including Isp, thrust, dimensions, and composition.
         """
+        if propellant_name not in self.propellants:
+            raise ValueError(
+                f"Unknown propellant '{propellant_name}'. "
+                f"Valid keys: {sorted(self.propellants)}"
+            )
+        if of_ratio <= 0:
+            raise ValueError(f"O/F ratio must be positive, got {of_ratio}")
+
         math_trace = []
-        prop = self.propellants.get(propellant_name, self.propellants['H2/O2'])
+        prop = self.propellants[propellant_name]
         phi  = prop['stoich'] / of_ratio
         math_trace.append(f"Propellants: {propellant_name} (Stoich O/F: {prop['stoich']})")
         math_trace.append(f"Equivalence Ratio φ = {phi:.4f}")
@@ -232,7 +240,12 @@ class RocketAnalyzer:
         # ── Nozzle exit ───────────────────────────────────────────────────
         if mode == 'shifting':
             self.gas.SP = s_chamber, p_exit_pa
-            self.gas.equilibrate('SP')
+            try:
+                self.gas.equilibrate('SP')
+            except Exception as exc:
+                raise ValueError(
+                    f"Nozzle exit equilibration failed (SP at {p_exit_pa:.0f} Pa): {exc}"
+                ) from exc
         else:
             self.gas.X = frozen_X
             self.gas.SP = s_chamber, p_exit_pa
@@ -264,7 +277,10 @@ class RocketAnalyzer:
         if mode == 'shifting':
             self.gas.TP = t_chamber * (2 / (g + 1)), self.pc * (2 / (g + 1)) ** (g / (g - 1))
             self.gas.SP = s_chamber, self.gas.P
-            self.gas.equilibrate('SP')
+            try:
+                self.gas.equilibrate('SP')
+            except Exception as exc:
+                raise ValueError(f"Throat equilibration failed: {exc}") from exc
         else:
             self.gas.X = frozen_X
             self.gas.SP = s_chamber, self.pc * (2 / (g + 1)) ** (g / (g - 1))
@@ -281,6 +297,11 @@ class RocketAnalyzer:
 
         cf_ideal     = v_exit_ideal / c_star
         cf_delivered = v_exit_delivered / c_star
+
+        import math as _math
+        for _name, _val in [('isp_delivered', isp_delivered), ('isp_vac', isp_vac), ('c_star', c_star)]:
+            if not _math.isfinite(_val):
+                raise ValueError(f"Solver produced non-finite {_name}={_val}; check inputs.")
 
         pr_chamber = visc_chamber * cp_chamber / cond_chamber if cond_chamber > 0 else 0.0
 

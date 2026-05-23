@@ -33,6 +33,7 @@ from typing import List, Dict, Any, Optional
 import math
 from datetime import datetime
 import logging
+from pydantic import model_validator
 
 # Configure logging
 logging.basicConfig(
@@ -64,13 +65,20 @@ app = FastAPI(
 )
 
 # ── Security & Policy ────────────────────────────────────────────────────────
-# Configure CORS for local development and research origins.
+# CORS_ORIGINS env var: comma-separated list of allowed origins.
+# Defaults to localhost for dev. Set to your deployed domain in production.
+_cors_origins_env = os.environ.get("CORS_ORIGINS", "")
+_cors_origins = (
+    [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+    if _cors_origins_env
+    else ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept"],
 )
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -98,21 +106,48 @@ def health_check():
 
 @app.get("/health/diagnostics")
 def get_diagnostics():
-    """
-    Detailed system telemetry for the Settings workspace.
-    Verifies connectivity to the Cantera kernel and thermodynamic modules.
-    """
+    """Detailed system telemetry — actually probes Cantera and core imports."""
+    import importlib
+
+    # Probe Cantera
+    cantera_status = "unknown"
+    cantera_version = "unknown"
+    try:
+        import cantera as ct
+        ct.Solution('gri30.yaml')   # fast ~0.3 ms, confirms mechanism file accessible
+        cantera_version = ct.__version__
+        cantera_status = "connected"
+    except Exception as e:
+        cantera_status = f"error: {e}"
+
+    # Probe core modules
+    core_modules = {
+        "gas_turbine_core": "core.gas_turbine.cycle",
+        "off_design": "core.gas_turbine.off_design",
+        "mission": "core.gas_turbine.mission",
+        "rocket_cea_engine": "core.rocket.analyzer",
+        "moc_nozzle": "core.rocket.moc",
+    }
+    component_status = {}
+    for label, module_path in core_modules.items():
+        try:
+            importlib.import_module(module_path)
+            component_status[label] = "active"
+        except Exception as e:
+            component_status[label] = f"error: {e}"
+
+    component_status["cantera_interface"] = cantera_status
+
+    overall = "operational" if all(
+        v in ("active", "connected") for v in component_status.values()
+    ) else "degraded"
+
     return {
-        "status": "operational",
+        "status": overall,
         "version": "2.2.0",
-        "components": {
-            "gas_turbine_core": "active",
-            "rocket_cea_engine": "active",
-            "mission_constraint_optimizer": "active",
-            "cantera_interface": "connected"
-        },
+        "cantera_version": cantera_version,
+        "components": component_status,
         "system_time": datetime.now().isoformat(),
-        "memory_profile": "nominal"
     }
 
 
@@ -120,13 +155,26 @@ def get_diagnostics():
 # Mission Analysis
 # ════════════════════════════════════════════════════════════════════════════
 
+class AircraftData(BaseModel):
+    """Aircraft aerodynamic and geometry parameters for mission analysis."""
+    k:      float = Field(0.1,  ge=0.01, le=1.0,  description="Induced drag factor")
+    cd0:    float = Field(0.02, ge=0.0,  le=0.5,  description="Zero-lift drag coefficient")
+    cl_max: float = Field(2.0,  ge=0.5,  le=5.0,  description="Max lift coefficient")
+
+
 class MissionConstraintRequest(BaseModel):
     """Data model for mission matching charts (T/W vs W/S)."""
-    aircraft_data: Dict[str, Any]
+    aircraft_data: AircraftData
     constraints:   List[Dict[str, Any]]
-    ws_min:   float = 1000.0
-    ws_max:   float = 8000.0
-    ws_steps: int   = 50
+    ws_min:   float = Field(1000.0, ge=100,   le=20000)
+    ws_max:   float = Field(8000.0, ge=200,   le=50000)
+    ws_steps: int   = Field(50,     ge=5,     le=200)
+
+    @model_validator(mode='after')
+    def validate_ws_range(self):
+        if self.ws_min >= self.ws_max:
+            raise ValueError("ws_min must be less than ws_max")
+        return self
 
 @app.post("/analyze/mission")
 async def analyze_mission(request: MissionConstraintRequest):
@@ -135,7 +183,7 @@ async def analyze_mission(request: MissionConstraintRequest):
     Calculates operational envelopes for stall, takeoff, landing, and cruise.
     """
     try:
-        analyzer  = MissionAnalyzer(request.aircraft_data)
+        analyzer  = MissionAnalyzer(request.aircraft_data.model_dump())
         ws_range  = [
             request.ws_min + i * (request.ws_max - request.ws_min) / request.ws_steps
             for i in range(request.ws_steps + 1)
@@ -241,12 +289,18 @@ async def analyze_turbofan(request: TurbofanRequest):
 
 class CycleSweepRequest(BaseModel):
     """Parameters for a parametric sweep of compressor pressure ratio."""
-    alt:     float = 10000.0
-    mach:    float = 0.8
-    tit:     float = 1600.0
-    prc_min: float = 2.0
-    prc_max: float = 50.0
-    steps:   int   = 25
+    alt:     float = Field(10000.0, ge=0,   le=47000)
+    mach:    float = Field(0.8,     ge=0,   le=4.0)
+    tit:     float = Field(1600.0,  ge=300, le=2500)
+    prc_min: float = Field(2.0,     ge=1.1, le=79.0)
+    prc_max: float = Field(50.0,    ge=1.2, le=80.0)
+    steps:   int   = Field(25,      ge=2,   le=100)
+
+    @model_validator(mode='after')
+    def validate_sweep(self):
+        if self.prc_min >= self.prc_max:
+            raise ValueError("prc_min must be less than prc_max")
+        return self
 
 @app.post("/analyze/cycle/sweep")
 async def analyze_cycle_sweep(request: CycleSweepRequest):
@@ -357,12 +411,24 @@ class RocketRequest(BaseModel):
     impurity_species:      Optional[str]   = Field(None)
     impurity_mass_frac:    float           = Field(0.0, ge=0.0, le=0.5)
 
+_VALID_PROPELLANTS = {
+    'H2/O2', 'CH4/O2', 'RP1/O2', 'Propane/O2', 'Ethanol/O2', 'Methanol/O2',
+    'Ammonia/O2', 'C2H2/O2', 'C2H4/O2', 'C2H6/O2', 'CH4/N2O', 'C3H8/N2O',
+    'UDMH/N2O4', 'MMH/N2O4',
+}
+
+
 @app.post("/analyze/rocket")
 async def analyze_rocket(request: RocketRequest):
     """
     Performs high-fidelity rocket combustion equilibrium (CEA).
     Calculates ISP, delivered thrust, and thermal loads via Bartz.
     """
+    if request.propellant not in _VALID_PROPELLANTS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown propellant '{request.propellant}'. Valid: {sorted(_VALID_PROPELLANTS)}"
+        )
     try:
         analyzer = RocketAnalyzer(request.pc)
         result   = analyzer.solve_equilibrium(

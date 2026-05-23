@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      target: runtime
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./core:/app/core
+    environment:
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173}
+    env_file:
+      - .env
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+    env_file:
+      - frontend/.env.example
+    depends_on:
+      - backend
