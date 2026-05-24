@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import API_BASE_URL from './api'
 import './index.css'
 import MissionAnalysis from './pages/MissionAnalysis'
@@ -24,8 +24,8 @@ function App() {
   const [sessionDuration, setSessionDuration] = useState('00:00:00')
   const [time, setTime] = useState(new Date().toLocaleTimeString('en-GB', { hour12: false }))
 
-  // Record session start in sessionStorage on first load
-  const sessionStart = React.useRef(() => {
+  // Record session start in sessionStorage on first load (lazy useState init runs once)
+  const [sessionStart] = useState(() => {
     const stored = sessionStorage.getItem('session_start')
     if (!stored) {
       const now = Date.now().toString()
@@ -33,7 +33,7 @@ function App() {
       return parseInt(now)
     }
     return parseInt(stored)
-  })()
+  })
 
   useEffect(() => {
     const timer = setInterval(() => {

@@ -109,9 +109,10 @@ export default function ParametricCycle() {
     setLoading(false)
   }, [p, activeEngine])
 
-  // Clear results when switching engine type, then re-run
+  // Clear results when switching engine type, then re-run (debounced)
   useEffect(() => {
     if (activeEngine === 'sensitivity') return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setResult(null)
     setError(null)
     const t = setTimeout(runAnalysis, 700)
