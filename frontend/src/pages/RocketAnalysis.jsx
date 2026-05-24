@@ -90,6 +90,9 @@ function MocVisualization({ mocData, loading }) {
         <p className="mono text-[11px] text-white/30 uppercase underline tracking-widest">
           {hasData ? `NODE_COUNT: ${mocData.x?.length || 0} // VIEW: ${viewMode}_RENDER` : 'Awaiting Design Initialization...'}
         </p>
+        <p className="mono text-[10px] text-white/20 uppercase tracking-widest">
+          BELL_APPROX // PARABOLIC_FIT // NOT_TRUE_MOC
+        </p>
       </div>
 
       <div className="flex-1 w-full bg-black/20 relative">
@@ -572,14 +575,14 @@ export default function RocketAnalysis() {
                                 data={[
                                     {
                                         x: sweepData.map(d => d.of_ratio),
-                                        y: sweepData.map(d => d.isp),
+                                        y: sweepData.map(d => d.isp ?? 0),
                                         name: 'Isp Delivered',
                                         type: 'scatter', mode: 'lines',
                                         line: { color: '#fff', width: 2 },
                                     },
                                     {
                                         x: sweepData.map(d => d.of_ratio),
-                                        y: sweepData.map(d => d.isp_vac),
+                                        y: sweepData.map(d => d.isp_vac ?? 0),
                                         name: 'Isp Vacuum',
                                         type: 'scatter', mode: 'lines',
                                         line: { color: 'rgba(255,255,255,0.4)', width: 1, dash: 'dash' },
@@ -587,7 +590,7 @@ export default function RocketAnalysis() {
                                 ]}
                                 layout={getLayout(theme, {
                                     height: 360,
-                                    xaxis: { title: 'O/F Ratio' },
+                                    xaxis: { title: 'O/F Ratio [-]' },
                                     yaxis: { title: 'Isp [s]' },
                                     margin: { l: 60, r: 20, t: 30, b: 60 },
                                 })}
