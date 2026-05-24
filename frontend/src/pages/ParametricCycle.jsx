@@ -6,6 +6,9 @@ const Plot = createPlotlyComponent(Plotly)
 import { fetchData } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
+import { getLayout } from '../utils/chartUtils'
+import { useSettings } from '../context/SettingsContext'
+import usePersistentState from '../hooks/usePersistentState'
 
 // ── Station Blueprint Diagram ─────────────────────────────────────────────────
 
@@ -52,14 +55,26 @@ function StationDiagram() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ParametricCycle() {
+  const { theme } = useSettings()
   const [activeEngine, setActiveEngine] = useState('turbojet')
-  const [p, setP] = useState({
+  const [p, setP] = usePersistentState('cycle_params', {
     alt: 10000, mach: 0.8, prc: 25, tit: 1650,
     bpr: 6.0, fpr: 1.6,
     eta_c: 0.88, eta_t: 0.92, burner_dp_frac: 0.04,
     inlet_recovery: 0.98, phi_inlet: 0.0, eta_install_nozzle: 1.0,
     ab_enabled: false, ab_temp: 2000
   })
+  const exportScenario = () => {
+    const blob = new Blob([JSON.stringify({ engine: activeEngine, params: p }, null, 2)], { type: 'application/json' })
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+    a.download = 'cycle_scenario.json'; a.click()
+  }
+  const importScenario = (e) => {
+    const file = e.target.files?.[0]; if (!file) return
+    const reader = new FileReader()
+    reader.onload = (evt) => { try { const d = JSON.parse(evt.target.result); if (d.params) setP(prev => ({ ...prev, ...d.params })) } catch { /* invalid JSON */ } }
+    reader.readAsText(file); e.target.value = ''
+  }
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -109,9 +124,10 @@ export default function ParametricCycle() {
     setLoading(false)
   }, [p, activeEngine])
 
-  // Clear results when switching engine type, then re-run
+  // Clear results when switching engine type, then re-run (debounced)
   useEffect(() => {
     if (activeEngine === 'sensitivity') return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setResult(null)
     setError(null)
     const t = setTimeout(runAnalysis, 700)
@@ -238,6 +254,15 @@ export default function ParametricCycle() {
                 <span className="material-symbols-outlined !text-[20px]">{loading ? 'sync' : 'rebase_edit'}</span>
                 {loading ? 'COMPUTING...' : 'SOLVE_GAS_TURBINE_CYCLE'}
             </button>
+            <div className="grid grid-cols-2 gap-4">
+                <button onClick={exportScenario} className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors">
+                    EXPORT_JSON
+                </button>
+                <label className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors text-center cursor-pointer">
+                    IMPORT_JSON
+                    <input type="file" accept=".json" className="hidden" onChange={importScenario} />
+                </label>
+            </div>
         </section>
 
         {/* Right: Visualization */}
@@ -319,31 +344,12 @@ export default function ParametricCycle() {
                                     yaxis: 'y2'
                                 }
                             ]}
-                            layout={{
-                                plot_bgcolor: 'transparent',
-                                paper_bgcolor: 'transparent',
-                                autosize: true,
-                                margin: { t: 0, b: 40, l: 60, r: 60 },
+                            layout={getLayout(theme, {
                                 showlegend: false,
-                                xaxis: {
-                                    gridcolor: 'rgba(255,255,255,0.05)',
-                                    tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' },
-                                    showline: false
-                                },
-                                yaxis: {
-                                    title: { text: 'T [K]', font: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
-                                    gridcolor: 'rgba(255,255,255,0.05)',
-                                    tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' },
-                                    side: 'left'
-                                },
-                                yaxis2: {
-                                    title: { text: 'P [Pa]', font: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
-                                    overlaying: 'y',
-                                    side: 'right',
-                                    tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.1)' },
-                                    showgrid: false
-                                }
-                            }}
+                                margin: { t: 0, b: 40, l: 60, r: 60 },
+                                yaxis: { title: { text: 'T [K]' }, side: 'left' },
+                                yaxis2: { title: { text: 'P [Pa]' }, overlaying: 'y', side: 'right', showgrid: false },
+                            })}
                             className="w-full h-full"
                             config={{ displayModeBar: false, responsive: true }}
                         />
@@ -503,32 +509,12 @@ export default function ParametricCycle() {
                         hovertemplate: `${sensData.sweep_label}: %{x}<br>η_th: %{y:.1f}%<extra></extra>`
                       }
                     ]}
-                    layout={{
-                      plot_bgcolor: 'transparent',
-                      paper_bgcolor: 'transparent',
-                      autosize: true,
+                    layout={getLayout(theme, {
                       margin: { t: 60, b: 60, l: 70, r: 70 },
-                      showlegend: true,
-                      legend: { font: { family: 'JetBrains Mono', size: 10, color: 'white' }, x: 0.02, y: 0.98, bgcolor: 'rgba(0,0,0,0.3)' },
-                      xaxis: {
-                        title: { text: sensData.sweep_label, font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } },
-                        gridcolor: 'rgba(255,255,255,0.04)',
-                        tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' },
-                      },
-                      yaxis: {
-                        title: { text: 'Spec Thrust / η_th [Ns/kg | %]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } },
-                        gridcolor: 'rgba(255,255,255,0.04)',
-                        tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' },
-                        side: 'left'
-                      },
-                      yaxis2: {
-                        title: { text: 'TSFC [mg/Ns]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.2)' } },
-                        overlaying: 'y', side: 'right',
-                        tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.2)' },
-                        showgrid: false
-                      },
-                      font: { family: 'Inter', color: '#fff' }
-                    }}
+                      xaxis: { title: { text: sensData.sweep_label } },
+                      yaxis: { title: { text: 'Spec Thrust / η_th [Ns/kg | %]' }, side: 'left' },
+                      yaxis2: { title: { text: 'TSFC [mg/Ns]' }, overlaying: 'y', side: 'right', showgrid: false },
+                    })}
                     className="w-full h-full"
                     config={{ displayModeBar: false, responsive: true }}
                   />

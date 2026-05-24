@@ -6,17 +6,21 @@ const Plot = createPlotlyComponent(Plotly)
 import { fetchData } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
+import { getLayout } from '../utils/chartUtils'
+import { useSettings } from '../context/SettingsContext'
+import usePersistentState from '../hooks/usePersistentState'
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PerformanceMap() {
+    const { theme } = useSettings()
     const [loading, setLoading] = useState(false)
     const [mapData, setMapData] = useState(null)
     const [throttleData, setThrottleData] = useState(null)
     const [error, setError] = useState(null)
     const [activeView, setActiveView] = useState('compressor')
 
-    const [dpParams, setDpParams] = useState({
+    const [dpParams, setDpParams] = usePersistentState('perf_map_params', {
         alt: 0,
         mach: 0.0,
         prc: 20,
@@ -173,6 +177,15 @@ export default function PerformanceMap() {
                         <span className="material-symbols-outlined !text-[20px]">{loading ? 'sync' : 'cached'}</span>
                         {loading ? 'COMPUTING...' : 'RECALIBRATE_ENGINE_MAP'}
                    </button>
+                   <div className="grid grid-cols-2 gap-4">
+                        <button onClick={() => { const blob = new Blob([JSON.stringify({ params: dpParams }, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'perf_map_scenario.json'; a.click() }} className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors">
+                            EXPORT_JSON
+                        </button>
+                        <label className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors text-center cursor-pointer">
+                            IMPORT_JSON
+                            <input type="file" accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = (ev) => { try { const d = JSON.parse(ev.target.result); if (d.params) setDpParams(prev => ({ ...prev, ...d.params })) } catch { /* invalid JSON */ } }; r.readAsText(f); e.target.value = '' }} />
+                        </label>
+                    </div>
                 </section>
 
                 {/* Main Workspace */}
@@ -191,24 +204,12 @@ export default function PerformanceMap() {
                                 ) : mapData ? (
                                     <Plot
                                         data={buildMapTraces()}
-                                        layout={{
-                                            plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
-                                            autosize: true, margin: { t: 80, b: 80, l: 100, r: 80 },
-                                            xaxis: {
-                                                title: { text: 'Corrected Mass Flow [kg/s]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
-                                                gridcolor: 'rgba(255,255,255,0.05)',
-                                                tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
-                                                showline: true, linecolor: 'rgba(255,255,255,0.1)'
-                                            },
-                                            yaxis: {
-                                                title: { text: 'Pressure Ratio [PR]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
-                                                gridcolor: 'rgba(255,255,255,0.05)',
-                                                tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
-                                                showline: true, linecolor: 'rgba(255,255,255,0.1)'
-                                            },
-                                            showlegend: false, hovermode: 'closest',
-                                            font: { family: 'Inter', size: 14, color: '#fff' }
-                                        }}
+                                        layout={getLayout(theme, {
+                                            margin: { t: 80, b: 80, l: 100, r: 80 },
+                                            showlegend: false,
+                                            xaxis: { title: { text: 'Corrected Mass Flow [kg/s]' } },
+                                            yaxis: { title: { text: 'Pressure Ratio [PR]' } },
+                                        })}
                                         className="w-full h-full"
                                         config={{ displayModeBar: false, responsive: true }}
                                     />
@@ -271,13 +272,12 @@ export default function PerformanceMap() {
                                                 marker: { size: 6, color: '#fff', opacity: 0.6 },
                                                 hovertemplate: `TSFC: %{y:.4f}<br>Thrust: %{x:.1f}<extra></extra>`
                                             }]}
-                                            layout={{
-                                                plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
-                                                autosize: true, margin: { t: 10, b: 60, l: 80, r: 20 },
-                                                xaxis: { title: { text: 'SPEC_THRUST [Ns/kg]', font: { size: 10, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.05)', tickfont: { size: 10, color: 'rgba(255,255,255,0.3)' } },
-                                                yaxis: { title: { text: 'TSFC [mg/Ns]', font: { size: 10, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.05)', tickfont: { size: 10, color: 'rgba(255,255,255,0.3)' } },
-                                                showlegend: false, font: { family: 'JetBrains Mono' }
-                                            }}
+                                            layout={getLayout(theme, {
+                                                margin: { t: 10, b: 60, l: 80, r: 20 },
+                                                showlegend: false,
+                                                xaxis: { title: { text: 'SPEC_THRUST [Ns/kg]' } },
+                                                yaxis: { title: { text: 'TSFC [mg/Ns]' } },
+                                            })}
                                             className="w-full h-full"
                                             config={{ displayModeBar: false, responsive: true }}
                                         />
@@ -337,15 +337,14 @@ export default function PerformanceMap() {
                                         marker: { size: 6, color: throttleData.map(r => r.surge ? 'rgba(255,68,68,0.9)' : '#fff') },
                                         hovertemplate: 'Throttle: %{x}%<br>SM: %{y}%<extra></extra>'
                                     }]}
-                                    layout={{
-                                        plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
-                                        autosize: true, margin: { t: 60, b: 60, l: 80, r: 60 },
-                                        xaxis: { title: { text: 'Throttle [%]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
-                                        yaxis: { title: { text: 'Surge Margin [%]', font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' } }, gridcolor: 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,255,255,0.3)' } },
+                                    layout={getLayout(theme, {
+                                        margin: { t: 60, b: 60, l: 80, r: 60 },
+                                        showlegend: false,
+                                        xaxis: { title: { text: 'Throttle [%]' } },
+                                        yaxis: { title: { text: 'Surge Margin [%]' } },
                                         shapes: [{ type: 'line', x0: 0, x1: 100, y0: 10, y1: 10, line: { color: 'rgba(255,68,68,0.4)', width: 1, dash: 'dash' } }],
                                         annotations: [{ x: 50, y: 10, text: 'MIN_SM_THRESHOLD (10%)', showarrow: false, font: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,68,68,0.6)' }, yshift: 10 }],
-                                        showlegend: false, font: { family: 'Inter', color: '#fff' }
-                                    }}
+                                    })}
                                     className="w-full h-full"
                                     config={{ displayModeBar: false, responsive: true }}
                                 />

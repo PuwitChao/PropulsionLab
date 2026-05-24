@@ -499,7 +499,7 @@ class CycleAnalyzer:
             }
 
     # ─────────────────────────────────────────────────────────────────────────
-    # [STUB] Multi-Spool Work Matching (Sprint 5)
+    # Multi-Spool Work Matching
     # ─────────────────────────────────────────────────────────────────────────
     def solve_multispool(
         self,
@@ -518,37 +518,11 @@ class CycleAnalyzer:
         h_fuel: float = 42.8e6,
     ) -> dict:
         """
-        [STUB] High-fidelity multi-spool turbofan work matching solver.
+        High-fidelity multi-spool turbofan cycle with iterative HP/LP work matching.
 
-        Target Architecture: Military turbofan (LPC + HPC + HPT + LPT, separate or mixed exhaust).
-
-        Planned work-matching algorithm (Sprint 5):
-        ---------------------------------------------------------
-        1. FAN (Station 21): Solve fan compression, fixed FPR.
-           W_fan = mdot_total * Cp_fan * ΔTt_fan
-
-        2. LPC / BOOSTER (Station 25): Solve LPC with its own lpc_pr.
-           W_lpc = mdot_core * Cp_lpc * ΔTt_lpc
-
-        3. HPC (Station 3): hpc_pr = opr / (fpr * lpc_pr).
-           W_hpc = mdot_core * Cp_hpc * ΔTt_hpc
-
-        4. COMBUSTOR (Station 4): Enthalpy balance for fuel-to-air ratio.
-           f = (Cp4*T4 - Cp3*T3) / (eta_b * LHV - Cp4*T4)
-
-        5. HPT (Station 45): Power balance to drive HPC only.
-           W_hpt * (1+f) * eta_mech_hp = W_hpc
-           Iterate until Tt45 and Pt45 converge.
-
-        6. LPT (Station 5): Power balance to drive FAN + LPC.
-           W_lpt * (1+f) * eta_mech_lp = W_fan*(1+BPR) + W_lpc
-           Iterate until Tt5 and Pt5 converge.
-
-        7. NOZZLE (Station 9 / 19): Choked/unchoked nozzle exit for core/bypass.
-
-        8. WORK MATCH ITERATION: Outer loop adjusts N1/N2 operating lines
-           until LP spool power balance closes to < 0.1% error.
-        ---------------------------------------------------------
+        Architecture: FAN → LPC → HPC → COMBUSTOR → HPT → LPT → separate nozzles.
+        Converges to < 0.1% on turbine exit temperatures via 8-iteration fixed-point
+        with mid-point Cantera gas-property refinement at each iteration.
 
         Args:
             opr: Overall Pressure Ratio.
@@ -556,20 +530,12 @@ class CycleAnalyzer:
             fpr: Fan Pressure Ratio.
             lpc_pr: LPC/Booster Pressure Ratio.
             tit: Turbine Inlet Temperature [K].
-            eta_fan: Fan polytropic efficiency.
-            eta_lpc: LPC polytropic efficiency.
-            eta_hpc: HPC polytropic efficiency.
-            eta_hpt: HPT polytropic efficiency.
-            eta_lpt: LPT polytropic efficiency.
-            eta_mech_hp: HP spool mechanical efficiency.
-            eta_mech_lp: LP spool mechanical efficiency.
+            eta_fan/lpc/hpc/hpt/lpt: Polytropic efficiencies.
+            eta_mech_hp/lp: Spool mechanical efficiencies.
             h_fuel: Fuel Lower Heating Value [J/kg].
 
         Returns:
-            dict: Placeholder (stub). Will return full station data and performance metrics.
-
-        Raises:
-            NotImplementedError: Always, until Sprint 5 implementation.
+            dict with spec_thrust, tsfc, eta_thermal, eta_propulsive, station data.
         """
         inlet_recovery = 0.98
         burner_eta = 0.99

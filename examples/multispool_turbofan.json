@@ -1,0 +1,10 @@
+{
+  "_comment": "Dual-spool turbofan (HP+LP work-matched). POST to /analyze/cycle/multispool",
+  "alt": 10000,
+  "mach": 0.85,
+  "opr": 32.0,
+  "bpr": 5.0,
+  "fpr": 1.6,
+  "lpc_pr": 4.0,
+  "tit": 1750
+}

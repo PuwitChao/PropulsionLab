@@ -89,12 +89,9 @@ export default function Settings() {
                                 </button>
                                 <button
                                     onClick={() => setTheme('light')}
-                                    title="Light theme coming in a future sprint"
-                                    className={`flex-1 py-5 px-8 text-[11px] font-black tracking-[0.2em] uppercase transition-all font-mono border opacity-30 cursor-not-allowed border-white/10 text-white/20`}
-                                    disabled
+                                    className={`flex-1 py-5 px-8 text-[11px] font-black tracking-[0.2em] uppercase transition-all font-mono border ${theme === 'light' ? 'bg-black text-white border-black' : 'bg-transparent text-white/30 border-white/10 hover:border-white/30'}`}
                                 >
                                     MONO_LIGHT
-                                    <span className="block text-[9px] tracking-normal normal-case font-normal mt-1 opacity-60">Not yet implemented</span>
                                 </button>
                             </div>
                         </div>

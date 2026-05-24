@@ -6,6 +6,10 @@ const Plot = createPlotlyComponent(Plotly)
 import { fetchData, fetchBlob } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
+import HelpTooltip from '../components/HelpTooltip'
+import { getLayout } from '../utils/chartUtils'
+import { useSettings } from '../context/SettingsContext'
+import usePersistentState from '../hooks/usePersistentState'
 
 // ── MoC Nozzle Visualization ──────────────────────────────────────────────────
 
@@ -165,22 +169,87 @@ function MocVisualization({ mocData, loading }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function RocketAnalysis() {
+    const { theme } = useSettings()
+    const [activeView, setActiveView] = useState('design') // 'design' | 'of_sweep' | 'altitude'
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState(null)
     const [error, setError] = useState(null)
-    const [params, setParams] = useState({
+    const [params, setParams] = usePersistentState('rocket_params', {
         pc: 7.5e6, of_ratio: 6.0, pe: 101325.0,
         propellant: 'H2/O2', mode: 'shifting',
         thrust_target_N: 500000
     })
+    const exportScenario = () => {
+        const blob = new Blob([JSON.stringify({ params }, null, 2)], { type: 'application/json' })
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+        a.download = 'rocket_scenario.json'; a.click()
+    }
+    const importScenario = (e) => {
+        const file = e.target.files?.[0]; if (!file) return
+        const reader = new FileReader()
+        reader.onload = (evt) => { try { const d = JSON.parse(evt.target.result); if (d.params) setParams(prev => ({ ...prev, ...d.params })) } catch { /* invalid JSON */ } }
+        reader.readAsText(file); e.target.value = ''
+    }
     const [mocData, setMocData] = useState(null)
     const [exportLoading, setExportLoading] = useState(null) // 'csv' | 'stl' | null
     const [toast, setToast] = useState(null)
+    const [sweepData, setSweepData] = useState(null)
+    const [sweepLoading, setSweepLoading] = useState(false)
+    const [altData, setAltData] = useState(null)
+    const [altLoading, setAltLoading] = useState(false)
 
     const showToast = (msg, ok = true) => {
         setToast({ msg, ok })
         setTimeout(() => setToast(null), 4000)
     }
+
+    const runOFSweep = useCallback(async () => {
+        setSweepLoading(true)
+        setSweepData(null)
+        try {
+            const data = await fetchData('/analyze/rocket/sweep', {
+                method: 'POST',
+                body: JSON.stringify(params)
+            })
+            setSweepData(data)
+        } catch (e) {
+            console.error('OF sweep error:', e)
+        }
+        setSweepLoading(false)
+    }, [params])
+
+    const runAltitudeTable = useCallback(async () => {
+        setAltLoading(true)
+        setAltData(null)
+        try {
+            const data = await fetchData('/analyze/rocket/altitude', {
+                method: 'POST',
+                body: JSON.stringify({
+                    pc: params.pc,
+                    of_ratio: params.of_ratio,
+                    propellant: params.propellant,
+                    mode: params.mode,
+                    alt_max_km: 100.0,
+                    n_points: 20,
+                })
+            })
+            setAltData(data)
+        } catch (e) {
+            console.error('Altitude table error:', e)
+        }
+        setAltLoading(false)
+    }, [params])
+
+    useEffect(() => {
+        if (activeView === 'of_sweep') {
+            const t = setTimeout(runOFSweep, 500)
+            return () => clearTimeout(t)
+        }
+        if (activeView === 'altitude') {
+            const t = setTimeout(runAltitudeTable, 500)
+            return () => clearTimeout(t)
+        }
+    }, [activeView, params, runOFSweep, runAltitudeTable])
 
     const handleExportCSV = useCallback(async () => {
         if (!result) return
@@ -304,15 +373,36 @@ export default function RocketAnalysis() {
                 </div>
             </div>
 
+            {/* View tabs */}
+            <div className="flex gap-2">
+                {[
+                    { id: 'design',    label: 'CHAMBER_DESIGN' },
+                    { id: 'of_sweep',  label: 'O/F OPTIMUM' },
+                    { id: 'altitude',  label: 'ALTITUDE_PERF' },
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveView(tab.id)}
+                        className={`px-10 py-3 text-[11px] font-black tracking-[0.2em] uppercase font-headline border transition-all ${
+                            activeView === tab.id
+                                ? 'bg-white text-black border-white'
+                                : 'bg-transparent text-white/40 border-white/10 hover:border-white/30 hover:text-white'
+                        }`}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
             {/* Error Banner */}
-            {error && !loading && (
+            {activeView === 'design' && error && !loading && (
                 <div className="border border-red-500/30 bg-red-950/20 px-12 py-8 flex items-center gap-8">
                     <span className="material-symbols-outlined text-red-400 !text-[22px] shrink-0">error_outline</span>
                     <p className="mono text-[11px] text-red-400 uppercase tracking-widest leading-relaxed">{error}</p>
                 </div>
             )}
 
-            <div className="grid grid-cols-12 gap-12">
+            {activeView === 'design' && <div className="grid grid-cols-12 gap-12">
                 {/* Left Col: Params */}
                 <section className="col-span-12 lg:col-span-3 space-y-4">
                    <div className="bg-surface-container-low border border-white/10 p-12 space-y-4">
@@ -375,6 +465,15 @@ export default function RocketAnalysis() {
                         <span className="material-symbols-outlined !text-[20px]">{loading ? 'sync' : 'rocket_launch'}</span>
                         {loading ? 'COMPUTING...' : 'RUN_CHAMBER_SYNTHESIS'}
                    </button>
+                   <div className="grid grid-cols-2 gap-4">
+                        <button onClick={exportScenario} className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors">
+                            EXPORT_JSON
+                        </button>
+                        <label className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors text-center cursor-pointer">
+                            IMPORT_JSON
+                            <input type="file" accept=".json" className="hidden" onChange={importScenario} />
+                        </label>
+                    </div>
                 </section>
 
                 {/* Middle: MoC Visualization + Stats */}
@@ -456,7 +555,126 @@ export default function RocketAnalysis() {
                         </div>
                     </div>
                 </section>
-            </div>
+            </div>}
+
+            {/* ── O/F Sweep Panel ───────────────────────────────────────── */}
+            {activeView === 'of_sweep' && (
+                <div className="space-y-8">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white/60">
+                            O/F RATIO SWEEP — <HelpTooltip term="isp">ISP</HelpTooltip> vs O/F
+                        </h2>
+                        {sweepLoading && <span className="mono text-[11px] text-white/30 animate-pulse">COMPUTING...</span>}
+                    </div>
+                    {sweepData && sweepData.length > 0 ? (
+                        <div className="bg-surface-container-low border border-white/10">
+                            <Plot
+                                data={[
+                                    {
+                                        x: sweepData.map(d => d.of_ratio),
+                                        y: sweepData.map(d => d.isp),
+                                        name: 'Isp Delivered',
+                                        type: 'scatter', mode: 'lines',
+                                        line: { color: '#fff', width: 2 },
+                                    },
+                                    {
+                                        x: sweepData.map(d => d.of_ratio),
+                                        y: sweepData.map(d => d.isp_vac),
+                                        name: 'Isp Vacuum',
+                                        type: 'scatter', mode: 'lines',
+                                        line: { color: 'rgba(255,255,255,0.4)', width: 1, dash: 'dash' },
+                                    },
+                                ]}
+                                layout={getLayout(theme, {
+                                    height: 360,
+                                    xaxis: { title: 'O/F Ratio' },
+                                    yaxis: { title: 'Isp [s]' },
+                                    margin: { l: 60, r: 20, t: 30, b: 60 },
+                                })}
+                                className="w-full"
+                                config={{ displayModeBar: false, responsive: true }}
+                            />
+                        </div>
+                    ) : !sweepLoading ? (
+                        <div className="h-48 flex items-center justify-center text-white/20 mono text-[12px] uppercase tracking-widest">
+                            Select O/F Sweep tab to compute
+                        </div>
+                    ) : null}
+                </div>
+            )}
+
+            {/* ── Altitude Performance Panel ────────────────────────────── */}
+            {activeView === 'altitude' && (
+                <div className="space-y-8">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white/60">
+                            ALTITUDE PERFORMANCE TABLE — <HelpTooltip term="isp">ISP</HelpTooltip> vs Altitude
+                        </h2>
+                        {altLoading && <span className="mono text-[11px] text-white/30 animate-pulse">COMPUTING...</span>}
+                    </div>
+                    {altData && altData.length > 0 ? (
+                        <div className="space-y-6">
+                            <Plot
+                                data={[
+                                    {
+                                        x: altData.filter(d => !d.error).map(d => d.altitude_m / 1000),
+                                        y: altData.filter(d => !d.error).map(d => d.isp_s),
+                                        name: 'Isp Delivered',
+                                        type: 'scatter', mode: 'lines+markers',
+                                        line: { color: '#fff', width: 2 },
+                                        marker: { size: 4 },
+                                    },
+                                    {
+                                        x: altData.filter(d => !d.error).map(d => d.altitude_m / 1000),
+                                        y: altData.filter(d => !d.error).map(d => d.isp_vac),
+                                        name: 'Isp Vacuum',
+                                        type: 'scatter', mode: 'lines',
+                                        line: { color: 'rgba(255,255,255,0.4)', width: 1, dash: 'dash' },
+                                    },
+                                ]}
+                                layout={getLayout(theme, {
+                                    height: 300,
+                                    xaxis: { title: 'Altitude [km]' },
+                                    yaxis: { title: 'Isp [s]' },
+                                    margin: { l: 60, r: 20, t: 30, b: 60 },
+                                })}
+                                className="w-full"
+                                config={{ displayModeBar: false, responsive: true }}
+                            />
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-[11px] mono">
+                                    <thead>
+                                        <tr className="border-b border-white/10 text-white/30 uppercase tracking-widest">
+                                            <th className="py-3 px-6 text-left">Alt [km]</th>
+                                            <th className="py-3 px-6 text-right">P_amb [Pa]</th>
+                                            <th className="py-3 px-6 text-right">Isp [s]</th>
+                                            <th className="py-3 px-6 text-right">Isp_vac [s]</th>
+                                            <th className="py-3 px-6 text-right">Cf</th>
+                                            <th className="py-3 px-6 text-right">Regime</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {altData.map((row, i) => (
+                                            <tr key={i} className="border-b border-white/5 text-white/60 hover:bg-white/5 transition-colors">
+                                                <td className="py-2 px-6">{(row.altitude_m / 1000).toFixed(0)}</td>
+                                                <td className="py-2 px-6 text-right">{row.error ? '—' : row.p_amb_pa?.toFixed(0)}</td>
+                                                <td className="py-2 px-6 text-right">{row.error ? <span className="text-red-400/60">ERR</span> : row.isp_s?.toFixed(1)}</td>
+                                                <td className="py-2 px-6 text-right">{row.error ? '—' : row.isp_vac?.toFixed(1)}</td>
+                                                <td className="py-2 px-6 text-right">{row.error ? '—' : row.cf_delivered?.toFixed(4)}</td>
+                                                <td className="py-2 px-6 text-right text-[10px] tracking-widest">{row.regime || '—'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : !altLoading ? (
+                        <div className="h-48 flex items-center justify-center text-white/20 mono text-[12px] uppercase tracking-widest">
+                            Select Altitude Performance tab to compute
+                        </div>
+                    ) : null}
+                </div>
+            )}
         </div>
     )
 }

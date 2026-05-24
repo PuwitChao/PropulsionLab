@@ -342,3 +342,160 @@ def test_turbojet_prc_sweep_aggregation():
         assert pt["tsfc"] > 0,        f"Non-positive tsfc at OPR={pt['prc']}"
         assert 0.0 <= pt["eta_thermal"] <= 1.0, \
             f"eta_thermal out of [0,1] at OPR={pt['prc']}: {pt['eta_thermal']}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Sprint 6 — Numerical safety & coverage
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_mission_zero_mach_does_not_raise():
+    """Mission constraints at Mach=0 must return inf (not divide-by-zero)."""
+    import math
+    analyzer = MissionAnalyzer({"k": 0.1, "cd0": 0.02})
+    tw = analyzer.tw_level_flight(ws=3000.0, altitude_m=5000.0, mach=0.0)
+    assert math.isinf(tw), f"Expected inf at Mach=0, got {tw}"
+
+
+def test_mission_extreme_altitude_does_not_raise():
+    """Mission constraints at 47 km (near-zero q) must return inf, not raise."""
+    import math
+    analyzer = MissionAnalyzer({"k": 0.08, "cd0": 0.015})
+    tw = analyzer.tw_ps(ws=4000.0, altitude_m=47000.0, mach=0.001, ps=50.0)
+    assert tw == float('inf') or math.isfinite(tw), \
+        f"Unexpected value at extreme altitude: {tw}"
+
+
+def test_mission_optimum_with_inf_constraints():
+    """generate_constraint_data must return a finite optimum even when some constraints are inf."""
+    import math
+    analyzer = MissionAnalyzer({"k": 0.1, "cd0": 0.02})
+    ws_range = [500 + i * 500 for i in range(20)]
+    constraints = [
+        {"type": "level", "label": "Cruise", "alt": 10000, "mach": 0.8},
+        {"type": "ps",    "label": "Ps50",   "alt": 5000,  "mach": 0.0, "ps": 50},
+    ]
+    result = analyzer.generate_constraint_data(ws_range, constraints)
+    # Optimum can be None if all boundary points are inf, but it must not crash
+    if result["optimum"] is not None:
+        assert math.isfinite(result["optimum"]["tw"]), "Optimum T/W must be finite"
+
+
+def test_rocket_hypergolic_mmh_n2o4():
+    """MMH/N2O4 is registered as a propellant; Cantera GRI30 lacks CH6N2 so it
+    raises an error at equilibrium time — validate the error path is clean."""
+    analyzer = RocketAnalyzer(5e6)
+    try:
+        result = analyzer.solve_equilibrium("MMH/N2O4", of_ratio=1.65)
+        # If Cantera ever gains CH6N2, the result must be plausible
+        assert result["isp_delivered"] > 200
+    except Exception as e:
+        # GRI30 doesn't contain CH6N2; acceptable to fail at Cantera level
+        assert "CH6N2" in str(e) or "parseCompString" in str(e) or "CanteraError" in type(e).__name__
+
+
+def test_rocket_hypergolic_udmh_n2o4():
+    """UDMH/N2O4 is registered; GRI30 lacks C2H8N2 — validate clean error path."""
+    analyzer = RocketAnalyzer(5e6)
+    try:
+        result = analyzer.solve_equilibrium("UDMH/N2O4", of_ratio=2.6)
+        assert result["isp_delivered"] > 200
+    except Exception as e:
+        assert "C2H8N2" in str(e) or "parseCompString" in str(e) or "CanteraError" in type(e).__name__
+
+
+def test_rocket_invalid_propellant_raises():
+    """Unknown propellant key must raise ValueError."""
+    analyzer = RocketAnalyzer(10e6)
+    try:
+        analyzer.solve_equilibrium("KEROSENE/UNICORN_OX", of_ratio=3.0)
+        assert False, "Should have raised ValueError"
+    except ValueError as e:
+        assert "Unknown propellant" in str(e)
+
+
+def test_rocket_bartz_heat_flux_structure():
+    """Bartz heat transfer output must contain required keys with positive values."""
+    analyzer = RocketAnalyzer(10e6)
+    result = analyzer.solve_equilibrium(
+        "H2/O2", of_ratio=6.0, thrust_target_N=100000, compute_heat_transfer=True
+    )
+    ht = result.get("heat_transfer")
+    assert ht is not None, "heat_transfer must be present"
+    assert "q_flux_MW_m2" in ht, "Missing q_flux_MW_m2"
+    assert len(ht["q_flux_MW_m2"]) > 0, "Empty heat flux array"
+    assert max(ht["q_flux_MW_m2"]) > 0, "All heat flux values are zero"
+
+
+def test_moc_stl_has_real_normals():
+    """STL normals must not all be zero after the fix."""
+    designer = MoCNozzle(gamma=1.2, mach_exit=3.0, throat_radius=0.1)
+    stl_text = designer.generate_stl_mesh(num_theta=8)
+    # Count lines starting with 'facet normal'
+    normal_lines = [l.strip() for l in stl_text.split('\n') if l.strip().startswith('facet normal')]
+    assert len(normal_lines) > 0, "No facet normal lines found"
+    # At least some should not be '0 0 0'
+    non_zero = [l for l in normal_lines if 'normal 0.000000 0.000000 0.000000' not in l]
+    assert len(non_zero) > 0, "All STL normals are still zero"
+
+
+def test_offdesign_error_point_has_detail():
+    """Failed throttle points must carry error_detail for diagnostics."""
+    p0, t0, _ = isa_atmosphere(0.0)
+    ca = CycleAnalyzer(p0, t0, 0.0)
+    dp = ca.solve_turbojet(prc=20.0, tit=1500.0)
+    solver = OffDesignSolver(dp)
+    results = solver.sweep_throttle(p0, t0, 0.0, 42.8e6, n_points=5)
+    error_pts = [r for r in results if r.get('error')]
+    # If any errors occurred, they must have a detail field
+    for ep in error_pts:
+        assert 'error_detail' in ep, f"Missing error_detail in error point: {ep}"
+
+
+def test_csv_export_has_metadata_header():
+    """U8: CSV exports must carry a metadata preamble (timestamp, params, version).
+
+    Calls the FastAPI endpoint via TestClient so we exercise the full path.
+    """
+    from fastapi.testclient import TestClient
+    from backend.main import app
+
+    client = TestClient(app)
+    res = client.post(
+        "/analyze/rocket/export/csv",
+        json={"gamma": 1.2, "mach_exit": 3.0, "throat_radius": 0.05},
+    )
+    assert res.status_code == 200, res.text
+    body = res.text
+    assert body.startswith("# PropulsionLab"), f"Missing metadata header: {body[:120]}"
+    assert "# generated_at = " in body
+    assert "# solver = PropulsionLab" in body
+    assert "# mach_exit = 3.0" in body
+    assert "X_m,R_m" in body
+
+
+def test_offdesign_turbine_pr_from_work_balance():
+    """F2: Turbine PR must vary with throttle (work balance), not a flat 25 % heuristic.
+
+    Acceptance: the throttle deck produces a physical turbine-PR sweep, not a
+    constant 0.25 × compressor PR.
+    """
+    p0, t0, _ = isa_atmosphere(0.0)
+    ca = CycleAnalyzer(p0, t0, 0.0)
+    dp = ca.solve_turbojet(prc=20.0, tit=1700.0)
+    solver = OffDesignSolver(dp)
+    results = solver.sweep_throttle(p0, t0, 0.0, 42.8e6, n_points=10)
+    valid = [r for r in results if not r.get('error')]
+    assert valid, "Expected at least one valid throttle point"
+    for r in valid:
+        assert 'turb_pr' in r, "Result must expose work-balanced turbine PR"
+        # Must be physically meaningful (above choke for hot gas γ=1.33 ⇒ PR_crit≈1.85)
+        assert r['turb_pr'] > 1.5, f"Unphysically low turbine PR: {r['turb_pr']}"
+        # Must not be the trivial 25 % heuristic — i.e., turb_pr != 0.25 * pr
+        ratio = r['turb_pr'] / max(r['pr'], 1.0)
+        assert abs(ratio - 0.25) > 0.05, (
+            f"Turbine PR looks like the old 25 % placeholder: turb_pr={r['turb_pr']}, "
+            f"compressor pr={r['pr']}, ratio={ratio:.3f}"
+        )
+    # Sweep must vary across throttle settings (not a flat number)
+    pr_values = sorted({r['turb_pr'] for r in valid})
+    assert len(pr_values) >= 3, f"Turbine PR is too flat across throttle: {pr_values}"

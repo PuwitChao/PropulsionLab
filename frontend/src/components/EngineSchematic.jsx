@@ -7,12 +7,9 @@ const EngineSchematic = ({ activeStation, onStationClick }) => {
   
   // Design system colors based on theme
   const bgColor = isLight ? '#f8fafc' : '#0a0a0a';
-  const borderColor = isLight ? '#e2e8f0' : 'rgba(255,255,255,0.1)';
   const strokeColor = isLight ? '#cbd5e1' : 'rgba(255,255,255,0.2)';
   const textColorMuted = isLight ? '#94a3b8' : 'rgba(255,255,255,0.3)';
   const textColorSecondary = isLight ? '#64748b' : 'rgba(255,255,255,0.5)';
-  const accentColor = 'var(--primary)';
-  const activeColor = isLight ? '#0f172a' : '#fff';
   const surfaceAlpha = isLight ? 'rgba(15, 23, 42, 0.03)' : 'rgba(255,255,255,0.02)';
 
   // SVG proportions and station positions

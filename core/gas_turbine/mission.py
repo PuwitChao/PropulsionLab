@@ -18,30 +18,42 @@ class MissionAnalyzer:
         self.q = 0.5 * rho * v**2
         return self.q, v
 
+    _Q_MIN = 1.0  # Pa — guard against divide-by-zero at near-zero Mach/altitude
+
     def tw_level_flight(self, ws, altitude_m, mach):
         """T/W for constant altitude, constant speed flight."""
         q, _ = self.calculate_dynamic_pressure(altitude_m, mach)
+        if q < self._Q_MIN:
+            return float('inf')
         return (q * self.cd0) / ws + self.k / q * ws
 
     def tw_ps(self, ws, altitude_m, mach, ps):
         """T/W for specific excess power (Ps)."""
         q, v = self.calculate_dynamic_pressure(altitude_m, mach)
+        if q < self._Q_MIN or v < 1.0:
+            return float('inf')
         return (ps / v) + (q * self.cd0) / ws + (self.k / q) * ws
 
     def tw_sustained_turn(self, ws, altitude_m, mach, n):
         """T/W for a sustained turn with load factor n."""
         q, _ = self.calculate_dynamic_pressure(altitude_m, mach)
+        if q < self._Q_MIN:
+            return float('inf')
         return (q * self.cd0) / ws + (self.k * n**2 / q) * ws
 
     def tw_service_ceiling(self, ws, altitude_m, mach, vy=0.5):
         """T/W for a specific vertical rate (vy) [m/s] at service ceiling."""
         q, v = self.calculate_dynamic_pressure(altitude_m, mach)
+        if q < self._Q_MIN or v < 1.0:
+            return float('inf')
         return (vy / v) + (q * self.cd0) / ws + (self.k / q) * ws
 
     def tw_climb(self, ws, altitude_m, mach, angle_deg):
         """T/W for a fixed climb angle."""
         gamma = math.radians(angle_deg)
         q, _ = self.calculate_dynamic_pressure(altitude_m, mach)
+        if q < self._Q_MIN:
+            return float('inf')
         return math.sin(gamma) + (q * self.cd0) / ws + (self.k * math.cos(gamma)**2 / q) * ws
 
     def tw_takeoff(self, ws, sto, cl_max, sigma=1.0):
@@ -86,14 +98,16 @@ class MissionAnalyzer:
             results['series'].append({'label': label, 'values': values})
             all_tw_curves.append(values)
             
-        # Find the Max(T/W) across all constraints for each Wing Loading
+        # Find the Max(T/W) across all constraints for each Wing Loading.
+        # Inf values indicate the constraint is infeasible at that q; exclude from optimum.
         if all_tw_curves:
             feasible_boundary = [max(points) for points in zip(*all_tw_curves)]
-            min_tw = min(feasible_boundary)
-            min_idx = feasible_boundary.index(min_tw)
-            results['optimum'] = {
-                'ws': ws_range[min_idx],
-                'tw': min_tw
-            }
+            finite_pairs = [(tw, ws) for tw, ws in zip(feasible_boundary, ws_range)
+                            if math.isfinite(tw)]
+            if finite_pairs:
+                min_tw, opt_ws = min(finite_pairs, key=lambda x: x[0])
+                results['optimum'] = {'ws': opt_ws, 'tw': min_tw}
+            else:
+                results['optimum'] = None
             
         return results
