@@ -605,10 +605,23 @@ async def export_rocket_csv(request: MoCRequest):
         designer = MoCNozzle(request.gamma, request.mach_exit, request.throat_radius)
         x_vals, y_vals = designer.solve_contour()
 
-        lines = ["X_m,R_m"]
+        from datetime import timezone
+        # Rich metadata header: tools (Excel, MATLAB, pandas, numpy.loadtxt) all
+        # accept comment lines starting with '#'. Provides timestamp + design
+        # params + solver version so exported files are self-describing.
+        header_lines = [
+            f"# PropulsionLab nozzle contour export",
+            f"# generated_at = {datetime.now(timezone.utc).isoformat()}",
+            f"# solver = PropulsionLab v2.2.0",
+            f"# gamma = {request.gamma}",
+            f"# mach_exit = {request.mach_exit}",
+            f"# throat_radius_m = {request.throat_radius}",
+            f"# points = {len(x_vals)}",
+            "X_m,R_m",
+        ]
         for x, r in zip(x_vals, y_vals):
-            lines.append(f"{x:.8f},{r:.8f}")
-        csv_content = "\n".join(lines)
+            header_lines.append(f"{x:.8f},{r:.8f}")
+        csv_content = "\n".join(header_lines)
 
         logger.info(
             f"CSV export: gamma={request.gamma}, Me={request.mach_exit}, "

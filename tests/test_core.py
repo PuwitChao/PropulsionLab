@@ -449,3 +449,53 @@ def test_offdesign_error_point_has_detail():
     # If any errors occurred, they must have a detail field
     for ep in error_pts:
         assert 'error_detail' in ep, f"Missing error_detail in error point: {ep}"
+
+
+def test_csv_export_has_metadata_header():
+    """U8: CSV exports must carry a metadata preamble (timestamp, params, version).
+
+    Calls the FastAPI endpoint via TestClient so we exercise the full path.
+    """
+    from fastapi.testclient import TestClient
+    from backend.main import app
+
+    client = TestClient(app)
+    res = client.post(
+        "/analyze/rocket/export/csv",
+        json={"gamma": 1.2, "mach_exit": 3.0, "throat_radius": 0.05},
+    )
+    assert res.status_code == 200, res.text
+    body = res.text
+    assert body.startswith("# PropulsionLab"), f"Missing metadata header: {body[:120]}"
+    assert "# generated_at = " in body
+    assert "# solver = PropulsionLab" in body
+    assert "# mach_exit = 3.0" in body
+    assert "X_m,R_m" in body
+
+
+def test_offdesign_turbine_pr_from_work_balance():
+    """F2: Turbine PR must vary with throttle (work balance), not a flat 25 % heuristic.
+
+    Acceptance: the throttle deck produces a physical turbine-PR sweep, not a
+    constant 0.25 × compressor PR.
+    """
+    p0, t0, _ = isa_atmosphere(0.0)
+    ca = CycleAnalyzer(p0, t0, 0.0)
+    dp = ca.solve_turbojet(prc=20.0, tit=1700.0)
+    solver = OffDesignSolver(dp)
+    results = solver.sweep_throttle(p0, t0, 0.0, 42.8e6, n_points=10)
+    valid = [r for r in results if not r.get('error')]
+    assert valid, "Expected at least one valid throttle point"
+    for r in valid:
+        assert 'turb_pr' in r, "Result must expose work-balanced turbine PR"
+        # Must be physically meaningful (above choke for hot gas γ=1.33 ⇒ PR_crit≈1.85)
+        assert r['turb_pr'] > 1.5, f"Unphysically low turbine PR: {r['turb_pr']}"
+        # Must not be the trivial 25 % heuristic — i.e., turb_pr != 0.25 * pr
+        ratio = r['turb_pr'] / max(r['pr'], 1.0)
+        assert abs(ratio - 0.25) > 0.05, (
+            f"Turbine PR looks like the old 25 % placeholder: turb_pr={r['turb_pr']}, "
+            f"compressor pr={r['pr']}, ratio={ratio:.3f}"
+        )
+    # Sweep must vary across throttle settings (not a flat number)
+    pr_values = sorted({r['turb_pr'] for r in valid})
+    assert len(pr_values) >= 3, f"Turbine PR is too flat across throttle: {pr_values}"

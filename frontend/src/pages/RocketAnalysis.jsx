@@ -9,6 +9,7 @@ import SliderControl from '../components/SliderControl'
 import HelpTooltip from '../components/HelpTooltip'
 import { getLayout } from '../utils/chartUtils'
 import { useSettings } from '../context/SettingsContext'
+import usePersistentState from '../hooks/usePersistentState'
 
 // ── MoC Nozzle Visualization ──────────────────────────────────────────────────
 
@@ -173,11 +174,22 @@ export default function RocketAnalysis() {
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState(null)
     const [error, setError] = useState(null)
-    const [params, setParams] = useState({
+    const [params, setParams] = usePersistentState('rocket_params', {
         pc: 7.5e6, of_ratio: 6.0, pe: 101325.0,
         propellant: 'H2/O2', mode: 'shifting',
         thrust_target_N: 500000
     })
+    const exportScenario = () => {
+        const blob = new Blob([JSON.stringify({ params }, null, 2)], { type: 'application/json' })
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+        a.download = 'rocket_scenario.json'; a.click()
+    }
+    const importScenario = (e) => {
+        const file = e.target.files?.[0]; if (!file) return
+        const reader = new FileReader()
+        reader.onload = (evt) => { try { const d = JSON.parse(evt.target.result); if (d.params) setParams(prev => ({ ...prev, ...d.params })) } catch { /* invalid JSON */ } }
+        reader.readAsText(file); e.target.value = ''
+    }
     const [mocData, setMocData] = useState(null)
     const [exportLoading, setExportLoading] = useState(null) // 'csv' | 'stl' | null
     const [toast, setToast] = useState(null)
@@ -453,6 +465,15 @@ export default function RocketAnalysis() {
                         <span className="material-symbols-outlined !text-[20px]">{loading ? 'sync' : 'rocket_launch'}</span>
                         {loading ? 'COMPUTING...' : 'RUN_CHAMBER_SYNTHESIS'}
                    </button>
+                   <div className="grid grid-cols-2 gap-4">
+                        <button onClick={exportScenario} className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors">
+                            EXPORT_JSON
+                        </button>
+                        <label className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors text-center cursor-pointer">
+                            IMPORT_JSON
+                            <input type="file" accept=".json" className="hidden" onChange={importScenario} />
+                        </label>
+                    </div>
                 </section>
 
                 {/* Middle: MoC Visualization + Stats */}

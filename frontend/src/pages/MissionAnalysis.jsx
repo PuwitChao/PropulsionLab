@@ -6,26 +6,29 @@ const Plot = createPlotlyComponent(Plotly)
 import { fetchData } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
+import { getLayout } from '../utils/chartUtils'
+import { useSettings } from '../context/SettingsContext'
+import usePersistentState from '../hooks/usePersistentState'
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function MissionAnalysis() {
+    const { theme } = useSettings()
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState(null)
     const [error, setError] = useState(null)
-    const [aircraftData, setAircraftData] = useState(() => {
-        try {
-            const saved = localStorage.getItem('mission_aircraft_data')
-            return saved ? JSON.parse(saved) : { k: 0.1, cd0: 0.02, cl_max: 2.0 }
-        } catch {
-            return { k: 0.1, cd0: 0.02, cl_max: 2.0 }
-        }
-    })
-
-    useEffect(() => {
-        try { localStorage.setItem('mission_aircraft_data', JSON.stringify(aircraftData)) }
-        catch { /* localStorage unavailable */ }
-    }, [aircraftData])
+    const [aircraftData, setAircraftData] = usePersistentState('mission_aircraft_data', { k: 0.1, cd0: 0.02, cl_max: 2.0 })
+    const exportScenario = () => {
+        const blob = new Blob([JSON.stringify({ aircraftData }, null, 2)], { type: 'application/json' })
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+        a.download = 'mission_scenario.json'; a.click()
+    }
+    const importScenario = (e) => {
+        const file = e.target.files?.[0]; if (!file) return
+        const reader = new FileReader()
+        reader.onload = (evt) => { try { const d = JSON.parse(evt.target.result); if (d.aircraftData) setAircraftData(prev => ({ ...prev, ...d.aircraftData })) } catch { /* invalid JSON */ } }
+        reader.readAsText(file); e.target.value = ''
+    }
 
     const runAnalysis = useCallback(async () => {
         setLoading(true)
@@ -164,6 +167,15 @@ export default function MissionAnalysis() {
                         <span className="material-symbols-outlined !text-[20px]">{loading ? 'sync' : 'hub'}</span>
                         {loading ? 'OPTIMIZING...' : 'RE-RUN ANALYSIS'}
                    </button>
+                   <div className="grid grid-cols-2 gap-4">
+                        <button onClick={exportScenario} className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors">
+                            EXPORT_JSON
+                        </button>
+                        <label className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors text-center cursor-pointer">
+                            IMPORT_JSON
+                            <input type="file" accept=".json" className="hidden" onChange={importScenario} />
+                        </label>
+                    </div>
                 </section>
 
                 {/* Main Workspace */}
@@ -188,25 +200,11 @@ export default function MissionAnalysis() {
                         {!loading && (data || error) && (
                             <Plot
                                 data={plotTraces}
-                                layout={{
-                                    plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
-                                    autosize: true, margin: { t: 80, b: 140, l: 100, r: 80 },
-                                    xaxis: {
-                                        title: { text: 'Wing Loading (W/S) [Pa]', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
-                                        gridcolor: 'rgba(255,255,255,0.05)',
-                                        tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
-                                        showline: true, linecolor: 'rgba(255,255,255,0.1)', range: [1000, 8000]
-                                    },
-                                    yaxis: {
-                                        title: { text: 'Thrust-to-Weight (T/W)', font: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.5)' }, standoff: 30 },
-                                        gridcolor: 'rgba(255,255,255,0.05)',
-                                        tickfont: { family: 'JetBrains Mono', size: 12, color: 'rgba(255,255,255,0.3)' },
-                                        showline: true, linecolor: 'rgba(255,255,255,0.1)', range: [0, 1.2]
-                                    },
-                                    showlegend: true,
-                                    legend: { font: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.4)' }, orientation: 'h', y: -0.25, x: 0.5, xanchor: 'center' },
-                                    hovermode: 'closest', font: { family: 'Inter', size: 14, color: '#fff' }
-                                }}
+                                layout={getLayout(theme, {
+                                    margin: { t: 80, b: 140, l: 100, r: 80 },
+                                    xaxis: { title: { text: 'Wing Loading (W/S) [Pa]' }, range: [1000, 8000] },
+                                    yaxis: { title: { text: 'Thrust-to-Weight (T/W)' }, range: [0, 1.2] },
+                                })}
                                 className="w-full h-full"
                                 config={{ displayModeBar: false, responsive: true }}
                             />

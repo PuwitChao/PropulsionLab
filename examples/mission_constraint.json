@@ -1,0 +1,18 @@
+{
+  "_comment": "T/W vs W/S constraint diagram — supersonic fighter sizing. POST to /analyze/mission",
+  "aircraft_data": {
+    "k": 0.12,
+    "cd0": 0.022,
+    "cl_max": 2.0
+  },
+  "constraints": [
+    { "type": "level",   "label": "Cruise M0.9 @ 10km",    "alt": 10000, "mach": 0.9 },
+    { "type": "ps",      "label": "Ps=50 (M1.2 @ 10km)",   "alt": 10000, "mach": 1.2, "ps": 50 },
+    { "type": "turn",    "label": "5G Turn (M0.7 @ 3km)",  "alt": 3000,  "mach": 0.7, "n": 5 },
+    { "type": "takeoff", "label": "Takeoff (900m)",         "sto": 900,   "cl_max": 2.0 },
+    { "type": "ceiling", "label": "Service Ceiling (15km)", "alt": 15000, "mach": 0.9 }
+  ],
+  "ws_min": 1000,
+  "ws_max": 8000,
+  "ws_steps": 60
+}

@@ -61,7 +61,7 @@ Single-file FastAPI app. Pydantic models validate every request. Analytical core
 | `/analyze/rocket` | Chemical equilibrium, O/F sweep, altitude table, MoC, STL/CSV export |
 | `/analyze/mission` | T/W vs W/S constraint diagram |
 
-`/analyze/cycle/multispool` is a **501 stub** — not yet implemented (planned Sprint 5).
+`/analyze/cycle/multispool` is live — 8-iter HP/LP work-matching solver in `core/gas_turbine/cycle.py`. See `tests/test_multispool.py`.
 
 ### Core Physics (`core/`)
 
@@ -84,8 +84,6 @@ Single-file FastAPI app. Pydantic models validate every request. Analytical core
 ## Key Conventions
 
 - **Cantera thread safety**: Never share a `ct.Solution` instance across calls. Always create a fresh one — the overhead is negligible (~0.3 ms for gri30).
-- **`to-be-deleted/`**: Ignore this directory — legacy debug scripts, not part of the active codebase.
-- **`FromStitich/`**: Static HTML design mockups from an earlier prototyping stage, not connected to the running app.
 - **Multispool solver**: `solve_multispool()` in `core/gas_turbine/cycle.py` is fully implemented (8-iter HP/LP work-matching). The `/analyze/cycle/multispool` endpoint is live. Test coverage in `tests/test_multispool.py`.
 - **Frontend wiring**: CSV/STL export, sensitivity sweep, O/F sweep, and altitude performance table are all wired to their respective backend endpoints.
 - **Deployment**: `Dockerfile` + `docker-compose.yml` in repo root. Set `VITE_API_URL` at build time and `CORS_ORIGINS` at runtime. See `.env.example`.

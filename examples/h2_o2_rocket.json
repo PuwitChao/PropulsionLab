@@ -1,0 +1,9 @@
+{
+  "_comment": "H2/O2 upper-stage rocket — vacuum conditions. POST to /analyze/rocket",
+  "pc": 7500000,
+  "of_ratio": 6.0,
+  "pe": 100,
+  "propellant": "H2/O2",
+  "mode": "shifting",
+  "thrust_target_N": 110000
+}

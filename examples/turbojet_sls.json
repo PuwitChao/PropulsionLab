@@ -1,0 +1,11 @@
+{
+  "_comment": "Turbojet — sea-level static (SLS) design point. POST to /analyze/cycle",
+  "alt": 0,
+  "mach": 0.001,
+  "prc": 20,
+  "tit": 1600,
+  "eta_c": 0.88,
+  "eta_t": 0.92,
+  "burner_dp_frac": 0.04,
+  "inlet_recovery": 0.98
+}

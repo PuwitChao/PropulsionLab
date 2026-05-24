@@ -73,7 +73,7 @@ def _turbine_map(N_corr_norm: float, pr: float, pr_design: float = 4.5):
     Returns (eta_isen, is_choked)
     """
     # Turbine chokes when PR > ~1.85 for typical combustion products
-    g = 1.333 
+    g = 1.333
     pr_crit = ((g + 1) / 2) ** (g / (g - 1))
     choked = pr >= pr_crit
 
@@ -81,6 +81,50 @@ def _turbine_map(N_corr_norm: float, pr: float, pr_design: float = 4.5):
     eta = 0.92 - 0.08 * dn ** 2 - 0.04 * max(0, 1.0 - pr / pr_design)
     eta = max(0.60, min(eta, 0.93))
     return eta, choked
+
+
+def _turbine_pr_from_work_balance(
+    pr_compressor: float,
+    eta_c: float,
+    eta_t: float,
+    tt2: float,
+    tt4: float,
+    f: float = 0.025,
+    gamma_c: float = 1.40,
+    gamma_t: float = 1.333,
+    cp_c: float = 1005.0,
+    cp_t: float = 1244.0,
+    eta_mech: float = 0.99,
+) -> float:
+    """
+    Solves the compressor-turbine work-balance for the turbine pressure ratio.
+
+    The shaft balance (per kg of inlet air) is
+
+        W_comp = cp_c * Tt2 * (pi_c^((gc-1)/(gc*eta_c)) - 1)
+        W_turb * (1 + f) * eta_mech = W_comp
+        W_turb = eta_t * cp_t * Tt4 * (1 - pi_t^(-(gt-1)/gt))
+
+    Combining and solving for pi_t gives a closed-form expression. This replaces
+    the prior `turb_pr = pr_compressor * 0.25` placeholder with a result that
+    actually depends on TIT and compressor work — so throttle sweeps produce a
+    physically meaningful turbine PR trace instead of a flat 25 %.
+    """
+    eta_c_s = max(0.40, min(eta_c, 0.95))
+    eta_t_s = max(0.50, min(eta_t, 0.95))
+    gc_exp = (gamma_c - 1.0) / (gamma_c * eta_c_s)
+    w_comp = cp_c * tt2 * (max(1.0, pr_compressor) ** gc_exp - 1.0)
+    w_turb_per_kg_gas = w_comp / (max(0.5, eta_mech) * (1.0 + max(0.0, f)))
+    enthalpy_drop_avail = eta_t_s * cp_t * tt4
+    drop_ratio = w_turb_per_kg_gas / max(1.0, enthalpy_drop_avail)
+    if drop_ratio >= 0.99:
+        # Compressor demands more work than the turbine can extract — clip to
+        # the maximum physically meaningful PR. The cycle solver will surface
+        # the resulting imbalance downstream.
+        return 50.0
+    gt_exp = (gamma_t - 1.0) / gamma_t
+    pi_t = max(1.0, (1.0 - drop_ratio) ** (-1.0 / gt_exp))
+    return min(pi_t, 50.0)
 
 
 # ─── Off-design solver ──────────────────────────────────────────────────────
@@ -137,10 +181,23 @@ class OffDesignSolver:
             k_tit = 0.65 + 0.35 * throttle
             tt4   = self.dp_tt4 * k_tit
 
-            # Turbine maps give efficiency
-            # PR across turbine ~ roughly pr_turb (needs cross-match, simplified here)
-            turb_pr   = max(1.5, pr * 0.25)   # very rough estimate
-            eta_t, _  = _turbine_map(N_corr_norm, turb_pr)
+            # Turbine PR from compressor-turbine work balance + one fixed-point
+            # iteration over efficiency (eta_t depends weakly on PR via the map).
+            eta_t = 0.90
+            for _ in range(3):
+                turb_pr = _turbine_pr_from_work_balance(
+                    pr_compressor=max(1.0, pr),
+                    eta_c=eta_c,
+                    eta_t=eta_t,
+                    tt2=tt0,
+                    tt4=tt4,
+                    f=self.dp_f,
+                )
+                eta_t_new, _ = _turbine_map(N_corr_norm, turb_pr)
+                if abs(eta_t_new - eta_t) < 1e-3:
+                    eta_t = eta_t_new
+                    break
+                eta_t = eta_t_new
 
             # Re-solve the cycle at this pressure ratio & TIT
             ca = CycleAnalyzer(ambient_p, ambient_t, mach)
@@ -157,10 +214,11 @@ class OffDesignSolver:
                     'N_corr_norm'  : round(N_corr_norm, 3),
                     'mdot_corr_norm': round(mdot_corr_norm, 4),
                     'pr'           : round(pr, 2),
+                    'turb_pr'      : round(turb_pr, 2),
                     'tt4'          : round(tt4, 1),
                     'spec_thrust'  : round(res['spec_thrust'], 2),
                     'tsfc'         : round(res['tsfc'] * 1e6, 4),   # mg/N/s
-                    'f'            : round(res['f'], 5),
+                    'f'            : round(res.get('f_total', res.get('f', 0.0)), 5),
                     'eta_c'        : round(eta_c, 3),
                     'eta_t'        : round(eta_t, 3),
                     'surge'        : surge,

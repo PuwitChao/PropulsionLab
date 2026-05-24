@@ -21,7 +21,7 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
-        run: pip install -r backend/requirements.txt pytest pytest-cov
+        run: pip install -r backend/requirements.txt pytest pytest-cov httpx
 
       - name: Run tests
         run: pytest tests/ -v --cov=core --cov-report=term-missing
