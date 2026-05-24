@@ -392,8 +392,10 @@ class CycleAnalyzer:
         # ── Station 4: HPT inlet ─────────────────────────────────────────
         tt4 = tit
         pt4 = pt3 * (1.0 - burner_dp_frac)
+        # Fuel-to-air: h4 - h3 = f*(burner_eta*h_fuel - h4)
+        # Use cp4 at T4 for hot-side enthalpy, cp_hpc_avg at T3 for cold-side
         _, cp4, mw4 = get_gas_props(tt4, pt4, f=0.04) # Initial guess
-        f = cp_hpc_avg * (tt4 - tt3) / (burner_eta * h_fuel - cp4 * tt4)
+        f = (cp4 * tt4 - cp_hpc_avg * tt3) / (burner_eta * h_fuel - cp4 * tt4)
         f = max(f, 0.0)
         gh, cph, mwh = get_gas_props(tt4, pt4, f=f)
         self.stations[4] = EngineStation(t_total=tt4, p_total=pt4)
@@ -454,21 +456,33 @@ class CycleAnalyzer:
                 tt9_in = tt_mix
                 pt9_in = pt_mix
                 f_ab = 0.0
-            
+
             gn, cpn, mwn = get_gas_props(tt9_in, pt9_in, f=((f+f_ab)/m_total))
             rn = ct.gas_constant / mwn
             v9, ps9, ts9, m9 = self._nozzle_exit(pt9_in, tt9_in, self.p0, gn, rn)
-            
+
             fg_mix = (m_total) * v9 + (ps9 - self.p0) * (rn * ts9 / ps9 * m_total / max(v9, 1.0))
             spec_thrust = (fg_mix - (1.0 + bpr) * v0) / (1.0 + bpr)
             spec_thrust_installed = (fg_mix * eta_install_nozzle - (1.0 + bpr) * v0 - v0 * phi_inlet) / (1.0 + bpr)
             tsfc_installed = (f + f_ab) / ((1.0 + bpr) * spec_thrust_installed) if spec_thrust_installed > 0 else 0.0
-            
+
+            # Efficiency metrics (mixed exhaust)
+            q_in_m = (f + f_ab) * h_fuel
+            ke_out_m = 0.5 * m_total * v9 ** 2
+            ke_in_m  = 0.5 * (1.0 + bpr) * v0 ** 2
+            delta_ke_m = ke_out_m - ke_in_m
+            eta_thermal_m = max(0.0, delta_ke_m / q_in_m) if q_in_m > 0 else 0.0
+            thrust_power_m = spec_thrust_installed * (1.0 + bpr) * v0
+            eta_prop_m = max(0.0, min(thrust_power_m / max(delta_ke_m, 1.0), 1.0)) if delta_ke_m > 1.0 else 0.0
+
             return {
                 'engine_type': 'turbofan_mixed',
-                'spec_thrust': spec_thrust_installed, # Standardized key
-                'tsfc': tsfc_installed,               # Standardized key
+                'spec_thrust': spec_thrust_installed,
+                'tsfc': tsfc_installed,
                 'f_total': (f + f_ab),
+                'eta_thermal':   eta_thermal_m,
+                'eta_propulsive': eta_prop_m,
+                'eta_overall':   eta_thermal_m * eta_prop_m,
                 'math_trace': self.math_trace + [f"Mixed exhaust logic applied: Tt_mix={tt_mix:.1f} K, Pt_mix={pt_mix/1e3:.1f} kPa"],
                 'stations': { k: {'tt': v.tt, 'pt': v.pt} for k, v in self.stations.items() }
             }
@@ -485,15 +499,27 @@ class CycleAnalyzer:
             
             f_gross_core = (1.0 + f) * v9 + (ps9 - self.p0) * (ct.gas_constant/mwn_c * ts9 / ps9 * (1.0+f) / max(v9, 1.0))
             f_gross_byp = bpr * v19 + (ps19 - self.p0) * (ct.gas_constant/mwn_b * ts19 / ps19 * bpr / max(v19, 1.0))
-            
+
             spec_thrust_installed = ( (f_gross_core + f_gross_byp) * eta_install_nozzle - (1.0 + bpr) * v0 - v0 * phi_inlet ) / (1.0 + bpr)
             tsfc_installed = (f / (1.0 + bpr)) / spec_thrust_installed if spec_thrust_installed > 0 else 0.0
-            
+
+            # Efficiency metrics (separate exhaust)
+            q_in_s = f * h_fuel  # per kg core air
+            ke_out_s = 0.5 * ((1.0 + f) * v9 ** 2 + bpr * v19 ** 2)
+            ke_in_s  = 0.5 * (1.0 + bpr) * v0 ** 2
+            delta_ke_s = ke_out_s - ke_in_s
+            eta_thermal_s = max(0.0, delta_ke_s / q_in_s) if q_in_s > 0 else 0.0
+            thrust_power_s = spec_thrust_installed * (1.0 + bpr) * v0
+            eta_prop_s = max(0.0, min(thrust_power_s / max(delta_ke_s, 1.0), 1.0)) if delta_ke_s > 1.0 else 0.0
+
             return {
                 'engine_type': 'turbofan_separate',
-                'spec_thrust': spec_thrust_installed, # Standardized key (fixed from spec_thrust_installed)
-                'tsfc': tsfc_installed,               # Standardized key (fixed from tsfc_installed)
+                'spec_thrust': spec_thrust_installed,
+                'tsfc': tsfc_installed,
                 'f_total': f,
+                'eta_thermal':   eta_thermal_s,
+                'eta_propulsive': eta_prop_s,
+                'eta_overall':   eta_thermal_s * eta_prop_s,
                 'math_trace': self.math_trace + ["Separate exhaust turbofan solved using Cantera."],
                 'stations': { k: {'tt': v.tt, 'pt': v.pt} for k, v in self.stations.items() }
             }

@@ -33,7 +33,7 @@ from typing import List, Dict, Any, Optional
 import math
 from datetime import datetime
 import logging
-from pydantic import model_validator
+from pydantic import model_validator, field_validator
 
 # Configure logging
 logging.basicConfig(
@@ -63,6 +63,17 @@ app = FastAPI(
     description="High-fidelity aerospace solver core for gas turbines and rockets.",
     version="2.2.0"
 )
+
+
+def _sanitize(obj: Any) -> Any:
+    """Recursively replace non-finite floats (inf, -inf, nan) with None for JSON compliance."""
+    if isinstance(obj, float):
+        return None if not math.isfinite(obj) else obj
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(v) for v in obj]
+    return obj
 
 # ── Security & Policy ────────────────────────────────────────────────────────
 # CORS_ORIGINS env var: comma-separated list of allowed origins.
@@ -188,9 +199,11 @@ async def analyze_mission(request: MissionConstraintRequest):
             request.ws_min + i * (request.ws_max - request.ws_min) / request.ws_steps
             for i in range(request.ws_steps + 1)
         ]
-        return analyzer.generate_constraint_data(ws_range, request.constraints)
+        result = analyzer.generate_constraint_data(ws_range, request.constraints)
+        return _sanitize(result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Mission analysis error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Mission analysis computation failed.")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -241,9 +254,10 @@ async def analyze_cycle(request: CycleRequest):
             eta_mech_hp=request.eta_mech_hp,
             eta_mech_lp=request.eta_mech_lp,
         )
-        return result
+        return _sanitize(result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Turbojet cycle error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Cycle analysis computation failed.")
 
 
 # ── Turbofan On-Design ─────────────────────────────────────────────────────
@@ -266,7 +280,7 @@ async def analyze_turbofan(request: TurbofanRequest):
         p0, t0, _ = isa_atmosphere(request.alt)
         analyzer  = CycleAnalyzer(p0, t0, request.mach)
         result    = analyzer.solve_turbofan(
-            bpr=request.bpr, fpr=request.fpr, opr=request.prc, tit=request.tit, # opr maps to prc from CycleRequest
+            bpr=request.bpr, fpr=request.fpr, opr=request.prc, tit=request.tit,
             eta_fan=request.eta_fan, eta_c=request.eta_c, eta_t=request.eta_t,
             eta_ab=request.eta_ab, h_fuel=request.h_fuel,
             ab_enabled=request.ab_enabled, ab_temp=request.ab_temp,
@@ -280,9 +294,10 @@ async def analyze_turbofan(request: TurbofanRequest):
             eta_mech_lp=request.eta_mech_lp,
             lpc_pr=request.lpc_pr,
         )
-        return result
+        return _sanitize(result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Turbofan cycle error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Turbofan cycle computation failed.")
 
 
 # ── Parametric Sweep (pressure ratio) ─────────────────────────────────────
@@ -325,9 +340,10 @@ async def analyze_cycle_sweep(request: CycleSweepRequest):
                 "eta_thermal":  res.get("eta_thermal", 0),
                 "eta_overall":  res.get("eta_overall", 0),
             })
-        return results
+        return _sanitize(results)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Cycle sweep error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Cycle sweep computation failed.")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -362,9 +378,10 @@ async def offdesign_map(request: OffDesignMapRequest):
         )
         # Add DP reference for visualization
         map_data['design_point'] = {'flow': 1.0, 'pr': solver.dp_pr}
-        return map_data
+        return _sanitize(map_data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Off-design map error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Compressor map computation failed.")
 
 
 class ThrottleSweepRequest(BaseModel):
@@ -389,14 +406,18 @@ async def offdesign_throttle(request: ThrottleSweepRequest):
 
         solver  = OffDesignSolver(dp)
         results = solver.sweep_throttle(p0, t0, request.mach, request.h_fuel, request.n_points)
-        return results
+        return _sanitize(results)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Throttle sweep error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Throttle sweep computation failed.")
 
 
 # ════════════════════════════════════════════════════════════════════════════
 # Rocket — On-Design (CEA & Equilibrium)
 # ════════════════════════════════════════════════════════════════════════════
+
+_VALID_MODES = {'shifting', 'frozen'}
+
 
 class RocketRequest(BaseModel):
     """Rocket architecture request for chemical equilibrium analysis."""
@@ -410,6 +431,13 @@ class RocketRequest(BaseModel):
     compute_heat_transfer: bool = True
     impurity_species:      Optional[str]   = Field(None)
     impurity_mass_frac:    float           = Field(0.0, ge=0.0, le=0.5)
+
+    @field_validator('mode')
+    @classmethod
+    def validate_mode(cls, v: str) -> str:
+        if v not in _VALID_MODES:
+            raise ValueError(f"mode must be one of {sorted(_VALID_MODES)}, got '{v}'")
+        return v
 
 _VALID_PROPELLANTS = {
     'H2/O2', 'CH4/O2', 'RP1/O2', 'Propane/O2', 'Ethanol/O2', 'Methanol/O2',
@@ -442,17 +470,20 @@ async def analyze_rocket(request: RocketRequest):
             impurity_species=request.impurity_species,
             impurity_mass_frac=request.impurity_mass_frac,
         )
-        return result
+        return _sanitize(result)
     except Exception as e:
-        import traceback
-        v_err = f"BACKEND_ERROR: {str(e)}\n{traceback.format_exc()}"
-        logger.error(v_err)
-        raise HTTPException(status_code=500, detail=f"Computational Kernel Error: {str(e)}")
+        logger.error("Rocket equilibrium error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Rocket equilibrium computation failed.")
 
 
 @app.post("/analyze/rocket/sweep")
 async def analyze_rocket_sweep(request: RocketRequest):
     """Generates an O/F ratio sweep for performance optimization."""
+    if request.propellant not in _VALID_PROPELLANTS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown propellant '{request.propellant}'. Valid: {sorted(_VALID_PROPELLANTS)}"
+        )
     try:
         analyzer  = RocketAnalyzer(request.pc)
         of_range  = [0.5 + i * 0.25 for i in range(60)]   # 0.5 to 15.25
@@ -476,9 +507,10 @@ async def analyze_rocket_sweep(request: RocketRequest):
                 })
             except Exception:
                 pass
-        return results
+        return _sanitize(results)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Rocket sweep error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="O/F sweep computation failed.")
 
 
 # ── Altitude Performance ───────────────────────────────────────────────────
@@ -492,19 +524,32 @@ class AltitudeRequest(BaseModel):
     alt_max_km: float = Field(100.0, ge=0, le=500)
     n_points:   int   = Field(20, ge=5, le=50)
 
+    @field_validator('mode')
+    @classmethod
+    def validate_mode(cls, v: str) -> str:
+        if v not in _VALID_MODES:
+            raise ValueError(f"mode must be one of {sorted(_VALID_MODES)}, got '{v}'")
+        return v
+
 @app.post("/analyze/rocket/altitude")
 async def analyze_rocket_altitude(request: AltitudeRequest):
     """
     Calculates rocket engine performance (Isp, Cf) as a function of altitude.
     Utilizes ISA atmosphere model for ambient pressure variation.
     """
+    if request.propellant not in _VALID_PROPELLANTS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown propellant '{request.propellant}'. Valid: {sorted(_VALID_PROPELLANTS)}"
+        )
     try:
         altitudes = [i * request.alt_max_km * 1000.0 / (request.n_points - 1)
                      for i in range(request.n_points)]
         analyzer  = RocketAnalyzer(request.pc)
-        return analyzer.altitude_performance(request.propellant, request.of_ratio, altitudes, request.mode)
+        return _sanitize(analyzer.altitude_performance(request.propellant, request.of_ratio, altitudes, request.mode))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Altitude performance error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Altitude performance computation failed.")
 
 
 # ── Engine Sizing from Thrust Target ──────────────────────────────────────
@@ -518,12 +563,24 @@ class SizingRequest(BaseModel):
     propellant: str   = Field("H2/O2")
     mode:       str   = Field("shifting")
 
+    @field_validator('mode')
+    @classmethod
+    def validate_mode(cls, v: str) -> str:
+        if v not in _VALID_MODES:
+            raise ValueError(f"mode must be one of {sorted(_VALID_MODES)}, got '{v}'")
+        return v
+
 @app.post("/analyze/rocket/sizing")
 async def analyze_sizing(request: SizingRequest):
     """
     Calculates throat/exit dimensions and mass flow rates for a specific thrust.
     Provides key sizing parameters for engine design.
     """
+    if request.propellant not in _VALID_PROPELLANTS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown propellant '{request.propellant}'. Valid: {sorted(_VALID_PROPELLANTS)}"
+        )
     try:
         analyzer = RocketAnalyzer(request.pc)
         result   = analyzer.solve_equilibrium(
@@ -535,7 +592,7 @@ async def analyze_sizing(request: SizingRequest):
             compute_heat_transfer=True,
         )
         # Return only sizing-relevant fields
-        return {
+        return _sanitize({
             'thrust_N'    : request.thrust_N,
             'propellant'  : request.propellant,
             'pc_MPa'      : request.pc / 1e6,
@@ -556,9 +613,10 @@ async def analyze_sizing(request: SizingRequest):
             'nozzle_dims' : result['nozzle_dims'],
             'heat_transfer': result.get('heat_transfer'),
             'math_trace': result.get('math_trace'),
-        }
+        })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Engine sizing error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Engine sizing computation failed.")
 
 
 # ── Method of Characteristics ─────────────────────────────────────────────
@@ -641,6 +699,9 @@ async def export_rocket_csv(request: MoCRequest):
 # Gas Turbine — Sensitivity Sweeps
 # ════════════════════════════════════════════════════════════════════════════
 
+_VALID_SWEEP_TYPES = {'t4', 'alt', 'opr'}
+
+
 class SensitivityRequest(BaseModel):
     """
     Multi-parameter sensitivity sweep for gas turbine cycle analysis.
@@ -655,6 +716,13 @@ class SensitivityRequest(BaseModel):
     sweep_min:  float = Field(800.0)
     sweep_max:  float = Field(2200.0)
     steps:      int   = Field(20, ge=5, le=60)
+
+    @field_validator('sweep_type')
+    @classmethod
+    def validate_sweep_type(cls, v: str) -> str:
+        if v not in _VALID_SWEEP_TYPES:
+            raise ValueError(f"sweep_type must be one of {sorted(_VALID_SWEEP_TYPES)}, got '{v}'")
+        return v
 
 
 @app.post("/analyze/cycle/sensitivity")
@@ -694,14 +762,16 @@ async def analyze_cycle_sensitivity(request: SensitivityRequest):
                 # Skip failed points without aborting the sweep
                 pass
 
-        return {
+        _sweep_labels = {"t4": "TIT [K]", "alt": "Altitude [m]", "opr": "OPR [-]"}
+        return _sanitize({
             "sweep_type"   : request.sweep_type,
-            "sweep_label"  : {"t4": "TIT [K]", "alt": "Altitude [m]", "opr": "OPR [-]"}[request.sweep_type],
+            "sweep_label"  : _sweep_labels.get(request.sweep_type, request.sweep_type),
             "fixed_params" : {"alt": request.alt, "mach": request.mach, "prc": request.prc, "tit": request.tit},
             "data"         : results,
-        }
+        })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Sensitivity sweep error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Sensitivity sweep computation failed.")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -740,9 +810,10 @@ async def analyze_multispool(request: MultispoolRequest):
             lpc_pr=request.lpc_pr,
             tit=request.tit,
         )
-        return result
+        return _sanitize(result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Multispool cycle error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Multi-spool computation failed.")
 
 
 

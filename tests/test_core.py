@@ -473,6 +473,109 @@ def test_csv_export_has_metadata_header():
     assert "X_m,R_m" in body
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Physics Benchmarks (absolute reference values, not just sanity)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_isa_exact_layer_boundaries():
+    """ISA layer boundary values must match ICAO Doc 7488 to within tight tolerances."""
+    # Troposphere top: 11000 m → T = 216.65 K, P = 22632 Pa (ICAO ref)
+    p11, t11, _ = isa_atmosphere(11000.0)
+    assert abs(t11 - 216.65) < 0.02, f"11km T={t11:.3f} K (expect 216.65)"
+    assert abs(p11 - 22632.0) < 20,   f"11km P={p11:.0f} Pa (expect 22632)"
+
+    # Lower stratosphere bottom: 20000 m → T = 216.65 K (isothermal), P ≈ 5474.9 Pa
+    p20, t20, _ = isa_atmosphere(20000.0)
+    assert abs(t20 - 216.65) < 0.05, f"20km T={t20:.3f} K (expect 216.65)"
+    assert abs(p20 - 5474.9) < 10,   f"20km P={p20:.1f} Pa (expect 5474.9)"
+
+
+def test_rocket_h2o2_isp_vacuum_benchmark():
+    """H2/O2 at OF=6, pc=10 MPa, shifting: Isp_vac must be in [390, 470] s.
+    GRI30 gives ~423 s vs NASA CEA ~450 s — offset is a known mechanism limitation.
+    """
+    analyzer = RocketAnalyzer(10e6)
+    result = analyzer.solve_equilibrium("H2/O2", of_ratio=6.0, compute_heat_transfer=False)
+    isp_vac = result["isp_vac"]
+    assert 390 < isp_vac < 470, f"H2/O2 Isp_vac={isp_vac:.1f} s (expect 390–470 s)"
+
+
+def test_rocket_shifting_ge_frozen():
+    """Shifting Isp must be >= frozen Isp (thermodynamic requirement)."""
+    analyzer = RocketAnalyzer(10e6)
+    r_shift = analyzer.solve_equilibrium("H2/O2", 6.0, compute_heat_transfer=False, mode="shifting")
+    r_froz  = analyzer.solve_equilibrium("H2/O2", 6.0, compute_heat_transfer=False, mode="frozen")
+    assert r_shift["isp_vac"] >= r_froz["isp_vac"], (
+        f"Shifting Isp ({r_shift['isp_vac']:.1f} s) < frozen ({r_froz['isp_vac']:.1f} s)"
+    )
+
+
+def test_turbojet_sls_spec_thrust_range():
+    """SLS turbojet at OPR=20, TIT=1600 K: spec_thrust must be in [600, 1400] N·s/kg.
+    Turbojets have high jet velocity + pressure thrust from the choked nozzle;
+    the range is wider than for turbofans.
+    """
+    analyzer = CycleAnalyzer(101325.0, 288.15, 0.001)
+    result = analyzer.solve_turbojet(prc=20.0, tit=1600.0)
+    st = result["spec_thrust"]
+    assert 600 < st < 1400, f"SLS turbojet spec_thrust={st:.1f} N·s/kg (expect 600–1400)"
+
+
+def test_turbofan_fuel_ratio_physical_range():
+    """Turbofan fuel-to-air ratio must be in physical range (0.01, 0.08) for Jet-A."""
+    p0, t0, _ = isa_atmosphere(10000.0)
+    analyzer = CycleAnalyzer(p0, t0, 0.8)
+    result = analyzer.solve_turbofan(bpr=6.0, fpr=1.6, opr=30.0, tit=1500.0)
+    f = result["f_total"]
+    assert 0.01 < f < 0.08, f"Turbofan f={f:.5f} outside physical range (0.01, 0.08)"
+
+
+def test_turbofan_efficiency_metrics_present():
+    """Both turbofan paths must return eta_thermal, eta_propulsive, eta_overall."""
+    p0, t0, _ = isa_atmosphere(10000.0)
+    # Separate exhaust
+    r_sep = CycleAnalyzer(p0, t0, 0.8).solve_turbofan(bpr=6.0, fpr=1.6, opr=30.0, tit=1500.0)
+    for key in ("eta_thermal", "eta_propulsive", "eta_overall"):
+        assert key in r_sep, f"Separate turbofan missing {key}"
+        assert 0.0 <= r_sep[key] <= 1.0, f"Separate turbofan {key}={r_sep[key]} out of [0,1]"
+
+    # Mixed exhaust
+    r_mix = CycleAnalyzer(p0, t0, 0.8).solve_turbofan(
+        bpr=0.8, fpr=3.5, opr=28.0, tit=1800.0, mixed_exhaust=True,
+    )
+    for key in ("eta_thermal", "eta_propulsive", "eta_overall"):
+        assert key in r_mix, f"Mixed turbofan missing {key}"
+        assert 0.0 <= r_mix[key] <= 1.0, f"Mixed turbofan {key}={r_mix[key]} out of [0,1]"
+
+
+def test_multispool_energy_closure():
+    """HP and LP spool temperature progressions must be physically consistent."""
+    analyzer = CycleAnalyzer(101325.0, 288.15, 0.0)
+    result = analyzer.solve_multispool(opr=32.0, bpr=0.3, fpr=3.5, lpc_pr=4.0, tit=1850.0)
+
+    stations = result["stations"]  # keys are integers: 0, 2, 21, 25, 3, 4, 45, 5
+    tt3  = stations[3]["tt"]   # HPC exit
+    tt4  = stations[4]["tt"]   # combustor exit / TIT
+    tt45 = result["tt45"]      # HPT exit
+    tt5  = result["tt5"]       # LPT exit
+
+    assert tt4 > tt3,  f"TIT ({tt4:.0f} K) must exceed HPC exit ({tt3:.0f} K)"
+    assert tt45 < tt4, f"HPT exit ({tt45:.0f} K) must be below TIT ({tt4:.0f} K)"
+    assert tt5  < tt45, f"LPT exit ({tt5:.0f} K) must be below HPT exit ({tt45:.0f} K)"
+    assert tt5  > 400,  f"LPT exit ({tt5:.0f} K) unrealistically cold"
+
+
+def test_isa_beyond_47km_warning(caplog):
+    """ISA above 47 km should log a warning and still return valid (clamped) values."""
+    import logging
+    with caplog.at_level(logging.WARNING, logger="core.units"):
+        p, t, rho = isa_atmosphere(55000.0)
+    assert p > 0 and t > 0 and rho > 0
+    assert any("47" in rec.message or "clamp" in rec.message.lower() for rec in caplog.records), (
+        "Expected altitude clamp warning not found in log"
+    )
+
+
 def test_offdesign_turbine_pr_from_work_balance():
     """F2: Turbine PR must vary with throttle (work balance), not a flat 25 % heuristic.
 
