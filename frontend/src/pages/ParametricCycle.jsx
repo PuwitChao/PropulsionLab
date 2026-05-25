@@ -501,7 +501,7 @@ export default function ParametricCycle() {
                       },
                       {
                         x: sensData.data.map(d => d.sweep_value),
-                        y: sensData.data.map(d => d.eta_thermal * 100),
+                        y: sensData.data.map(d => (d.eta_thermal ?? 0) * 100),
                         name: 'η_THERMAL [%]',
                         type: 'scatter', mode: 'lines',
                         line: { color: 'rgba(255,255,255,0.15)', width: 1.5, dash: 'longdash' },

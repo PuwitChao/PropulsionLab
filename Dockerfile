@@ -11,10 +11,13 @@ RUN npm run build
 # ── Stage 2: Python backend + nginx to serve the SPA ────────────────────────
 FROM python:3.11-slim AS runtime
 
-# System deps for Cantera
+# System deps for Cantera + curl (healthcheck)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    nginx gcc g++ libgfortran5 \
+    nginx gcc g++ libgfortran5 curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Non-root service account; nginx master stays root to bind :80
+RUN groupadd -r proplab && useradd -r -g proplab proplab
 
 WORKDIR /app
 
@@ -34,5 +37,8 @@ COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80 8000
 
-# Start nginx + uvicorn
-CMD ["sh", "-c", "nginx && uvicorn backend.main:app --host 0.0.0.0 --port 8000"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# nginx master runs as root (required for :80); uvicorn drops to proplab
+CMD ["sh", "-c", "nginx && su -s /bin/sh proplab -c 'uvicorn backend.main:app --host 0.0.0.0 --port 8000'"]

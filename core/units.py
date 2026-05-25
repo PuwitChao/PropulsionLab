@@ -1,4 +1,7 @@
 import math
+import logging
+
+_isa_logger = logging.getLogger(__name__)
 
 # Physics Constants (SI Units)
 G = 9.80665  # Standard gravity (m/s^2)
@@ -48,6 +51,12 @@ def isa_atmosphere(altitude_m: float) -> tuple:
     L0 = -0.0065   # Troposphere lapse rate [K/m]
 
     h = float(altitude_m)
+
+    if h > 47000.0:
+        _isa_logger.warning(
+            "Altitude %.0f m exceeds ICAO ISA model limit (47 000 m); "
+            "clamped to 47 000 m for stratopause layer calculation.", h
+        )
 
     # Layer 1: Troposphere (0 - 11 000 m)
     T11 = T0 + L0 * 11000.0                            # 216.65 K

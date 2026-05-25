@@ -203,7 +203,7 @@ export default function MissionAnalysis() {
                                 layout={getLayout(theme, {
                                     margin: { t: 80, b: 140, l: 100, r: 80 },
                                     xaxis: { title: { text: 'Wing Loading (W/S) [Pa]' }, range: [1000, 8000] },
-                                    yaxis: { title: { text: 'Thrust-to-Weight (T/W)' }, range: [0, 1.2] },
+                                    yaxis: { title: { text: 'Thrust-to-Weight (T/W) [-]' }, range: [0, 1.2] },
                                 })}
                                 className="w-full h-full"
                                 config={{ displayModeBar: false, responsive: true }}

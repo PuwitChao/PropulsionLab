@@ -265,8 +265,8 @@ export default function PerformanceMap() {
                                     {loading ? chartPlaceholder('COMPUTING...') : throttleData ? (
                                         <Plot
                                             data={[{
-                                                x: throttleData.map(r => r.spec_thrust),
-                                                y: throttleData.map(r => r.tsfc),
+                                                x: throttleData.filter(r => !r.error).map(r => r.spec_thrust),
+                                                y: throttleData.filter(r => !r.error).map(r => r.tsfc),
                                                 mode: 'lines+markers', name: 'FISHHOOK',
                                                 line: { color: '#fff', width: 2, shape: 'spline' },
                                                 marker: { size: 6, color: '#fff', opacity: 0.6 },
