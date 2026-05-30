@@ -6,14 +6,17 @@ const Plot = createPlotlyComponent(Plotly)
 import { fetchData, fetchBlob } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
+import { useSettings } from '../context/SettingsContext'
 import HelpTooltip from '../components/HelpTooltip'
 import { getLayout } from '../utils/chartUtils'
-import { useSettings } from '../context/SettingsContext'
 import usePersistentState from '../hooks/usePersistentState'
 
 // ── MoC Nozzle Visualization ──────────────────────────────────────────────────
 
-function MocVisualization({ mocData, loading }) {
+function MocVisualization({ mocData, loading, onExportCSV, onExportSTL, exportLoading }) {
+  const { theme } = useSettings()
+  const isLight = theme === 'light'
+
   const [viewMode, setViewMode] = useState('2D')
   const traces = []
 
@@ -23,13 +26,13 @@ function MocVisualization({ mocData, loading }) {
     traces.push({
       x: mocData.x, y: mocData.y,
       name: 'NOZZLE_WALL', type: 'scatter', mode: 'lines',
-      line: { color: '#fff', width: 3 },
+      line: { color: isLight ? '#0f172a' : '#fff', width: 3 },
       hovertemplate: 'WALL_NODE<br>X: %{x:.4f}m<br>R: %{y:.4f}m<extra></extra>'
     })
     traces.push({
       x: mocData.x, y: mocData.y.map(v => -v),
       name: 'WALL_LOWER', type: 'scatter', mode: 'lines',
-      line: { color: 'rgba(255,255,255,0.2)', width: 1, dash: 'dash' },
+      line: { color: isLight ? 'rgba(15,23,42,0.25)' : 'rgba(255,255,255,0.2)', width: 1, dash: 'dash' },
       showlegend: false, hoverinfo: 'skip'
     })
     if (Array.isArray(mocData.mesh)) {
@@ -40,14 +43,14 @@ function MocVisualization({ mocData, loading }) {
             name: i === 0 ? 'WAVE_REFLECTIONS' : '',
             legendgroup: 'waves', showlegend: i === 0,
             type: 'scatter', mode: 'lines',
-            line: { color: wave.type === 'C+' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.15)', width: 0.8 },
+            line: { color: wave.type === 'C+' ? (isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.1)') : (isLight ? 'rgba(15,23,42,0.18)' : 'rgba(255,255,255,0.15)'), width: 0.8 },
             hovertemplate: `${wave.type}_WAVE<br>MACH: ${wave.mach || 'N/A'}<extra></extra>`
           })
           traces.push({
             x: wave.x, y: wave.y.map(v => -v),
             legendgroup: 'waves', showlegend: false,
             type: 'scatter', mode: 'lines',
-            line: { color: 'rgba(255,255,255,0.05)', width: 0.5 },
+            line: { color: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.05)', width: 0.5 },
             hoverinfo: 'skip'
           })
         }
@@ -56,7 +59,7 @@ function MocVisualization({ mocData, loading }) {
     traces.push({
       x: [0, (mocData.x[mocData.x.length - 1] || 0) * 1.1], y: [0, 0],
       name: 'CENTER_LINE', mode: 'lines',
-      line: { color: 'rgba(255,255,255,0.05)', width: 1, dash: 'dot' },
+      line: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.05)', width: 1, dash: 'dot' },
       hoverinfo: 'skip'
     })
   } else if (hasData && viewMode === '3D') {
@@ -71,11 +74,11 @@ function MocVisualization({ mocData, loading }) {
     })
     traces.push({
       type: 'surface', x: xMesh, y: yMesh, z: zMesh,
-      colorscale: [[0, 'rgba(255,255,255,0.1)'], [1, 'rgba(255,255,255,0.5)']],
+      colorscale: isLight ? [[0, 'rgba(15,23,42,0.05)'], [1, 'rgba(15,23,42,0.4)']] : [[0, 'rgba(255,255,255,0.1)'], [1, 'rgba(255,255,255,0.5)']],
       showscale: false,
       lighting: { ambient: 0.4, diffuse: 0.8, fresnel: 0.2, specular: 0.6, roughness: 0.1 },
       lightposition: { x: 100, y: 100, z: 1000 },
-      contours: { x: { show: true, color: 'rgba(255,255,255,0.2)', width: 1 }, y: { show: false }, z: { show: false } }
+      contours: { x: { show: true, color: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.2)', width: 1 }, y: { show: false }, z: { show: false } }
     })
   }
 
@@ -110,22 +113,22 @@ function MocVisualization({ mocData, loading }) {
               plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
               autosize: true, margin: { t: 40, b: 60, l: 60, r: 60 },
               scene: viewMode === '3D' ? {
-                xaxis: { title: 'X [m]', gridcolor: 'rgba(255,255,255,0.05)', backgroundcolor: 'transparent', showbackground: false, tickfont: { family: 'JetBrains Mono', color: 'rgba(255,255,255,0.3)' } },
-                yaxis: { title: 'Y [m]', gridcolor: 'rgba(255,255,255,0.05)', backgroundcolor: 'transparent', showbackground: false, tickfont: { family: 'JetBrains Mono', color: 'rgba(255,255,255,0.3)' } },
-                zaxis: { title: 'Z [m]', gridcolor: 'rgba(255,255,255,0.05)', backgroundcolor: 'transparent', showbackground: false, tickfont: { family: 'JetBrains Mono', color: 'rgba(255,255,255,0.3)' } },
+                xaxis: { title: 'X [m]', gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', backgroundcolor: 'transparent', showbackground: false, tickfont: { family: 'JetBrains Mono', color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
+                yaxis: { title: 'Y [m]', gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', backgroundcolor: 'transparent', showbackground: false, tickfont: { family: 'JetBrains Mono', color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
+                zaxis: { title: 'Z [m]', gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', backgroundcolor: 'transparent', showbackground: false, tickfont: { family: 'JetBrains Mono', color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
                 aspectmode: 'data'
               } : undefined,
               xaxis: viewMode === '2D' ? {
-                gridcolor: 'rgba(255,255,255,0.03)', tickfont: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.3)' },
-                showline: true, linecolor: 'rgba(255,255,255,0.1)', zeroline: false, scaleanchor: 'y'
+                gridcolor: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)', tickfont: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
+                showline: true, linecolor: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.1)', zeroline: false, scaleanchor: 'y'
               } : undefined,
               yaxis: viewMode === '2D' ? {
-                gridcolor: 'rgba(255,255,255,0.03)', tickfont: { family: 'JetBrains Mono', size: 11, color: 'rgba(255,255,255,0.3)' },
-                showline: true, linecolor: 'rgba(255,255,255,0.1)', zeroline: false
+                gridcolor: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)', tickfont: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
+                showline: true, linecolor: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.1)', zeroline: false
               } : undefined,
               showlegend: viewMode === '2D',
-              legend: { font: { family: 'JetBrains Mono', size: 10, color: 'white' }, y: 0.95, x: 0.95, xanchor: 'right' },
-              hovermode: 'closest', font: { family: 'Inter', color: '#fff' }
+              legend: { font: { family: 'JetBrains Mono', size: 10, color: isLight ? '#0f172a' : 'white' }, y: 0.95, x: 0.95, xanchor: 'right' },
+              hovermode: 'closest', font: { family: 'Inter', color: isLight ? '#0f172a' : '#fff' }
             }}
             className="w-full h-full"
             config={{ displayModeBar: false, responsive: true }}

@@ -89,7 +89,7 @@ export default function Settings() {
                                 </button>
                                 <button
                                     onClick={() => setTheme('light')}
-                                    className={`flex-1 py-5 px-8 text-[11px] font-black tracking-[0.2em] uppercase transition-all font-mono border ${theme === 'light' ? 'bg-black text-white border-black' : 'bg-transparent text-white/30 border-white/10 hover:border-white/30'}`}
+                                    className={`flex-1 py-5 px-8 text-[11px] font-black tracking-[0.2em] uppercase transition-all font-mono border ${theme === 'light' ? 'bg-white text-black border-white' : 'bg-transparent text-white/30 border-white/10 hover:border-white/30'}`}
                                 >
                                     MONO_LIGHT
                                 </button>

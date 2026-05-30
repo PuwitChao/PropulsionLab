@@ -6,6 +6,7 @@ const Plot = createPlotlyComponent(Plotly)
 import { fetchData } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
+import { useSettings } from '../context/SettingsContext'
 import { getLayout } from '../utils/chartUtils'
 import { useSettings } from '../context/SettingsContext'
 import usePersistentState from '../hooks/usePersistentState'
@@ -56,6 +57,7 @@ function StationDiagram() {
 
 export default function ParametricCycle() {
   const { theme } = useSettings()
+  const isLight = theme === 'light'
   const [activeEngine, setActiveEngine] = useState('turbojet')
   const [p, setP] = usePersistentState('cycle_params', {
     alt: 10000, mach: 0.8, prc: 25, tit: 1650,
@@ -326,30 +328,50 @@ export default function ParametricCycle() {
                                 {
                                     x: stations.map(s => s.id),
                                     y: stations.map(s => s.tt),
-                                    name: 'TEMP_TOT',
+                                    name: 'T_tot (Temperature)',
                                     type: 'scatter',
                                     mode: 'lines+markers',
-                                    line: { color: 'rgba(255,255,255,0.8)', width: 2 },
-                                    marker: { size: 8, color: '#fff' },
+                                    line: { color: isLight ? 'rgba(15,23,42,0.85)' : 'rgba(255,255,255,0.85)', width: 2 },
+                                    marker: { size: 7, color: isLight ? '#0f172a' : '#fff' },
                                     yaxis: 'y1'
                                 },
                                 {
                                     x: stations.map(s => s.id),
                                     y: stations.map(s => s.pt),
-                                    name: 'PRES_TOT',
+                                    name: 'P_tot (Pressure)',
                                     type: 'scatter',
                                     mode: 'lines+markers',
-                                    line: { color: 'rgba(255,255,255,0.3)', width: 2, dash: 'dot' },
-                                    marker: { size: 6, color: 'rgba(255,255,255,0.4)' },
+                                    line: { color: isLight ? 'rgba(15,23,42,0.35)' : 'rgba(255,255,255,0.35)', width: 2, dash: 'dot' },
+                                    marker: { size: 5, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.4)' },
                                     yaxis: 'y2'
                                 }
                             ]}
-                            layout={getLayout(theme, {
-                                showlegend: false,
-                                margin: { t: 0, b: 40, l: 60, r: 60 },
-                                yaxis: { title: { text: 'T [K]' }, side: 'left' },
-                                yaxis2: { title: { text: 'P [Pa]' }, overlaying: 'y', side: 'right', showgrid: false },
-                            })}
+                            layout={{
+                                plot_bgcolor: 'transparent',
+                                paper_bgcolor: 'transparent',
+                                autosize: true,
+                                margin: { t: 15, b: 35, l: 60, r: 60 },
+                                showlegend: true,
+                                legend: { font: { family: 'JetBrains Mono', size: 9, color: isLight ? '#0f172a' : 'white' }, x: 0.02, y: 0.98, bgcolor: 'transparent' },
+                                xaxis: {
+                                    gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
+                                    tickfont: { family: 'JetBrains Mono', size: 9, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.4)' },
+                                    showline: false
+                                },
+                                yaxis: {
+                                    title: { text: 'Total Temp [K]', font: { family: 'JetBrains Mono', size: 9, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.5)' } },
+                                    gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
+                                    tickfont: { family: 'JetBrains Mono', size: 9, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.4)' },
+                                    side: 'left'
+                                },
+                                yaxis2: {
+                                    title: { text: 'Total Pres [Pa]', font: { family: 'JetBrains Mono', size: 9, color: isLight ? 'rgba(15,23,42,0.3)' : 'rgba(255,255,255,0.3)' } },
+                                    overlaying: 'y',
+                                    side: 'right',
+                                    tickfont: { family: 'JetBrains Mono', size: 9, color: isLight ? 'rgba(15,23,42,0.3)' : 'rgba(255,255,255,0.3)' },
+                                    showgrid: false
+                                }
+                            }}
                             className="w-full h-full"
                             config={{ displayModeBar: false, responsive: true }}
                         />
@@ -484,8 +506,8 @@ export default function ParametricCycle() {
                         y: sensData.data.map(d => d.spec_thrust),
                         name: 'SPEC_THRUST',
                         type: 'scatter', mode: 'lines+markers',
-                        line: { color: '#ffffff', width: 2 },
-                        marker: { size: 6, color: '#fff' },
+                        line: { color: isLight ? '#0f172a' : '#ffffff', width: 2 },
+                        marker: { size: 6, color: isLight ? '#0f172a' : '#fff' },
                         yaxis: 'y1',
                         hovertemplate: `${sensData.sweep_label}: %{x}<br>Spec Thrust: %{y:.2f} Ns/kg<extra></extra>`
                       },
@@ -494,8 +516,8 @@ export default function ParametricCycle() {
                         y: sensData.data.map(d => d.tsfc * 1e6),
                         name: 'TSFC [mg/Ns]',
                         type: 'scatter', mode: 'lines+markers',
-                        line: { color: 'rgba(255,255,255,0.35)', width: 2, dash: 'dot' },
-                        marker: { size: 5, color: 'rgba(255,255,255,0.4)' },
+                        line: { color: isLight ? 'rgba(15,23,42,0.35)' : 'rgba(255,255,255,0.35)', width: 2, dash: 'dot' },
+                        marker: { size: 5, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.4)' },
                         yaxis: 'y2',
                         hovertemplate: `${sensData.sweep_label}: %{x}<br>TSFC: %{y:.3f} mg/Ns<extra></extra>`
                       },
@@ -504,17 +526,37 @@ export default function ParametricCycle() {
                         y: sensData.data.map(d => (d.eta_thermal ?? 0) * 100),
                         name: 'η_THERMAL [%]',
                         type: 'scatter', mode: 'lines',
-                        line: { color: 'rgba(255,255,255,0.15)', width: 1.5, dash: 'longdash' },
+                        line: { color: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.15)', width: 1.5, dash: 'longdash' },
                         yaxis: 'y1',
                         hovertemplate: `${sensData.sweep_label}: %{x}<br>η_th: %{y:.1f}%<extra></extra>`
                       }
                     ]}
-                    layout={getLayout(theme, {
+                    layout={{
+                      plot_bgcolor: 'transparent',
+                      paper_bgcolor: 'transparent',
+                      autosize: true,
                       margin: { t: 60, b: 60, l: 70, r: 70 },
-                      xaxis: { title: { text: sensData.sweep_label } },
-                      yaxis: { title: { text: 'Spec Thrust / η_th [Ns/kg | %]' }, side: 'left' },
-                      yaxis2: { title: { text: 'TSFC [mg/Ns]' }, overlaying: 'y', side: 'right', showgrid: false },
-                    })}
+                      showlegend: true,
+                      legend: { font: { family: 'JetBrains Mono', size: 10, color: isLight ? '#0f172a' : 'white' }, x: 0.02, y: 0.98, bgcolor: 'transparent' },
+                      xaxis: {
+                        title: { text: sensData.sweep_label, font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.4)' } },
+                        gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)',
+                        tickfont: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
+                      },
+                      yaxis: {
+                        title: { text: 'Spec Thrust / η_th [Ns/kg | %]', font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.4)' } },
+                        gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)',
+                        tickfont: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
+                        side: 'left'
+                      },
+                      yaxis2: {
+                        title: { text: 'TSFC [mg/Ns]', font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.3)' : 'rgba(255,255,255,0.2)' } },
+                        overlaying: 'y', side: 'right',
+                        tickfont: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.3)' : 'rgba(255,255,255,0.2)' },
+                        showgrid: false
+                      },
+                      font: { family: 'Inter', color: isLight ? '#0f172a' : '#fff' }
+                    }}
                     className="w-full h-full"
                     config={{ displayModeBar: false, responsive: true }}
                   />

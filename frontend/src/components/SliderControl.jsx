@@ -14,12 +14,12 @@
  */
 export default function SliderControl({ label, value, unit, min, max, step, onChange, disabled = false }) {
     return (
-        <div className={`flex flex-col gap-6 p-8 border border-white/10 bg-surface-container-low transition-all ${
+        <div className={`flex flex-col gap-3 p-5 border border-white/10 bg-surface-container-low transition-all ${
             disabled ? 'opacity-20 pointer-events-none grayscale' : 'hover:border-white/20'
         }`}>
-            <div className="flex justify-between items-baseline">
-                <span className="text-[11px] font-black tracking-[0.2em] text-white/40 uppercase">{label}</span>
-                <span className="text-[12px] font-mono font-bold text-white uppercase tracking-widest">
+            <div className="flex justify-between items-baseline gap-2">
+                <span className="text-[11px] font-black tracking-[0.2em] text-white/65 uppercase">{label}</span>
+                <span className="text-[12px] font-mono font-bold text-white uppercase tracking-widest whitespace-nowrap">
                     {value}{unit ? ` ${unit}` : ''}
                 </span>
             </div>

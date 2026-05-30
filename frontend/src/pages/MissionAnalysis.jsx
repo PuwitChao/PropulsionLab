@@ -6,6 +6,7 @@ const Plot = createPlotlyComponent(Plotly)
 import { fetchData } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
+import { useSettings } from '../context/SettingsContext'
 import { getLayout } from '../utils/chartUtils'
 import { useSettings } from '../context/SettingsContext'
 import usePersistentState from '../hooks/usePersistentState'
@@ -14,6 +15,7 @@ import usePersistentState from '../hooks/usePersistentState'
 
 export default function MissionAnalysis() {
     const { theme } = useSettings()
+    const isLight = theme === 'light'
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState(null)
     const [error, setError] = useState(null)
@@ -94,14 +96,14 @@ export default function MissionAnalysis() {
         {
             x: data.ws, y: feasibleTW,
             name: 'FEASIBLE_REGION', fill: 'tonexty',
-            fillcolor: 'rgba(255,255,255,0.03)',
+            fillcolor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.03)',
             type: 'scatter', mode: 'none', hoverinfo: 'skip', showlegend: true
         },
         ...data.series.map((s, idx) => ({
             x: data.ws, y: s.values,
             name: s.label.toUpperCase(), type: 'scatter', mode: 'lines',
             line: {
-                color: idx === 0 ? '#fff' : `rgba(255,255,255,${0.1 + (idx/data.series.length)*0.4})`,
+                color: idx === 0 ? (isLight ? '#0f172a' : '#fff') : (isLight ? `rgba(15,23,42,${0.2 + (idx/data.series.length)*0.45})` : `rgba(255,255,255,${0.1 + (idx/data.series.length)*0.4})`),
                 width: idx === 0 ? 2.5 : 1.5,
                 dash: idx === 0 ? 'solid' : 'dash'
             },
@@ -110,10 +112,10 @@ export default function MissionAnalysis() {
         {
             x: [data.optimum?.ws], y: [data.optimum?.tw],
             name: 'DESIGN_CORNER', mode: 'markers',
-            marker: { color: '#fff', size: 15, symbol: 'cross-thin', line: { width: 2, color: '#fff' } },
+            marker: { color: isLight ? '#0f172a' : '#fff', size: 15, symbol: 'cross-thin', line: { width: 2, color: isLight ? '#0f172a' : '#fff' } },
             type: 'scatter',
             hovertemplate: `<b>OPTIMUM_CORNER</b><br>W/S: %{x} Pa<br>T/W: %{y:.3f}<extra></extra>`
-        }
+        },
     ] : []
 
     const fmt = (v, d = 0) => v != null ? v.toFixed(d) : '—'
@@ -201,9 +203,23 @@ export default function MissionAnalysis() {
                             <Plot
                                 data={plotTraces}
                                 layout={getLayout(theme, {
-                                    margin: { t: 80, b: 140, l: 100, r: 80 },
-                                    xaxis: { title: { text: 'Wing Loading (W/S) [Pa]' }, range: [1000, 8000] },
-                                    yaxis: { title: { text: 'Thrust-to-Weight (T/W) [-]' }, range: [0, 1.2] },
+                                    plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
+                                    autosize: true, margin: { t: 80, b: 140, l: 100, r: 80 },
+                                    xaxis: {
+                                        title: { text: 'Wing Loading (W/S) [Pa]', font: { family: 'JetBrains Mono', size: 12, color: isLight ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                        gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
+                                        tickfont: { family: 'JetBrains Mono', size: 12, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
+                                        showline: true, linecolor: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.1)', range: [1000, 8000]
+                                    },
+                                    yaxis: {
+                                        title: { text: 'Thrust-to-Weight (T/W)', font: { family: 'JetBrains Mono', size: 12, color: isLight ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                        gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
+                                        tickfont: { family: 'JetBrains Mono', size: 12, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
+                                        showline: true, linecolor: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.1)', range: [0, 1.2]
+                                    },
+                                    showlegend: true,
+                                    legend: { font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.4)' }, orientation: 'h', y: -0.25, x: 0.5, xanchor: 'center' },
+                                    hovermode: 'closest', font: { family: 'Inter', size: 14, color: isLight ? '#0f172a' : '#fff' }
                                 })}
                                 className="w-full h-full"
                                 config={{ displayModeBar: false, responsive: true }}

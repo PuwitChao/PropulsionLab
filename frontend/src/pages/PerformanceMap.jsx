@@ -6,6 +6,7 @@ const Plot = createPlotlyComponent(Plotly)
 import { fetchData } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
+import { useSettings } from '../context/SettingsContext'
 import { getLayout } from '../utils/chartUtils'
 import { useSettings } from '../context/SettingsContext'
 import usePersistentState from '../hooks/usePersistentState'
@@ -14,6 +15,7 @@ import usePersistentState from '../hooks/usePersistentState'
 
 export default function PerformanceMap() {
     const { theme } = useSettings()
+    const isLight = theme === 'light'
     const [loading, setLoading] = useState(false)
     const [mapData, setMapData] = useState(null)
     const [throttleData, setThrottleData] = useState(null)
@@ -84,7 +86,7 @@ export default function PerformanceMap() {
         mapData.speed_lines.forEach((sl, idx) => {
             traces.push({
                 x: sl.flow, y: sl.pr, mode: 'lines', name: sl.label,
-                line: { color: `rgba(255,255,255,${0.05 + (idx/mapData.speed_lines.length)*0.5})`, width: 1.2 },
+                line: { color: isLight ? `rgba(15,23,42,${0.15 + (idx/mapData.speed_lines.length)*0.55})` : `rgba(255,255,255,${0.05 + (idx/mapData.speed_lines.length)*0.5})`, width: 1.2 },
                 hovertemplate: `W_corr: %{x:.3f}<br>PR: %{y:.3f}<br>${sl.label}<extra></extra>`
             })
         })
@@ -93,7 +95,7 @@ export default function PerformanceMap() {
             traces.push({
                 x: mapData.surge_line.flow, y: mapData.surge_line.pr,
                 mode: 'lines', name: 'SURGE_LIMIT',
-                line: { color: 'rgba(255, 68, 68, 0.4)', width: 2, dash: 'dash' },
+                line: { color: isLight ? 'rgba(239, 68, 68, 0.6)' : 'rgba(255, 68, 68, 0.4)', width: 2, dash: 'dash' },
                 hovertemplate: `SURGE_LIMIT<extra></extra>`
             })
         }
@@ -104,8 +106,8 @@ export default function PerformanceMap() {
                 y: throttleData.map(r => r.pr),
                 name: 'OPERATING_LINE',
                 mode: 'lines+markers',
-                marker: { size: 4, color: '#fff' },
-                line: { color: '#fff', width: 2.5 },
+                marker: { size: 4, color: isLight ? '#0f172a' : '#fff' },
+                line: { color: isLight ? '#0f172a' : '#fff', width: 2.5 },
                 hovertemplate: `OP_POINT<br>Throttle: %{text}%<extra></extra>`,
                 text: throttleData.map(r => r.throttle_pct)
             })
@@ -117,7 +119,7 @@ export default function PerformanceMap() {
                 y: [mapData.design_point.pr],
                 name: 'ANCHOR_DESIGN_POINT',
                 mode: 'markers',
-                marker: { color: '#fff', size: 12, symbol: 'star-triangle-up' },
+                marker: { color: isLight ? '#0f172a' : '#fff', size: 12, symbol: 'star-triangle-up' },
                 hovertemplate: `DESIGN_POINT<br>W_corr: 1.0<br>PR: ${mapData.design_point.pr?.toFixed(2)}<extra></extra>`
             })
         }
@@ -204,12 +206,24 @@ export default function PerformanceMap() {
                                 ) : mapData ? (
                                     <Plot
                                         data={buildMapTraces()}
-                                        layout={getLayout(theme, {
-                                            margin: { t: 80, b: 80, l: 100, r: 80 },
-                                            showlegend: false,
-                                            xaxis: { title: { text: 'Corrected Mass Flow [kg/s]' } },
-                                            yaxis: { title: { text: 'Pressure Ratio [PR]' } },
-                                        })}
+                                        layout={{
+                                            plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
+                                            autosize: true, margin: { t: 80, b: 80, l: 100, r: 80 },
+                                            xaxis: {
+                                                title: { text: 'Corrected Mass Flow [kg/s]', font: { family: 'JetBrains Mono', size: 12, color: isLight ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                                gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
+                                                tickfont: { family: 'JetBrains Mono', size: 12, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
+                                                showline: true, linecolor: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.1)'
+                                            },
+                                            yaxis: {
+                                                title: { text: 'Pressure Ratio [PR]', font: { family: 'JetBrains Mono', size: 12, color: isLight ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                                gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
+                                                tickfont: { family: 'JetBrains Mono', size: 12, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
+                                                showline: true, linecolor: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.1)'
+                                            },
+                                            showlegend: false, hovermode: 'closest',
+                                            font: { family: 'Inter', size: 14, color: isLight ? '#0f172a' : '#fff' }
+                                        }}
                                         className="w-full h-full"
                                         config={{ displayModeBar: false, responsive: true }}
                                     />
@@ -265,19 +279,20 @@ export default function PerformanceMap() {
                                     {loading ? chartPlaceholder('COMPUTING...') : throttleData ? (
                                         <Plot
                                             data={[{
-                                                x: throttleData.filter(r => !r.error).map(r => r.spec_thrust),
-                                                y: throttleData.filter(r => !r.error).map(r => r.tsfc),
+                                                x: throttleData.map(r => r.spec_thrust),
+                                                y: throttleData.map(r => r.tsfc),
                                                 mode: 'lines+markers', name: 'FISHHOOK',
-                                                line: { color: '#fff', width: 2, shape: 'spline' },
-                                                marker: { size: 6, color: '#fff', opacity: 0.6 },
+                                                line: { color: isLight ? '#0f172a' : '#fff', width: 2, shape: 'spline' },
+                                                marker: { size: 6, color: isLight ? '#0f172a' : '#fff', opacity: 0.6 },
                                                 hovertemplate: `TSFC: %{y:.4f}<br>Thrust: %{x:.1f}<extra></extra>`
                                             }]}
-                                            layout={getLayout(theme, {
-                                                margin: { t: 10, b: 60, l: 80, r: 20 },
-                                                showlegend: false,
-                                                xaxis: { title: { text: 'SPEC_THRUST [Ns/kg]' } },
-                                                yaxis: { title: { text: 'TSFC [mg/Ns]' } },
-                                            })}
+                                            layout={{
+                                                plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
+                                                autosize: true, margin: { t: 10, b: 60, l: 80, r: 20 },
+                                                xaxis: { title: { text: 'SPEC_THRUST [Ns/kg]', font: { size: 10, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.4)' } }, gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', tickfont: { size: 10, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
+                                                yaxis: { title: { text: 'TSFC [mg/Ns]', font: { size: 10, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.4)' } }, gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', tickfont: { size: 10, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
+                                                showlegend: false, font: { family: 'JetBrains Mono' }
+                                            }}
                                             className="w-full h-full"
                                             config={{ displayModeBar: false, responsive: true }}
                                         />
@@ -333,18 +348,19 @@ export default function PerformanceMap() {
                                             return dp?.pr ? (((dp.pr - r.pr) / dp.pr) * 100).toFixed(2) : 0
                                         }),
                                         mode: 'lines+markers', name: 'SURGE_MARGIN',
-                                        line: { color: '#fff', width: 2 },
-                                        marker: { size: 6, color: throttleData.map(r => r.surge ? 'rgba(255,68,68,0.9)' : '#fff') },
+                                        line: { color: isLight ? '#0f172a' : '#fff', width: 2 },
+                                        marker: { size: 6, color: throttleData.map(r => r.surge ? 'rgba(239,68,68,0.9)' : (isLight ? '#0f172a' : '#fff')) },
                                         hovertemplate: 'Throttle: %{x}%<br>SM: %{y}%<extra></extra>'
                                     }]}
-                                    layout={getLayout(theme, {
-                                        margin: { t: 60, b: 60, l: 80, r: 60 },
-                                        showlegend: false,
-                                        xaxis: { title: { text: 'Throttle [%]' } },
-                                        yaxis: { title: { text: 'Surge Margin [%]' } },
-                                        shapes: [{ type: 'line', x0: 0, x1: 100, y0: 10, y1: 10, line: { color: 'rgba(255,68,68,0.4)', width: 1, dash: 'dash' } }],
-                                        annotations: [{ x: 50, y: 10, text: 'MIN_SM_THRESHOLD (10%)', showarrow: false, font: { family: 'JetBrains Mono', size: 10, color: 'rgba(255,68,68,0.6)' }, yshift: 10 }],
-                                    })}
+                                    layout={{
+                                        plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
+                                        autosize: true, margin: { t: 60, b: 60, l: 80, r: 60 },
+                                        xaxis: { title: { text: 'Throttle [%]', font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.4)' } }, gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
+                                        yaxis: { title: { text: 'Surge Margin [%]', font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.4)' } }, gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
+                                        shapes: [{ type: 'line', x0: 0, x1: 100, y0: 10, y1: 10, line: { color: 'rgba(239, 68, 68, 0.5)', width: 1, dash: 'dash' } }],
+                                        annotations: [{ x: 50, y: 10, text: 'MIN_SM_THRESHOLD (10%)', showarrow: false, font: { family: 'JetBrains Mono', size: 10, color: 'rgba(239, 68, 68, 0.7)' }, yshift: 10 }],
+                                        showlegend: false, font: { family: 'Inter', color: isLight ? '#0f172a' : '#fff' }
+                                    }}
                                     className="w-full h-full"
                                     config={{ displayModeBar: false, responsive: true }}
                                 />

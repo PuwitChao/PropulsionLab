@@ -88,7 +88,7 @@ function App() {
         <div className="flex flex-col flex-grow px-6 space-y-2">
           {['_ROOT', 'THERMODYNAMICS', 'PROPULSION', 'OPERATIONS', 'SYSTEM'].map(cat => (
             <div key={cat} className="mb-8">
-                <span className="text-[10px] font-bold text-white/20 tracking-[0.3em] px-6 mb-4 block uppercase">{cat}</span>
+                <span className="text-[10px] font-bold text-white/35 tracking-[0.3em] px-6 mb-4 block uppercase">{cat}</span>
                 {navItems.filter(i => i.category === cat).map(item => (
                     <button
                         key={item.id}
@@ -96,11 +96,11 @@ function App() {
                         className={`w-full flex items-center gap-6 px-6 py-4 transition-all group relative ${
                             activeTab === item.id 
                             ? 'text-white' 
-                            : 'text-white/40 hover:text-white'
+                            : 'text-white/60 hover:text-white'
                         }`}
                         >
                         {activeTab === item.id && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-white"></div>}
-                        <span className={`material-symbols-outlined !text-[20px] ${activeTab === item.id ? 'opacity-100' : 'opacity-40 group-hover:opacity-100'}`}>{item.icon}</span>
+                        <span className={`material-symbols-outlined !text-[20px] ${activeTab === item.id ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}>{item.icon}</span>
                         <span className="uppercase tracking-[0.2em] text-[11px] font-bold font-headline">{item.label}</span>
                     </button>
                 ))}
@@ -111,8 +111,8 @@ function App() {
         <div className="px-12 py-10 border-t border-white/10">
           <div className="space-y-5">
              <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-white/20">Session</span>
-                <span className="font-mono text-[11px] text-white/60">{sessionDuration}</span>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-white/35">Session</span>
+                <span className="font-mono text-[11px] text-white/80">{sessionDuration}</span>
              </div>
           </div>
         </div>
