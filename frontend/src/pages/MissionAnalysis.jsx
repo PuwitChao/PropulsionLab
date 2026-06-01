@@ -8,7 +8,6 @@ import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
 import { useSettings } from '../context/SettingsContext'
 import { getLayout } from '../utils/chartUtils'
-import { useSettings } from '../context/SettingsContext'
 import usePersistentState from '../hooks/usePersistentState'
 
 // ─────────────────────────────────────────────────────────────────────────────

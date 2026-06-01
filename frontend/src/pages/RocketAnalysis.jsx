@@ -155,6 +155,29 @@ function MocVisualization({ mocData, loading, onExportCSV, onExportSTL, exportLo
         </div>
         <div className="flex gap-6">
           <button
+            onClick={onExportCSV}
+            disabled={!hasData || !!exportLoading}
+            title="EXPORT CONTOUR (CSV)"
+            className={`px-8 border border-white/10 hover:border-white/30 text-[11px] font-black tracking-widest uppercase flex items-center gap-3 transition-all ${(!hasData || exportLoading) ? 'opacity-30 cursor-not-allowed' : 'text-white hover:bg-white/5'}`}
+          >
+            <span>{exportLoading === 'csv' ? 'EXPORTING...' : 'CSV'}</span>
+            <span className={`material-symbols-outlined !text-[16px] ${exportLoading === 'csv' ? 'animate-spin' : ''}`}>
+              {exportLoading === 'csv' ? 'sync' : 'download'}
+            </span>
+          </button>
+          <button
+            onClick={onExportSTL}
+            disabled={!hasData || !!exportLoading}
+            title="EXPORT 3D MESH (STL)"
+            className={`px-8 border border-white/10 hover:border-white/30 text-[11px] font-black tracking-widest uppercase flex items-center gap-3 transition-all ${(!hasData || exportLoading) ? 'opacity-30 cursor-not-allowed' : 'text-white hover:bg-white/5'}`}
+          >
+            <span>{exportLoading === 'stl' ? 'EXPORTING...' : 'STL'}</span>
+            <span className={`material-symbols-outlined !text-[16px] ${exportLoading === 'stl' ? 'animate-spin' : ''}`}>
+              {exportLoading === 'stl' ? 'sync' : 'draw'}
+            </span>
+          </button>
+          <div className="w-[1px] h-10 bg-white/10 my-auto mx-4"></div>
+          <button
             onClick={() => setViewMode('2D')} title="2D MESH VIEW"
             className={`w-14 h-14 border border-white/10 flex items-center justify-center transition-all ${viewMode === '2D' ? 'bg-white text-black' : 'text-white/60 hover:bg-white/5'}`}
           >
@@ -492,7 +515,13 @@ export default function RocketAnalysis() {
                             {toast.msg}
                         </div>
                     )}
-                    <MocVisualization mocData={mocData} loading={loading} />
+                    <MocVisualization 
+                        mocData={mocData} 
+                        loading={loading} 
+                        onExportCSV={handleExportCSV} 
+                        onExportSTL={handleExportSTL} 
+                        exportLoading={exportLoading} 
+                    />
 
                     <div className="grid grid-cols-4 gap-1 grid-bg">
                         <StatPanel label="VAC. THRUST"    value={result ? (result.thrust_vac/1000).toFixed(0) : '—'} unit="kN"  sub="DESIGN_TARGET" />

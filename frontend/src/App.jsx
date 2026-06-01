@@ -6,6 +6,7 @@ import ParametricCycle from './pages/ParametricCycle'
 import RocketAnalysis from './pages/RocketAnalysis'
 import PerformanceMap from './pages/PerformanceMap'
 import Settings from './pages/Settings'
+import Diagnostics from './pages/Diagnostics'
 
 // ── Nav items ────────────────────────────────────────────────────────────────
 const navItems = [
@@ -14,6 +15,7 @@ const navItems = [
   { id: 'off-design', label: 'Map_Matching', icon: 'schema', category: 'THERMODYNAMICS' },
   { id: 'rocket', label: 'Chamber_CEA', icon: 'rocket', category: 'PROPULSION' },
   { id: 'mission', label: 'Size_Synth', icon: 'analytics', category: 'OPERATIONS' },
+  { id: 'diagnostics', label: 'Fault_Isolation', icon: 'biotech', category: 'PROPULSION' },
   { id: 'settings', label: 'Environment', icon: 'settings', category: 'SYSTEM' },
 ]
 
@@ -69,6 +71,7 @@ function App() {
       case 'mission': return <MissionAnalysis />
       case 'rocket': return <RocketAnalysis />
       case 'settings': return <Settings />
+      case 'diagnostics': return <Diagnostics />
       default: return <Dashboard status={backendStatus} onNavigate={setActiveTab} />
     }
   }
@@ -182,7 +185,8 @@ function Dashboard({ status, onNavigate }) {
     { id: 'on-design', title: 'CYCLE_SOLVER', specs: 'TURBOJET // TURBOFAN', code: 'MOD_01', desc: 'On-design parametric cycle decomposition with station-based property analysis.' },
     { id: 'off-design', title: 'MAP_MATCHING', specs: 'THROTTLE // SURGE', code: 'MOD_02', desc: 'Non-linear component matching across the entire operating envelope.' },
     { id: 'rocket', title: 'CHAMBER_CEA', specs: 'ROCKET // MOC', code: 'MOD_03', desc: 'Propellant synthesis and method of characteristics nozzle contouring.' },
-    { id: 'mission', title: 'SIZE_SYNTHESIS', specs: 'CONSTRAINT // MISSION', code: 'MOD_04', desc: 'Multi-point aircraft sizing and constraint visualization.' }
+    { id: 'mission', title: 'SIZE_SYNTHESIS', specs: 'CONSTRAINT // MISSION', code: 'MOD_04', desc: 'Multi-point aircraft sizing and constraint visualization.' },
+    { id: 'diagnostics', title: 'FAULT_ISOLATION', specs: 'SENSORS // DIAGNOSTICS', code: 'MOD_05', desc: 'Model-based thermodynamic engine fault diagnostics and sensor isolation.' }
   ]
 
   return (
@@ -202,7 +206,7 @@ function Dashboard({ status, onNavigate }) {
         </div>
       </section>
 
-      <div className="grid grid-cols-2 gap-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
         {features.map((f) => (
           <div 
             key={f.id}

@@ -816,6 +816,95 @@ async def analyze_multispool(request: MultispoolRequest):
         raise HTTPException(status_code=500, detail="Multi-spool computation failed.")
 
 
+class DiagnosticsRequest(BaseModel):
+    """Telemetry parameters for reverse-cycle thermodynamic fault diagnostics."""
+    pt2: float = Field(..., ge=1000.0, le=1e6)
+    tt2: float = Field(..., ge=100.0, le=500.0)
+    pt3: float = Field(..., ge=10000.0, le=1e7)
+    tt3: float = Field(..., ge=200.0, le=1500.0)
+    pt4: float = Field(..., ge=10000.0, le=1e7)
+    tt4: float = Field(..., ge=500.0, le=2500.0)
+    pt5: float = Field(..., ge=1000.0, le=1e6)
+    tt5: float = Field(..., ge=300.0, le=1800.0)
+    gamma_c: float = Field(1.4, ge=1.1, le=1.67)
+    gamma_t: float = Field(1.33, ge=1.1, le=1.67)
+
+
+@app.post("/analyze/diagnostics")
+async def analyze_diagnostics(request: DiagnosticsRequest):
+    """
+    Reverse-thermodynamic diagnostics engine for turbofan/turbojet spools.
+    Determines component isentropic efficiencies and combustor pressure loss
+    from sensor measurements to isolate faults.
+    """
+    try:
+        math_trace = []
+        alerts = []
+        messages = []
+
+        pt2, tt2 = request.pt2, request.tt2
+        pt3, tt3 = request.pt3, request.tt3
+        pt4, tt4 = request.pt4, request.tt4
+        pt5, tt5 = request.pt5, request.tt5
+        gc, gt = request.gamma_c, request.gamma_t
+
+        math_trace.append("Diagnostics sensor telemetry received.")
+        math_trace.append(f"Inlet conditions: Pt2={pt2/1e3:.1f} kPa, Tt2={tt2:.1f} K")
+        math_trace.append(f"Compressor exit: Pt3={pt3/1e3:.1f} kPa, Tt3={tt3:.1f} K")
+        math_trace.append(f"Turbine inlet: Pt4={pt4/1e3:.1f} kPa, Tt4={tt4:.1f} K")
+        math_trace.append(f"Turbine exit: Pt5={pt5/1e3:.1f} kPa, Tt5={tt5:.1f} K")
+
+        # 1. Compressor Isentropic Efficiency
+        exp_c = (gc - 1.0) / gc
+        tt3_ideal = tt2 * (pt3 / pt2) ** exp_c
+        eta_c = (tt3_ideal - tt2) / (tt3 - tt2) if (tt3 > tt2) else 0.0
+        math_trace.append(f"Compressor Isentropic Efficiency: {eta_c*100:.2f}% (ideal Tt3={tt3_ideal:.1f} K)")
+
+        # 2. Combustor Pressure Loss
+        dp_b = ((pt3 - pt4) / pt3) * 100.0
+        math_trace.append(f"Combustor Total Pressure Loss Fraction: {dp_b:.2f}%")
+
+        # 3. Turbine Isentropic Efficiency
+        exp_t = (gt - 1.0) / gt
+        tt5_ideal = tt4 * (pt5 / pt4) ** exp_t
+        eta_t = (tt4 - tt5) / (tt4 - tt5_ideal) if (tt4 > tt5_ideal and tt4 > tt5) else 0.0
+        math_trace.append(f"Turbine Isentropic Efficiency: {eta_t*100:.2f}% (ideal Tt5={tt5_ideal:.1f} K)")
+
+        # Nominal boundaries:
+        # eta_c >= 84%
+        # eta_t >= 86%
+        # dp_b <= 6.0%
+
+        if eta_c < 0.84:
+            alerts.append("F01: COMPRESSOR_FOULING")
+            messages.append("Compressor efficiency has degraded below nominal 84% threshold, indicating stator/rotor fouling, blade surface roughness increase, or tip clearance distress.")
+
+        if eta_t < 0.86:
+            alerts.append("F02: TURBINE_EROSION")
+            messages.append("Turbine expansion work efficiency shows a loss below nominal 86%, indicating high-pressure turbine blade erosion, thermal coating degradation, or excessive tip clearance.")
+
+        if dp_b > 6.0:
+            alerts.append("F03: COMBUSTOR_RESTRICTION")
+            messages.append("Combustor total pressure drop fraction exceeds safe limit of 6.0%, indicating potential thermal liner distortion, blockage in air diluent swirlers, or fuel nozzle misalignment.")
+
+        status = "NOMINAL" if len(alerts) == 0 else "FAULT_DETECTED"
+        if status == "NOMINAL":
+            messages.append("All mechanical and aerodynamic components are operating within safe isentropic limits.")
+
+        result = {
+            "eta_c": eta_c,
+            "eta_t": eta_t,
+            "dp_b": dp_b,
+            "status": status,
+            "alerts": alerts,
+            "messages": messages,
+            "math_trace": math_trace
+        }
+        return _sanitize(result)
+    except Exception as e:
+        logger.error("Diagnostics engine failure: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Diagnostics calculations failed: {str(e)}")
+
 
 def kill_port(port: int):
     """Terminates processes occupying the target port (Windows specific)."""

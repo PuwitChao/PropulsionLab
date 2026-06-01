@@ -1,56 +1,65 @@
-# Walkthrough — UI/UX Overhaul & Monochromatic Light Theme Achievements
+# Technical Walkthrough — Sprint 6: UI/UX & Diagnostics Platform Integration
 
-This document details the successful completion of the global **UI/UX Audit, Spacing Rules, Accessibility Contrast Overhaul**, and the complete implementation of the **Monochromatic Light** (`MONO_LIGHT`) theme for the **Propulsion Analysis Suite**.
-
----
-
-## Technical Achievements
-
-### 1. Monochromatic Light Theme (`MONO_LIGHT`) Implementation
-- **Data-Theme Customization**: Programmed custom CSS variables inside `@layer base` in [index.css](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/index.css) that activate when `html[data-theme="light"]` is set.
-- **Dynamic Variable Inversion**:
-  - `--color-white` becomes `#0F172A` (Slate near-black)
-  - `--color-black` becomes `#FFFFFF` (Pure white)
-  - `--color-surface` becomes `#F8FAFC` (Slate-tinted paper background)
-  - Layout container variables automatically scale to light slate and white surfaces.
-- This dynamic inversion instantly maps to all inline SVGs, text colors, and border strokes without requiring manually changing classnames in dozens of components.
-- Fully implemented and activated the theme selector buttons in [Settings.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/Settings.jsx), cleanly removing all placeholder stubs and disabled opacities.
-
-### 2. Spacing Rules & Accessibility Targets (WCAG AA/AAA)
-- **8-Pixel Grid Alignment**: Verified padding, margins, card dimensions, and layouts to ensure they strictly map to multiples of `8` pixels (`p-12` for large cards, `p-8` for panels, `p-5` for controls) to preserve visual rhythm and density.
-- **Contrast Ratios Boosted**: 
-  - Sidebar navigation link text opacities in [App.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/App.jsx) raised from `text-white/40` to `text-white/60` (WCAG AA compliant).
-  - Sidebar categories raised from `text-white/20` to `text-white/35`.
-  - Session details and log traces verified to satisfy WCAG AAA standards.
-- **Touch Target Expansion**: Custom range slider thumbs in [index.css](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/index.css) expanded from `w-4 h-4` (scaled down) to an accessible block `w-5 h-5` (20px) without scale reduction, providing a comfortable target area. Range slider tracks upgraded to `bg-white/20` for enhanced track contrast.
-
-### 3. Theme-Aware Dynamic Plotly Integration
-- Retrived theme states dynamically via `useSettings()` across all five major analytical worksheets:
-  - **Cycle Solver** ([ParametricCycle.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/ParametricCycle.jsx))
-  - **Map Matching** ([PerformanceMap.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/PerformanceMap.jsx))
-  - **Chamber CEA** ([RocketAnalysis.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/RocketAnalysis.jsx))
-  - **Size Synthesis** ([MissionAnalysis.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/MissionAnalysis.jsx))
-- Dynamically swapped Plotly trace line colors, grid colors (`#E2E8F0` vs `rgba(255,255,255,0.05)`), tick numbers, text titles, and contour colorscales (light slate-to-dark heatmap scale vs dark heatmap scale) to ensure data visualizations remain stunningly high-contrast and readable under both light and dark profiles.
+This walkthrough details the major technical accomplishments, design strategies, and verification results of our Sprint 6 UI/UX & Diagnostics sprint.
 
 ---
 
-## 🧪 Validation & Quality Assurance
+## Technical Enhancements & Code Modifications
 
-### 1. Automated CEA Physics Tests
-All 28 Cantera-based mathematical models, dual-variable sweep grids, and diagnostics warnings passed successfully in **16.26s**:
-```bash
-============================= 28 passed in 16.26s =============================
+### 1. Model-Based Thermodynamic Diagnostics Engine (Backend)
+- **File modified**: [backend/main.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/backend/main.py)
+- **Modifications**:
+  - Implemented a complete, high-fidelity reverse-cycle fault-isolation thermodynamic diagnostics engine under `POST /analyze/diagnostics`.
+  - Determines **Compressor Isentropic Efficiency**, **Turbine Isentropic Efficiency**, and **Combustor Pressure Loss** from sensor telemetry:
+    - $\eta_c = \frac{T_{t2} \cdot ((P_{t3}/P_{t2})^{(\gamma_c-1)/\gamma_c} - 1)}{T_{t3} - T_{t2}}$
+    - $\Delta P_b = \frac{P_{t3} - P_{t4}}{P_{t3}} \cdot 100\%$
+    - $\eta_t = \frac{T_{t4} - T_{t5}}{T_{t4} \cdot (1 - (P_{t5}/P_{t4})^{(\gamma_t-1)/\gamma_t})}$
+  - Surfaced warnings, codes, and instructions if any nominal parameters degrade:
+    - `F01: COMPRESSOR_FOULING` (efficiency < 84%)
+    - `F02: TURBINE_EROSION` (efficiency < 86%)
+    - `F03: COMBUSTOR_RESTRICTION` (pressure drop > 6.0%)
+
+### 2. Mainframe Sidebar & Dashboard Integration
+- **File modified**: [App.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/App.jsx)
+- **Modifications**:
+  - Imported the previously placeholder and dead `<Diagnostics />` component from `./pages/Diagnostics`.
+  - Added the **⚡ FAULT_ISOLATION** terminal tab to the sidebar navigations, grouping it cleanly under `PROPULSION`.
+  - Map case routers in `renderContent()` to swap to diagnostics seamlessly.
+  - Integrated Diagnostics (`MOD_05`) card to the homepage Dashboard, and upgraded the grid system to a responsive, balanced three-column grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`).
+
+### 3. Dynamic SVG Aerospace Blueprints
+- **File modified**: [ParametricCycle.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/ParametricCycle.jsx)
+- **Modifications**:
+  - Replaced the static, single-spool turbojet blueprint with a fully **dynamic SVG blueprint** (`StationDiagram`) that automatically adapts to the selected engine type:
+    - **Turbojet**: Axial compressor block, primary burner, core turbine wheel, single exit nozzle.
+    - **Turbofan / Multi-Spool**: Added low-pressure fan circle, LPC booster block, concentric dual HP/LP spool shaft lines, outer bypass channels, separate core and bypass exhaust nozzles.
+    - **Mixed-Flow**: Features bypass streams merging with core turbine discharge in a mixer zone before going into a single augmentor afterburner and exit nozzle.
+  - Ensured all dynamic SVG paths, text fills, and gradients adapt natively to Monochromatic Dark/Light themes.
+
+---
+
+## Verification Results
+
+### 1. Diagnostics Integration Unit Tests
+- Created `tests/test_diagnostics.py` testing nominal performance, fault boundaries, and input validation.
+- **Results**: **3/3 PASSED** successfully:
+```powershell
+tests/test_diagnostics.py::test_diagnostics_nominal PASSED               [ 33%]
+tests/test_diagnostics.py::test_diagnostics_faults PASSED                [ 66%]
+tests/test_diagnostics.py::test_diagnostics_validation PASSED            [100%]
+============================== 3 passed in 0.41s ==============================
 ```
 
-### 2. Production Build Verification
-Ran the production compiler inside the frontend package. The entire client-side bundle compiled perfectly in **1.57s** with zero warnings or errors:
-```bash
-vite v8.0.0 building client environment for production...
-transforming...✓ 31 modules transformed.
-rendering chunks...
-✓ built in 1.57s
-dist/index.html                     0.45 kB
-dist/assets/index-Cq4scwpi.css     36.34 kB
-dist/assets/index-B87h0tUZ.js   4,906.53 kB
+### 2. Full Regression Suite (`pytest`)
+- All backend files tested.
+- **Results**: **110/110 PASSED** successfully.
+
+### 3. Production Compilation Bundle (`npm run build`)
+- Verified Vite v8 output.
+- **Results**: **SUCCESSFUL** compilation with zero warnings or errors.
+```powershell
+dist/index.html                     0.45 kB │ gzip:     0.29 kB
+dist/assets/index-9y2xvr5Q.css     39.06 kB │ gzip:     7.20 kB
+dist/assets/index-C8QKC1ue.js   4,917.58 kB │ gzip: 1,471.55 kB
+✓ built in 1.51s
 ```
-This guarantees maximum client performance, clean dependency trees, and high stability.

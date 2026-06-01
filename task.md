@@ -1,39 +1,42 @@
-# Task Checklist — UI/UX Overhaul & Monochromatic Light Theme
+# Task Checklist — Sprint 6: Comprehensive UI/UX Polishing & Test Readiness
 
-This checklist tracks the implementation progress for auditing the Propulsion Analysis Suite, building the Monochromatic Light theme, resolving placeholders, and improving accessibility contrast.
-
----
-
-## 1. Stylesheet & Range Sliders
-- [x] Implement `data-theme="light"` overrides in [index.css](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/index.css)
-- [x] Define inverted `--color-white` and `--color-black` mapping for automatic light-mode support
-- [x] Upgrade range slider input tracks to `bg-white/20` and increase custom slider thumbs to `w-5 h-5` without default scale reduction for accessible interaction
+This checklist tracks the implementation progress for our UI/UX and Test Readiness sprint.
 
 ---
 
-## 2. Eliminate Settings Placeholders
-- [x] Fully enable the `MONO_LIGHT` selection button in [Settings.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/Settings.jsx)
-- [x] Remove disabled states, cursor blocks, and the "Not yet implemented" warning labels
+## 1. Backend Diagnostics Solver Endpoint
+- [x] Add `DiagnosticsRequest` validation schema in `backend/main.py`
+- [x] Add `POST /analyze/diagnostics` endpoint in `backend/main.py`
+- [x] Implement mathematical relations for compressor efficiency, turbine efficiency, and combustor pressure loss
+- [x] Implement fault diagnostic logic generating codes (F01/F02/F03) and remediation advice
+- [x] Verify using Cantera properties and mathematical traces
 
 ---
 
-## 3. Sidebar & Text Contrast Accessibility (WCAG AA/AAA)
-- [x] Increase Sidebar navigation link contrast (inactive items from `text-white/40` to `text-white/60`) in [App.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/App.jsx)
-- [x] Increase Sidebar category header contrast (from `text-white/20` to `text-white/35`)
-- [x] Audit tables and metric dashboards across pages to ensure excellent text contrast in both light and dark themes
+## 2. Mainframe Sidebar & Dashboard Wiring
+- [x] Import `Diagnostics` component in `frontend/src/App.jsx`
+- [x] Add `diagnostics` navItem in `App.jsx` under `PROPULSION` category (labeled `Fault_Isolation`)
+- [x] Map content routing in `renderContent()`
+- [x] Add Diagnostics grid card to Dashboard home component
 
 ---
 
-## 4. Plotly Theme Adaptability
-- [x] Retrieve active theme state in pages via `useSettings()`
-- [x] Implement dynamic layout variables (gridlines, ticks, axes, hover outlines) in [ParametricCycle.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/ParametricCycle.jsx)
-- [x] Implement dynamic layout and speed lines in [PerformanceMap.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/PerformanceMap.jsx)
-- [x] Implement dynamic layout and mesh styling in [RocketAnalysis.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/RocketAnalysis.jsx)
-- [x] Implement dynamic layout and feasible envelope styling in [MissionAnalysis.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/MissionAnalysis.jsx)
+## 3. Dynamic Station Blueprints (Parametric Cycle)
+- [x] Modify `StationDiagram` in `frontend/src/pages/ParametricCycle.jsx` to accept `activeEngine` prop
+- [x] Design high-contrast, premium, dynamic SVG paths for Turbojet, Turbofan/Multi-Spool, and Mixed-Flow
+- [x] Ensure all dynamic strokes and gradients adapt natively to Monochromatic Dark/Light themes
+- [x] Pass the active engine state to `<StationDiagram activeEngine={activeEngine} />`
+
+---
+
+## 4. UI/UX Polishing & Contrast Audit
+- [x] Review all pages (Cycle Solver, Map Matching, Chamber CEA, Size Synth) in both themes
+- [x] Audit tables, labels, and status badges to guarantee WCAG AAA contrast
+- [x] Inject transition effects and hover indicators on interactive sliders and buttons
 
 ---
 
 ## 5. Verification & QA
-- [x] Run production compilation build to verify zero compile warnings/errors
-- [x] Run automated tests to check backend-frontend safety
-- [x] Manually verify theme rendering, slider handling, and chart visibility across all pages
+- [x] Create `tests/test_diagnostics.py` to test diagnostics endpoint
+- [x] Run `pytest` to confirm 100% test completion
+- [x] Execute `npm run build` to verify perfect production build compilation
