@@ -42,7 +42,7 @@ export default function Diagnostics() {
     return () => clearTimeout(t)
   }, [params, runDiagnostics])
 
-  const fmtPercent = (v) => (v != null ? `${(v * 100).toFixed(2)}%` : '—')
+  const fmtPercent = (v) => (v != null ? `${(v * 100).toFixed(2)}%` : '-')
 
   return (
     <div className="space-y-16 animate-in pb-20">
@@ -169,12 +169,12 @@ export default function Diagnostics() {
               <div>
                 <span className="text-[10px] font-mono text-white/30 tracking-widest block uppercase mb-3">COMPRESSOR_EFF</span>
                 <span className="text-3xl font-black tracking-wider text-white mono">
-                  {result ? fmtPercent(result.eta_c) : '—'}
+                  {result ? fmtPercent(result.eta_c) : '-'}
                 </span>
               </div>
               <div className="border-t border-white/10 pt-4 flex justify-between items-center text-[10px] font-mono text-white/40 uppercase">
                 <span>ISENTROPIC_WORK</span>
-                <span className={result?.eta_c < 0.84 ? 'text-red-400 font-bold' : 'text-white/60'}>
+                <span className={result?.eta_c < 0.84 ? 'warning-text font-bold' : 'text-white/60'}>
                   {result?.eta_c < 0.84 ? 'CRITICAL' : 'NOMINAL'}
                 </span>
               </div>
@@ -185,12 +185,12 @@ export default function Diagnostics() {
               <div>
                 <span className="text-[10px] font-mono text-white/30 tracking-widest block uppercase mb-3">TURBINE_EFF</span>
                 <span className="text-3xl font-black tracking-wider text-white mono">
-                  {result ? fmtPercent(result.eta_t) : '—'}
+                  {result ? fmtPercent(result.eta_t) : '-'}
                 </span>
               </div>
               <div className="border-t border-white/10 pt-4 flex justify-between items-center text-[10px] font-mono text-white/40 uppercase">
                 <span>EXPANSION_WORK</span>
-                <span className={result?.eta_t < 0.86 ? 'text-red-400 font-bold' : 'text-white/60'}>
+                <span className={result?.eta_t < 0.86 ? 'warning-text font-bold' : 'text-white/60'}>
                   {result?.eta_t < 0.86 ? 'CRITICAL' : 'NOMINAL'}
                 </span>
               </div>
@@ -201,12 +201,12 @@ export default function Diagnostics() {
               <div>
                 <span className="text-[10px] font-mono text-white/30 tracking-widest block uppercase mb-3">BURNER_DP_LOSS</span>
                 <span className="text-3xl font-black tracking-wider text-white mono">
-                  {result ? `${result.dp_b.toFixed(2)}%` : '—'}
+                  {result ? `${result.dp_b.toFixed(2)}%` : '-'}
                 </span>
               </div>
               <div className="border-t border-white/10 pt-4 flex justify-between items-center text-[10px] font-mono text-white/40 uppercase">
                 <span>COMBUSTOR_LOSS</span>
-                <span className={result?.dp_b > 6.0 ? 'text-red-400 font-bold' : 'text-white/60'}>
+                <span className={result?.dp_b > 6.0 ? 'warning-text font-bold' : 'text-white/60'}>
                   {result?.dp_b > 6.0 ? 'CRITICAL' : 'NOMINAL'}
                 </span>
               </div>
@@ -219,7 +219,7 @@ export default function Diagnostics() {
               DIAGNOSTIC_ANALYSIS_REPORT
             </h3>
             {error ? (
-              <div className="border border-red-500/20 bg-red-950/10 p-8 text-red-400 font-mono text-[11px] uppercase tracking-widest leading-relaxed">
+              <div className="warning-panel p-8 warning-text font-mono text-[11px] uppercase tracking-widest leading-relaxed">
                 {error}
               </div>
             ) : result ? (
@@ -230,7 +230,7 @@ export default function Diagnostics() {
                     className={`font-black tracking-[0.2em] px-6 py-2 border uppercase text-[11px] ${
                       result.status === 'NOMINAL'
                         ? 'border-white bg-white/15 text-white'
-                        : 'border-red-500/30 bg-red-950/20 text-red-400'
+                        : 'warning-panel'
                     }`}
                   >
                     {result.status}
@@ -241,7 +241,7 @@ export default function Diagnostics() {
                   <span className="text-white/30 uppercase tracking-widest block mb-2">FAULT_DIAGNOSTIC_CODES:</span>
                   {result.alerts.length > 0 ? (
                     result.alerts.map((alt, i) => (
-                      <div key={i} className="flex flex-col gap-2 p-6 border border-red-500/10 bg-red-950/5 text-red-400">
+                      <div key={i} className="flex flex-col gap-2 p-6 warning-panel-soft">
                         <span className="font-bold tracking-widest text-[11px]">{alt}</span>
                         <p className="text-white/60 text-[11px] uppercase tracking-[0.05em]">{result.messages[i]}</p>
                       </div>
@@ -277,7 +277,7 @@ export default function Diagnostics() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-white/10 italic">Trace log empty — solver executing.</p>
+                  <p className="text-white/10 italic">Trace log empty - solver executing.</p>
                 )}
               </div>
             </div>

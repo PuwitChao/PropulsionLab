@@ -1,5 +1,5 @@
 /**
- * usePersistentState — drop-in replacement for useState that also
+ * usePersistentState - drop-in replacement for useState that also
  * syncs to localStorage so work is preserved across page refreshes.
  *
  * Usage:

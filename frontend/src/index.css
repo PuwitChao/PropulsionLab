@@ -154,6 +154,83 @@ input[type="range"]:hover::-webkit-slider-thumb {
     white-space: nowrap;
 }
 
+.warning-panel {
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.055);
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.warning-panel-soft {
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.035);
+    color: rgba(255, 255, 255, 0.74);
+}
+
+.warning-text {
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.warning-text-muted {
+    color: rgba(255, 255, 255, 0.58);
+}
+
+.warning-marker {
+    background: rgba(255, 255, 255, 0.66);
+}
+
+@media (max-width: 1023px) {
+    html, body {
+        overflow: auto;
+    }
+
+    .app-shell {
+        display: block;
+        min-height: 100vh;
+    }
+
+    .app-sidebar,
+    .app-header,
+    .app-footer {
+        position: static;
+        width: 100%;
+        left: auto;
+        right: auto;
+    }
+
+    .app-sidebar {
+        height: auto;
+        padding-top: 2rem;
+    }
+
+    .app-sidebar-nav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.5rem 1rem;
+    }
+
+    .app-sidebar-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .app-header,
+    .app-footer {
+        min-height: 4rem;
+        height: auto;
+        flex-wrap: wrap;
+        gap: 1rem;
+        padding: 1rem 1.5rem;
+    }
+
+    .app-main {
+        margin: 0;
+        width: 100%;
+        height: auto;
+        min-height: auto;
+        padding: 2rem 1.5rem 4rem;
+        overflow: visible;
+    }
+}
+
 /* Toast animation (slide in from right) */
 @keyframes slideInRight {
     from { opacity: 0; transform: translateX(12px); }

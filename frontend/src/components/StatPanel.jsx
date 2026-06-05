@@ -1,18 +1,18 @@
 /**
- * StatPanel — Shared metric display component.
+ * StatPanel - Shared metric display component.
  * Displays a labelled value with an optional unit and sub-label.
  *
  * Props:
- *   label   {string}  — metric name (uppercase)
- *   value   {string}  — formatted numeric value or placeholder "—"
- *   unit    {string}  — unit abbreviation (e.g. "kN", "s", "%")
- *   sub     {string?} — optional sub-label shown below value
- *   alert   {bool?}   — if true, renders in alert (red-tinted) style
+ *   label   {string}  - metric name (uppercase)
+ *   value   {string}  - formatted numeric value or placeholder "-"
+ *   unit    {string}  - unit abbreviation (e.g. "kN", "s", "%")
+ *   sub     {string?} - optional sub-label shown below value
+ *   alert   {bool?}   - if true, renders in monochrome warning style
  */
 export default function StatPanel({ label, value, unit, sub, alert = false }) {
     return (
-        <div className={`flex flex-col items-end group p-12 border bg-surface-container-low hover:bg-surface-container transition-all ${alert ? 'border-red-500/20' : 'border-white/10'}`}>
-            <span className={`text-[11px] font-black tracking-[0.2em] uppercase mb-5 font-headline transition-colors ${alert ? 'text-red-400' : 'text-white/40 group-hover:text-white'}`}>
+        <div className={`flex flex-col items-end group p-12 border bg-surface-container-low hover:bg-surface-container transition-all ${alert ? 'border-white/25 bg-white/[0.04]' : 'border-white/10'}`}>
+            <span className={`text-[11px] font-black tracking-[0.2em] uppercase mb-5 font-headline transition-colors ${alert ? 'warning-text' : 'text-white/40 group-hover:text-white'}`}>
                 {label}
             </span>
             <div className="flex items-baseline gap-3">

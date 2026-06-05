@@ -56,7 +56,7 @@ export default function Settings() {
     return () => clearInterval(tick)
   }, [])
 
-  const statusColor = apiStatus === 'HEALTHY' ? 'text-white' : apiStatus === 'OFFLINE' ? 'text-red-400' : 'text-white/50'
+  const statusColor = apiStatus === 'HEALTHY' ? 'text-white' : apiStatus === 'OFFLINE' ? 'warning-text' : 'text-white/50'
 
   return (
     <div className="space-y-16 animate-in max-w-5xl">
@@ -103,7 +103,7 @@ export default function Settings() {
                                 onChange={v => setTextSize(v)}
                             />
                             <p className="text-[10px] mono text-white/20 uppercase leading-relaxed pt-4 italic">
-                                Current scale: {textSize.toFixed(2)}x — applied to root font-size.
+                                Current scale: {textSize.toFixed(2)}x - applied to root font-size.
                             </p>
                         </div>
                     </div>
@@ -135,7 +135,7 @@ export default function Settings() {
                             <span className="w-6 h-[1px] bg-white/20 mr-4"></span>
                             SYSTEM_DIAGNOSTICS
                         </h2>
-                        <span className={`mono text-[10px] px-4 py-1 border ${apiStatus === 'HEALTHY' ? 'text-white/60 bg-white/5 border-white/10' : 'text-red-400 bg-red-950/20 border-red-500/20'}`}>
+                        <span className={`mono text-[10px] px-4 py-1 border ${apiStatus === 'HEALTHY' ? 'text-white/60 bg-white/5 border-white/10' : 'warning-text bg-white/[0.06] border-white/20'}`}>
                           {apiStatus === 'HEALTHY' ? 'LIVE_TELEMETRY' : apiStatus}
                         </span>
                      </div>
@@ -148,7 +148,7 @@ export default function Settings() {
                         ].map((d, i) => (
                             <div key={i} className="bg-white/5 border border-white/10 p-6 space-y-3 group hover:border-white/30 transition-all">
                                 <p className="mono text-[10px] text-white/30 tracking-widest">{d.label}</p>
-                                <p className={`text-[12px] font-black ${d.val === 'OFFLINE' ? 'text-red-400' : 'text-white'}`}>{d.val}</p>
+                                <p className={`text-[12px] font-black ${d.val === 'OFFLINE' ? 'warning-text' : 'text-white'}`}>{d.val}</p>
                                 <p className="mono text-[9px] text-white/20 tracking-tighter truncate">{d.sub}</p>
                             </div>
                         ))}
@@ -189,7 +189,7 @@ export default function Settings() {
                         </div>
                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
                              <span>Backend</span>
-                             <span className={`${apiStatus === 'HEALTHY' ? 'text-white' : 'text-red-400'}`}>{apiStatus}</span>
+                             <span className={`${apiStatus === 'HEALTHY' ? 'text-white' : 'warning-text'}`}>{apiStatus}</span>
                         </div>
                         <div className="flex justify-between items-center pb-2">
                              <span>Session</span>

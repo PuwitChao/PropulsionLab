@@ -79,8 +79,8 @@ export default function MissionAnalysis() {
         const binding = vals[0]
         const margin = data.optimum?.tw != null ? (1.0 - data.optimum.tw) : null
         return {
-            binding: binding?.label || '—',
-            margin: margin != null ? (margin * 100).toFixed(1) : '—',
+            binding: binding?.label || '-',
+            margin: margin != null ? (margin * 100).toFixed(1) : '-',
             compliance: envelopeCompliance
         }
     }
@@ -117,7 +117,7 @@ export default function MissionAnalysis() {
         },
     ] : []
 
-    const fmt = (v, d = 0) => v != null ? v.toFixed(d) : '—'
+    const fmt = (v, d = 0) => v != null ? v.toFixed(d) : '-'
 
     return (
         <div className="space-y-16 animate-in pb-20">
@@ -132,9 +132,9 @@ export default function MissionAnalysis() {
 
             {/* Error Banner */}
             {error && !loading && (
-                <div className="border border-red-500/30 bg-red-950/20 px-12 py-8 flex items-center gap-8">
-                    <span className="material-symbols-outlined text-red-400 !text-[22px] shrink-0">error_outline</span>
-                    <p className="mono text-[11px] text-red-400 uppercase tracking-widest">{error}</p>
+                <div className="warning-panel px-12 py-8 flex items-center gap-8">
+                    <span className="material-symbols-outlined warning-text !text-[22px] shrink-0">error_outline</span>
+                    <p className="mono text-[11px] warning-text uppercase tracking-widest">{error}</p>
                 </div>
             )}
 
@@ -227,12 +227,12 @@ export default function MissionAnalysis() {
                     </div>
 
                     <div className="grid grid-cols-3 gap-1 grid-bg">
-                        <StatPanel label="DESIGN WING LOADING" value={data?.optimum?.ws != null ? fmt(data.optimum.ws) : '—'} unit="Pa" sub="MIN_AIRCRAFT_SIZE" />
-                        <StatPanel label="MINIMUM T/W"         value={data?.optimum?.tw  != null ? data.optimum.tw.toFixed(3) : '—'} unit="" sub="FEASIBLE_BOUND" />
-                        <StatPanel label="ENVELOPE COMPLIANCE" value={envelopeCompliance != null ? `${envelopeCompliance}` : '—'} unit="%" sub="REGION_OPTIMIZED" />
+                        <StatPanel label="DESIGN WING LOADING" value={data?.optimum?.ws != null ? fmt(data.optimum.ws) : '-'} unit="Pa" sub="MIN_AIRCRAFT_SIZE" />
+                        <StatPanel label="MINIMUM T/W"         value={data?.optimum?.tw  != null ? data.optimum.tw.toFixed(3) : '-'} unit="" sub="FEASIBLE_BOUND" />
+                        <StatPanel label="ENVELOPE COMPLIANCE" value={envelopeCompliance != null ? `${envelopeCompliance}` : '-'} unit="%" sub="REGION_OPTIMIZED" />
                     </div>
 
-                    {/* Operational Summary — Dynamic */}
+                    {/* Operational Summary - Dynamic */}
                     <div className="bg-surface-container-low border border-white/10 p-14 space-y-12 relative group">
                         <div className="panel-accent"></div>
                         <div className="flex items-center gap-6 pb-8 border-b border-white/20">
@@ -250,7 +250,7 @@ export default function MissionAnalysis() {
                                 <div className="space-y-5">
                                     <p className="text-[12px] font-black text-white tracking-[0.2em] uppercase">Envelope_Status</p>
                                     <p className="text-[13px] mono text-white/50 leading-[1.8] uppercase border-l-2 border-white/20 pl-8">
-                                        {summary.compliance}% of the W/S range satisfies all constraints within T/W ≤ 1.0. Optimum corner at T/W {data?.optimum?.tw?.toFixed(3) || '—'}, leaving {summary.margin}% margin.
+                                        {summary.compliance}% of the W/S range satisfies all constraints within T/W {'<='} 1.0. Optimum corner at T/W {data?.optimum?.tw?.toFixed(3) || '-'}, leaving {summary.margin}% margin.
                                     </p>
                                 </div>
                             </div>

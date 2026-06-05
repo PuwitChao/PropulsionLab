@@ -298,7 +298,7 @@ export default function RocketAnalysis() {
             a.download = `nozzle_contour_${params.propellant.replace('/', '_')}.csv`
             a.click()
             URL.revokeObjectURL(url)
-            showToast('CSV export complete — nozzle contour downloaded.')
+            showToast('CSV export complete - nozzle contour downloaded.')
         } catch (e) {
             console.error('CSV Export Error:', e)
             showToast('Export failed. Check backend connection.', false)
@@ -324,7 +324,7 @@ export default function RocketAnalysis() {
             a.download = `nozzle_design_${params.propellant.replace('/', '_')}.stl`
             a.click()
             URL.revokeObjectURL(url)
-            showToast('STL export complete — 3D mesh downloaded.')
+            showToast('STL export complete - 3D mesh downloaded.')
         } catch (e) {
             console.error('STL Export Error:', e)
             showToast('STL export failed. Check backend connection.', false)
@@ -354,7 +354,7 @@ export default function RocketAnalysis() {
                     setMocData(moc)
                 } catch (mocErr) {
                     console.error('MoC computation failed (non-fatal):', mocErr)
-                    // Non-fatal — equilibrium result is still shown
+                    // Non-fatal - equilibrium result is still shown
                 }
             }
         } catch (e) {
@@ -383,13 +383,13 @@ export default function RocketAnalysis() {
             code: thermalOk && ispOk ? 'NOMINAL // VERIFIED' : 'WARN // REVIEW_NEEDED',
             statusOk: thermalOk && ispOk,
             message: thermalOk
-                ? `Chamber temperature ${chamberTempK.toFixed(0)} K within structural tolerance. Peak heat flux ${heatFlux.toFixed(2)} MW/m².`
-                : `CAUTION: Chamber temperature ${chamberTempK.toFixed(0)} K exceeds 4000 K threshold — regenerative cooling mandatory.`,
+                ? `Chamber temperature ${chamberTempK.toFixed(0)} K within structural tolerance. Peak heat flux ${heatFlux.toFixed(2)} MW/m^2.`
+                : `CAUTION: Chamber temperature ${chamberTempK.toFixed(0)} K exceeds 4000 K threshold - regenerative cooling mandatory.`,
         }
     }
 
     const review = reviewStatus()
-    const fmt = (v, d = 1) => v != null ? v.toFixed(d) : '—'
+    const fmt = (v, d = 1) => v != null ? v.toFixed(d) : '-'
 
     return (
         <div className="space-y-16 animate-in pb-20">
@@ -425,9 +425,9 @@ export default function RocketAnalysis() {
 
             {/* Error Banner */}
             {activeView === 'design' && error && !loading && (
-                <div className="border border-red-500/30 bg-red-950/20 px-12 py-8 flex items-center gap-8">
-                    <span className="material-symbols-outlined text-red-400 !text-[22px] shrink-0">error_outline</span>
-                    <p className="mono text-[11px] text-red-400 uppercase tracking-widest leading-relaxed">{error}</p>
+                <div className="warning-panel px-12 py-8 flex items-center gap-8">
+                    <span className="material-symbols-outlined warning-text !text-[22px] shrink-0">error_outline</span>
+                    <p className="mono text-[11px] warning-text uppercase tracking-widest leading-relaxed">{error}</p>
                 </div>
             )}
 
@@ -455,11 +455,11 @@ export default function RocketAnalysis() {
                                 onChange={e => setParams({...params, propellant: e.target.value})}
                                 className="w-full bg-surface-container-highest border border-white/20 px-8 py-5 text-[12px] mono text-white focus:outline-none focus:border-white transition-all uppercase tracking-widest"
                             >
-                                <option value="H2/O2">LOX / LH2 — Hydrolox</option>
-                                <option value="CH4/O2">LOX / LCH4 — Methalox</option>
-                                <option value="RP1/O2">LOX / RP-1 — Kerolox</option>
-                                <option value="UDMH/N2O4">UDMH / N2O4 — Hypergolic</option>
-                                <option value="MMH/N2O4">MMH / N2O4 — Hypergolic</option>
+                                <option value="H2/O2">LOX / LH2 - Hydrolox</option>
+                                <option value="CH4/O2">LOX / LCH4 - Methalox</option>
+                                <option value="RP1/O2">LOX / RP-1 - Kerolox</option>
+                                <option value="UDMH/N2O4">UDMH / N2O4 - Hypergolic</option>
+                                <option value="MMH/N2O4">MMH / N2O4 - Hypergolic</option>
                             </select>
                         </div>
                    </div>
@@ -510,7 +510,7 @@ export default function RocketAnalysis() {
                     {/* Toast Notification */}
                     {toast && (
                         <div className={`absolute top-0 right-0 z-50 px-10 py-5 text-[11px] font-black tracking-[0.2em] uppercase mono animate-in slide-in-from-right-4 ${
-                            toast.ok ? 'bg-white text-black' : 'bg-red-500/90 text-white'
+                            toast.ok ? 'bg-white text-black' : 'bg-white/90 text-white'
                         }`}>
                             {toast.msg}
                         </div>
@@ -524,14 +524,14 @@ export default function RocketAnalysis() {
                     />
 
                     <div className="grid grid-cols-4 gap-1 grid-bg">
-                        <StatPanel label="VAC. THRUST"    value={result ? (result.thrust_vac/1000).toFixed(0) : '—'} unit="kN"  sub="DESIGN_TARGET" />
-                        <StatPanel label="SPECIFIC ISP"   value={result ? fmt(result.isp_delivered) : '—'}           unit="s"   sub="SHIFTING_EQ" />
-                        <StatPanel label="MASS FLOW"      value={result ? fmt(result.mdot_total, 2) : '—'}            unit="kg/s" sub="COMBUSTION" />
-                        <StatPanel label="THROAT RADIUS"  value={result ? fmt(result.r_throat * 1000) : '—'}          unit="mm"  sub="GEOMETRIC" />
-                        <StatPanel label="EXIT RADIUS"    value={result ? fmt(result.r_exit * 1000) : '—'}            unit="mm"  sub="GEOMETRIC" />
-                        <StatPanel label="CHAMBER LENGTH" value={result ? fmt(result.l_chamber * 1000) : '—'}         unit="mm"  sub="GEOMETRIC" />
-                        <StatPanel label="NOZZLE LENGTH"  value={result ? fmt(result.l_nozzle * 1000) : '—'}          unit="mm"  sub="GEOMETRIC" />
-                        <StatPanel label="TOTAL LENGTH"   value={result ? fmt((result.l_chamber + result.l_nozzle) * 1000) : '—'} unit="mm" sub="GEOMETRIC" />
+                        <StatPanel label="VAC. THRUST"    value={result ? (result.thrust_vac/1000).toFixed(0) : '-'} unit="kN"  sub="DESIGN_TARGET" />
+                        <StatPanel label="SPECIFIC ISP"   value={result ? fmt(result.isp_delivered) : '-'}           unit="s"   sub="SHIFTING_EQ" />
+                        <StatPanel label="MASS FLOW"      value={result ? fmt(result.mdot_total, 2) : '-'}            unit="kg/s" sub="COMBUSTION" />
+                        <StatPanel label="THROAT RADIUS"  value={result ? fmt(result.r_throat * 1000) : '-'}          unit="mm"  sub="GEOMETRIC" />
+                        <StatPanel label="EXIT RADIUS"    value={result ? fmt(result.r_exit * 1000) : '-'}            unit="mm"  sub="GEOMETRIC" />
+                        <StatPanel label="CHAMBER LENGTH" value={result ? fmt(result.l_chamber * 1000) : '-'}         unit="mm"  sub="GEOMETRIC" />
+                        <StatPanel label="NOZZLE LENGTH"  value={result ? fmt(result.l_nozzle * 1000) : '-'}          unit="mm"  sub="GEOMETRIC" />
+                        <StatPanel label="TOTAL LENGTH"   value={result ? fmt((result.l_chamber + result.l_nozzle) * 1000) : '-'} unit="mm" sub="GEOMETRIC" />
                     </div>
                 </section>
 
@@ -544,9 +544,9 @@ export default function RocketAnalysis() {
                                 { label: 'ISP Theoretical',   val: `${fmt(result?.isp_ideal)} s` },
                                 { label: 'Thrust Coeff (Cf)', val: fmt(result?.cf_delivered, 4) },
                                 { label: 'Exit Gamma',        val: fmt(result?.gamma, 4) },
-                                { label: 'Flame Temp [K]',    val: `${result?.t_chamber?.toFixed(0) || '—'} K` },
+                                { label: 'Flame Temp [K]',    val: `${result?.t_chamber?.toFixed(0) || '-'} K` },
                                 { label: 'Expansion Ratio',   val: fmt(result?.epsilon, 2) },
-                                { label: 'Peak Heat Flux',    val: result?.heat_transfer?.q_flux_MW_m2?.[0] != null ? `${result.heat_transfer.q_flux_MW_m2[0].toFixed(2)} MW/m²` : '—' },
+                                { label: 'Peak Heat Flux',    val: result?.heat_transfer?.q_flux_MW_m2?.[0] != null ? `${result.heat_transfer.q_flux_MW_m2[0].toFixed(2)} MW/m^2` : '-' },
                                 { label: 'ISP Vacuum',        val: `${fmt(result?.isp_vac)} s` },
                                 { label: 'C* [m/s]',          val: fmt(result?.c_star, 1) },
                             ].map((row, i) => (
@@ -558,11 +558,11 @@ export default function RocketAnalysis() {
                          </div>
                     </div>
 
-                    {/* Engineering Review — Dynamic */}
-                    <div className={`p-14 space-y-12 relative group border ${review?.statusOk === false ? 'bg-red-950/10 border-red-500/20' : 'bg-surface-container-high border-white/10'}`}>
+                    {/* Engineering Review - Dynamic */}
+                    <div className={`p-14 space-y-12 relative group border ${review?.statusOk === false ? 'bg-white/[0.05] border-white/20' : 'bg-surface-container-high border-white/10'}`}>
                         <div className="panel-accent"></div>
                         <div className="flex items-center gap-6 pb-8 border-b border-white/20">
-                             <span className={`material-symbols-outlined !text-[24px] ${review?.statusOk === false ? 'text-red-400' : 'text-white'}`}>
+                             <span className={`material-symbols-outlined !text-[24px] ${review?.statusOk === false ? 'warning-text' : 'text-white'}`}>
                                {review?.statusOk === false ? 'warning' : 'verified_user'}
                              </span>
                              <h2 className="text-[13px] font-black tracking-[0.3em] uppercase text-white">Thermal Review</h2>
@@ -572,12 +572,12 @@ export default function RocketAnalysis() {
                                 <>
                                     <div className="space-y-3">
                                         <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.2em]">Status Code</p>
-                                        <p className={`mono font-black text-[12px] p-4 border ${review.statusOk ? 'text-white bg-white/5 border-white/10' : 'text-red-400 bg-red-950/20 border-red-500/20'}`}>
+                                        <p className={`mono font-black text-[12px] p-4 border ${review.statusOk ? 'text-white bg-white/5 border-white/10' : 'warning-text bg-white/[0.06] border-white/20'}`}>
                                           {review.code}
                                         </p>
                                     </div>
                                     <div className="space-y-5">
-                                        <p className={`text-[12px] leading-relaxed uppercase mono border-l-4 pl-8 italic ${review.statusOk ? 'border-white text-white/70' : 'border-red-500 text-red-300'}`}>
+                                        <p className={`text-[12px] leading-relaxed uppercase mono border-l-4 pl-8 italic ${review.statusOk ? 'border-white text-white/70' : 'border-white/50 text-white/70'}`}>
                                             {review.message}
                                         </p>
                                     </div>
@@ -597,7 +597,7 @@ export default function RocketAnalysis() {
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
                         <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white/60">
-                            O/F RATIO SWEEP — <HelpTooltip term="isp">ISP</HelpTooltip> vs O/F
+                            O/F RATIO SWEEP - <HelpTooltip term="isp">ISP</HelpTooltip> vs O/F
                         </h2>
                         {sweepLoading && <span className="mono text-[11px] text-white/30 animate-pulse">COMPUTING...</span>}
                     </div>
@@ -643,7 +643,7 @@ export default function RocketAnalysis() {
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
                         <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white/60">
-                            ALTITUDE PERFORMANCE TABLE — <HelpTooltip term="isp">ISP</HelpTooltip> vs Altitude
+                            ALTITUDE PERFORMANCE TABLE - <HelpTooltip term="isp">ISP</HelpTooltip> vs Altitude
                         </h2>
                         {altLoading && <span className="mono text-[11px] text-white/30 animate-pulse">COMPUTING...</span>}
                     </div>
@@ -692,11 +692,11 @@ export default function RocketAnalysis() {
                                         {altData.map((row, i) => (
                                             <tr key={i} className="border-b border-white/5 text-white/60 hover:bg-white/5 transition-colors">
                                                 <td className="py-2 px-6">{(row.altitude_m / 1000).toFixed(0)}</td>
-                                                <td className="py-2 px-6 text-right">{row.error ? '—' : row.p_amb_pa?.toFixed(0)}</td>
-                                                <td className="py-2 px-6 text-right">{row.error ? <span className="text-red-400/60">ERR</span> : row.isp_s?.toFixed(1)}</td>
-                                                <td className="py-2 px-6 text-right">{row.error ? '—' : row.isp_vac?.toFixed(1)}</td>
-                                                <td className="py-2 px-6 text-right">{row.error ? '—' : row.cf_delivered?.toFixed(4)}</td>
-                                                <td className="py-2 px-6 text-right text-[10px] tracking-widest">{row.regime || '—'}</td>
+                                                <td className="py-2 px-6 text-right">{row.error ? '-' : row.p_amb_pa?.toFixed(0)}</td>
+                                                <td className="py-2 px-6 text-right">{row.error ? <span className="warning-text-muted">ERR</span> : row.isp_s?.toFixed(1)}</td>
+                                                <td className="py-2 px-6 text-right">{row.error ? '-' : row.isp_vac?.toFixed(1)}</td>
+                                                <td className="py-2 px-6 text-right">{row.error ? '-' : row.cf_delivered?.toFixed(4)}</td>
+                                                <td className="py-2 px-6 text-right text-[10px] tracking-widest">{row.regime || '-'}</td>
                                             </tr>
                                         ))}
                                     </tbody>

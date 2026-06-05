@@ -7,7 +7,6 @@ import { fetchData } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
 import { useSettings } from '../context/SettingsContext'
-import { getLayout } from '../utils/chartUtils'
 import usePersistentState from '../hooks/usePersistentState'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +93,7 @@ export default function PerformanceMap() {
             traces.push({
                 x: mapData.surge_line.flow, y: mapData.surge_line.pr,
                 mode: 'lines', name: 'SURGE_LIMIT',
-                line: { color: isLight ? 'rgba(239, 68, 68, 0.6)' : 'rgba(255, 68, 68, 0.4)', width: 2, dash: 'dash' },
+                line: { color: isLight ? 'rgba(15,23,42,0.35)' : 'rgba(255,255,255,0.34)', width: 2, dash: 'dash' },
                 hovertemplate: `SURGE_LIMIT<extra></extra>`
             })
         }
@@ -153,9 +152,9 @@ export default function PerformanceMap() {
 
             {/* Error Banner */}
             {error && !loading && (
-                <div className="border border-red-500/30 bg-red-950/20 px-12 py-8 flex items-center gap-8">
-                    <span className="material-symbols-outlined text-red-400 !text-[22px] shrink-0">error_outline</span>
-                    <p className="mono text-[11px] text-red-400 uppercase tracking-widest">{error}</p>
+                <div className="warning-panel px-12 py-8 flex items-center gap-8">
+                    <span className="material-symbols-outlined warning-text !text-[22px] shrink-0">error_outline</span>
+                    <p className="mono text-[11px] warning-text uppercase tracking-widest">{error}</p>
                 </div>
             )}
 
@@ -166,7 +165,7 @@ export default function PerformanceMap() {
                         <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-2">OFF_DESIGN_SPEC</h2>
                         <SliderControl label="Flight Altitude" value={Math.round(dpParams.alt)} unit="m" min={0} max={15000} step={500} onChange={v => setDpParams({...dpParams, alt: v})} />
                         <SliderControl label="Mach Number" value={dpParams.mach.toFixed(2)} unit="M" min={0} max={1.5} step={0.01} onChange={v => setDpParams({...dpParams, mach: v})} />
-                        <SliderControl label="Core PR" value={Math.round(dpParams.prc)} unit="–" min={5} max={50} step={1} onChange={v => setDpParams({...dpParams, prc: v})} />
+                        <SliderControl label="Core PR" value={Math.round(dpParams.prc)} unit="-" min={5} max={50} step={1} onChange={v => setDpParams({...dpParams, prc: v})} />
                         <SliderControl label="Turbine Inlet T" value={Math.round(dpParams.tit)} unit="K" min={1000} max={2000} step={25} onChange={v => setDpParams({...dpParams, tit: v})} />
                    </div>
 
@@ -226,30 +225,30 @@ export default function PerformanceMap() {
                                         className="w-full h-full"
                                         config={{ displayModeBar: false, responsive: true }}
                                     />
-                                ) : chartPlaceholder(error ? 'SOLVER_ERROR — CHECK BACKEND' : 'Awaiting_Analysis...')}
+                                ) : chartPlaceholder(error ? 'SOLVER_ERROR - CHECK BACKEND' : 'Awaiting_Analysis...')}
                             </div>
 
                             <div className="grid grid-cols-4 gap-1 grid-bg shrink-0">
                                 <StatPanel
                                     label="SURGE MARGIN"
-                                    value={surgeMargin ?? (loading ? '—' : '—')}
+                                    value={surgeMargin ?? (loading ? '-' : '-')}
                                     unit="%" sub="OPERATIONAL_STATUS"
                                 />
                                 <StatPanel
                                     label="PEAK EFFICIENCY"
                                     value={mapData?.speed_lines?.[0]?.eta?.[0]
                                         ? (mapData.speed_lines[0].eta[0] * 100).toFixed(1)
-                                        : '—'}
+                                        : '-'}
                                     unit="%" sub="POLYTROPIC_PEAK"
                                 />
                                 <StatPanel
                                     label="NORM. FLOW"
-                                    value={throttleData?.[0]?.mdot_corr_norm?.toFixed(3) || '—'}
+                                    value={throttleData?.[0]?.mdot_corr_norm?.toFixed(3) || '-'}
                                     unit="[-]" sub="NORMALIZED_REF"
                                 />
                                 <StatPanel
                                     label="THROTTLE STATUS"
-                                    value={loading ? '—' : (throttleData?.some(r => r.surge) ? 'SURGE' : throttleData ? 'PASS' : '—')}
+                                    value={loading ? '-' : (throttleData?.some(r => r.surge) ? 'SURGE' : throttleData ? 'PASS' : '-')}
                                     unit=""
                                     sub={loading ? 'EXECUTING_ENGINE_DECK' : 'SENSORS_STABLE'}
                                     alert={!loading && throttleData?.some(r => r.surge)}
@@ -312,11 +311,11 @@ export default function PerformanceMap() {
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
                                                 {throttleData?.map((r, i) => (
-                                                    <tr key={i} className={`group hover:bg-white/5 ${r.surge ? 'bg-red-950/20' : ''}`}>
+                                                    <tr key={i} className={`group hover:bg-white/5 ${r.surge ? 'bg-white/[0.06]' : ''}`}>
                                                         <td className="py-4 font-black text-white">{r.throttle_pct}%</td>
                                                         <td className="py-4 text-white/40 group-hover:text-white/80">{r.spec_thrust?.toFixed(1)}</td>
                                                         <td className="py-4 text-white/40 group-hover:text-white/80">{r.tsfc?.toFixed(3)}</td>
-                                                        <td className={`py-4 font-black ${r.surge ? 'text-red-500' : 'text-white/20'}`}>{r.surge ? 'CRIT' : 'SAFE'}</td>
+                                                        <td className={`py-4 font-black ${r.surge ? 'warning-text' : 'text-white/20'}`}>{r.surge ? 'CRIT' : 'SAFE'}</td>
                                                     </tr>
                                                 )) ?? (
                                                     <tr><td colSpan={4} className="py-10 text-center text-white/20 text-[11px] uppercase tracking-widest">
@@ -348,7 +347,7 @@ export default function PerformanceMap() {
                                         }),
                                         mode: 'lines+markers', name: 'SURGE_MARGIN',
                                         line: { color: isLight ? '#0f172a' : '#fff', width: 2 },
-                                        marker: { size: 6, color: throttleData.map(r => r.surge ? 'rgba(239,68,68,0.9)' : (isLight ? '#0f172a' : '#fff')) },
+                                        marker: { size: 6, color: throttleData.map(r => r.surge ? (isLight ? 'rgba(15,23,42,0.7)' : 'rgba(255,255,255,0.72)') : (isLight ? '#0f172a' : '#fff')) },
                                         hovertemplate: 'Throttle: %{x}%<br>SM: %{y}%<extra></extra>'
                                     }]}
                                     layout={{
@@ -356,8 +355,8 @@ export default function PerformanceMap() {
                                         autosize: true, margin: { t: 60, b: 60, l: 80, r: 60 },
                                         xaxis: { title: { text: 'Throttle [%]', font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.4)' } }, gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
                                         yaxis: { title: { text: 'Surge Margin [%]', font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.4)' } }, gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
-                                        shapes: [{ type: 'line', x0: 0, x1: 100, y0: 10, y1: 10, line: { color: 'rgba(239, 68, 68, 0.5)', width: 1, dash: 'dash' } }],
-                                        annotations: [{ x: 50, y: 10, text: 'MIN_SM_THRESHOLD (10%)', showarrow: false, font: { family: 'JetBrains Mono', size: 10, color: 'rgba(239, 68, 68, 0.7)' }, yshift: 10 }],
+                                        shapes: [{ type: 'line', x0: 0, x1: 100, y0: 10, y1: 10, line: { color: isLight ? 'rgba(15,23,42,0.32)' : 'rgba(255,255,255,0.35)', width: 1, dash: 'dash' } }],
+                                        annotations: [{ x: 50, y: 10, text: 'MIN_SM_THRESHOLD (10%)', showarrow: false, font: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.55)' : 'rgba(255,255,255,0.58)' }, yshift: 10 }],
                                         showlegend: false, font: { family: 'Inter', color: isLight ? '#0f172a' : '#fff' }
                                     }}
                                     className="w-full h-full"

@@ -77,9 +77,9 @@ function App() {
   }
 
   return (
-    <div className="flex w-full min-h-screen bg-surface selection:bg-white selection:text-black">
+    <div className="app-shell flex w-full min-h-screen bg-surface selection:bg-white selection:text-black">
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <nav className="fixed left-0 top-0 h-full w-[280px] z-50 flex flex-col pt-12 bg-surface border-r border-white/10">
+      <nav className="app-sidebar fixed left-0 top-0 h-full w-[280px] z-50 flex flex-col pt-12 bg-surface border-r border-white/10">
         <div className="px-12 mb-16">
           <div className="flex items-center gap-4">
              <div className="w-2 h-2 bg-white"></div>
@@ -88,9 +88,9 @@ function App() {
           <p className="text-[10px] tracking-[0.3em] text-white/30 mt-4 font-mono border-l border-white/20 pl-4">PROPULSION_SYS_V2.2.0</p>
         </div>
         
-        <div className="flex flex-col flex-grow px-6 space-y-2">
+        <div className="app-sidebar-nav flex flex-col flex-grow px-6 space-y-2">
           {['_ROOT', 'THERMODYNAMICS', 'PROPULSION', 'OPERATIONS', 'SYSTEM'].map(cat => (
-            <div key={cat} className="mb-8">
+            <div key={cat} className="app-sidebar-section mb-8">
                 <span className="text-[10px] font-bold text-white/35 tracking-[0.3em] px-6 mb-4 block uppercase">{cat}</span>
                 {navItems.filter(i => i.category === cat).map(item => (
                     <button
@@ -122,7 +122,7 @@ function App() {
       </nav>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <header className="fixed top-0 right-0 left-[280px] h-20 z-40 flex items-center justify-between px-12 bg-surface/90 backdrop-blur-xl border-b border-white/10">
+      <header className="app-header fixed top-0 right-0 left-[280px] h-20 z-40 flex items-center justify-between px-12 bg-surface/90 backdrop-blur-xl border-b border-white/10">
         <div className="flex items-center gap-14">
           <span className="uppercase tracking-[0.4em] text-[12px] font-black text-white font-headline flex items-center gap-6">
             <span className="w-6 h-[1px] bg-white opacity-30"></span>
@@ -140,8 +140,8 @@ function App() {
              <div className="flex flex-col items-end pr-6">
               <span className="text-[10px] font-mono tracking-widest text-white/40 uppercase">Status</span>
                <div className="flex items-center gap-3 mt-1">
-                 <div className={`w-2 h-2 transition-all ${backendStatus === 'STABLE' ? 'bg-white' : backendStatus === 'CHECKING' ? 'bg-white/40 animate-pulse' : 'bg-red-500 animate-pulse'}`}></div>
-                 <span className={`text-[11px] font-mono tracking-widest uppercase ${backendStatus === 'OFFLINE' ? 'text-red-400' : 'text-white'}`}>{backendStatus}</span>
+                 <div className={`w-2 h-2 transition-all ${backendStatus === 'STABLE' ? 'bg-white' : backendStatus === 'CHECKING' ? 'bg-white/40 animate-pulse' : 'warning-marker animate-pulse'}`}></div>
+                 <span className={`text-[11px] font-mono tracking-widest uppercase ${backendStatus === 'OFFLINE' ? 'warning-text' : 'text-white'}`}>{backendStatus}</span>
                </div>
              </div>
           </div>
@@ -149,14 +149,14 @@ function App() {
       </header>
 
       {/* ── Main Content Area ──────────────────────────────────────────── */}
-      <main className="ml-[280px] mt-20 p-16 w-[calc(100%-280px)] h-[calc(100vh-80px)] overflow-y-auto scrollbar-hide grid-bg">
+      <main className="app-main ml-[280px] mt-20 p-16 w-[calc(100%-280px)] h-[calc(100vh-80px)] overflow-y-auto scrollbar-hide grid-bg">
         <div className="max-w-[1400px] mx-auto">
             {renderContent()}
         </div>
       </main>
 
       {/* ── Footer Status ─────────────────────────────────────────────── */}
-      <footer className="fixed bottom-0 right-0 left-[280px] h-12 bg-surface border-t border-white/10 flex items-center px-12 justify-between z-40">
+      <footer className="app-footer fixed bottom-0 right-0 left-[280px] h-12 bg-surface border-t border-white/10 flex items-center px-12 justify-between z-40">
         <div className="flex gap-20 items-center">
             <div className="flex gap-4 items-center">
                 <span className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">KERNEL</span>
@@ -170,7 +170,7 @@ function App() {
         <div className="flex gap-12 items-center">
             <span className="mono text-[11px] text-white/20 tracking-[0.2em]">{time} // LOCAL</span>
             <div className="flex gap-1.5">
-                <div className={`w-1.5 h-1.5 ${backendStatus === 'STABLE' ? 'bg-white opacity-60' : 'bg-red-500 opacity-60'}`}></div>
+                <div className={`w-1.5 h-1.5 ${backendStatus === 'STABLE' ? 'bg-white opacity-60' : 'warning-marker opacity-60'}`}></div>
                 <div className="w-1.5 h-1.5 bg-white opacity-20"></div>
                 <div className="w-1.5 h-1.5 bg-white opacity-5"></div>
             </div>
@@ -256,7 +256,7 @@ function Dashboard({ status, onNavigate }) {
             <div className="space-y-8 border-l border-white/10 pl-20">
                 <h4 className="text-[11px] font-black text-white/20 tracking-[0.3em] mb-6">BACKEND</h4>
                 <div className="flex flex-col gap-2">
-                    <span className={`text-[12px] font-mono uppercase tracking-widest ${status === 'STABLE' ? 'text-white/60' : 'text-red-400'}`}>
+                    <span className={`text-[12px] font-mono uppercase tracking-widest ${status === 'STABLE' ? 'text-white/60' : 'warning-text'}`}>
                       {status === 'STABLE' ? 'API_KERNEL_ONLINE' : status === 'CHECKING' ? 'STATUS_CHECKING...' : 'API_OFFLINE'}
                     </span>
                     <span className="text-[12px] font-mono text-white/60 uppercase tracking-widest">LOCAL_COMPUTE_ONLY</span>

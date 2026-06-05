@@ -7,7 +7,6 @@ import { fetchData } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
 import { useSettings } from '../context/SettingsContext'
-import { getLayout } from '../utils/chartUtils'
 import usePersistentState from '../hooks/usePersistentState'
 
 // ── Station Blueprint Diagram ─────────────────────────────────────────────────
@@ -282,7 +281,7 @@ export default function ParametricCycle() {
     return () => clearTimeout(t)
   }, [p, activeEngine, runAnalysis])
 
-  // Build station display rows — returns empty array cleanly when no result
+  // Build station display rows - returns empty array cleanly when no result
   const getStationData = () => {
     if (!result || !result.stations) return []
     const mapping = {
@@ -341,9 +340,9 @@ export default function ParametricCycle() {
   }
 
   const stations = getStationData()
-  const fmt = v => v != null ? v.toFixed(1) : '—'
-  const fmtP = v => v != null ? v.toLocaleString() : '—'
-  const fmtM = v => v != null ? v.toFixed(3) : '—'
+  const fmt = v => v != null ? v.toFixed(1) : '-'
+  const fmtP = v => v != null ? v.toLocaleString() : '-'
+  const fmtM = v => v != null ? v.toFixed(3) : '-'
 
   return (
     <div className="space-y-16 animate-in pb-20">
@@ -444,19 +443,19 @@ export default function ParametricCycle() {
                     <div className="flex gap-16">
                         <StatPanel
                           label="SPECIFIC THRUST"
-                          value={result ? (result.spec_thrust ?? 0).toFixed(1) : '—'}
+                          value={result ? (result.spec_thrust ?? 0).toFixed(1) : '-'}
                           unit="Ns/kg"
                           sub="NET_AIR_FORCE"
                         />
                         <StatPanel
                           label="THERMAL EFF."
-                          value={result?.eta_thermal != null ? (result.eta_thermal * 100).toFixed(1) : '—'}
+                          value={result?.eta_thermal != null ? (result.eta_thermal * 100).toFixed(1) : '-'}
                           unit="%"
                           sub="CYCLE_TOTAL"
                         />
                         <StatPanel
                           label="SFC"
-                          value={result?.tsfc != null ? (result.tsfc * 1e6).toFixed(2) : '—'}
+                          value={result?.tsfc != null ? (result.tsfc * 1e6).toFixed(2) : '-'}
                           unit="mg/Ns"
                           sub="FUEL_EFFICIENCY"
                         />
@@ -475,9 +474,9 @@ export default function ParametricCycle() {
                 {/* Error state */}
                 {error && !loading && (
                     <div className="absolute inset-0 z-20 flex items-center justify-center">
-                        <div className="border border-red-500/30 bg-red-950/20 px-16 py-10 text-center space-y-4 max-w-md">
-                            <span className="material-symbols-outlined text-red-400 !text-[28px]">error_outline</span>
-                            <p className="mono text-[11px] text-red-400 uppercase tracking-widest leading-relaxed">{error}</p>
+                        <div className="warning-panel px-16 py-10 text-center space-y-4 max-w-md">
+                            <span className="material-symbols-outlined warning-text !text-[28px]">error_outline</span>
+                            <p className="mono text-[11px] warning-text uppercase tracking-widest leading-relaxed">{error}</p>
                         </div>
                     </div>
                 )}
@@ -592,7 +591,7 @@ export default function ParametricCycle() {
                         <div className="space-y-4 mono text-[11px] text-white/40 uppercase tracking-[0.1em] leading-relaxed">
                             {result?.math_trace?.length > 0
                                 ? result.math_trace.map((t, i) => <p key={i}>{t}</p>)
-                                : <p className="text-white/10 italic">Log empty — run solver to populate.</p>
+                                : <p className="text-white/10 italic">Log empty - run solver to populate.</p>
                             }
                         </div>
                     </div>
@@ -611,7 +610,7 @@ export default function ParametricCycle() {
               <div className="space-y-4">
                 <label className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40">Sweep Parameter</label>
                 <div className="flex flex-col gap-2">
-                  {[['t4', 'TIT — Turbine Inlet Temp'], ['alt', 'Altitude'], ['opr', 'Overall Pressure Ratio']].map(([val, lab]) => (
+                  {[['t4', 'TIT - Turbine Inlet Temp'], ['alt', 'Altitude'], ['opr', 'Overall Pressure Ratio']].map(([val, lab]) => (
                     <button
                       key={val}
                       onClick={() => setSensParams(s => ({...s, sweep_type: val,
@@ -685,11 +684,11 @@ export default function ParametricCycle() {
                       {
                         x: sensData.data.map(d => d.sweep_value),
                         y: sensData.data.map(d => (d.eta_thermal ?? 0) * 100),
-                        name: 'η_THERMAL [%]',
+                        name: 'eta_THERMAL [%]',
                         type: 'scatter', mode: 'lines',
                         line: { color: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.15)', width: 1.5, dash: 'longdash' },
                         yaxis: 'y1',
-                        hovertemplate: `${sensData.sweep_label}: %{x}<br>η_th: %{y:.1f}%<extra></extra>`
+                        hovertemplate: `${sensData.sweep_label}: %{x}<br>eta_th: %{y:.1f}%<extra></extra>`
                       }
                     ]}
                     layout={{
@@ -705,7 +704,7 @@ export default function ParametricCycle() {
                         tickfont: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
                       },
                       yaxis: {
-                        title: { text: 'Spec Thrust / η_th [Ns/kg | %]', font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.4)' } },
+                        title: { text: 'Spec Thrust / eta_th [Ns/kg | %]', font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.4)' } },
                         gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)',
                         tickfont: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
                         side: 'left'
