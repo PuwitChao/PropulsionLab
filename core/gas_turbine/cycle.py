@@ -3,6 +3,15 @@ from typing import Any
 import cantera as ct
 from ..units import R_AIR
 
+# ── Nozzle / afterburner loss model ──────────────────────────────────
+# Additional total-pressure loss across the afterburner flame-holder and
+# liner, on top of the dry nozzle loss (nozzle_dp_frac). With the default
+# nozzle_dp_frac of 0.02 this reproduces the classic ~5% wet-nozzle loss.
+AB_EXTRA_DP_FRAC = 0.03
+# Bypass nozzle total-pressure loss relative to the core nozzle. The bypass
+# duct is short and cool, so it incurs roughly half the core nozzle loss.
+BYPASS_NOZZLE_DP_RATIO = 0.5
+
 # ── Thermodynamic constants ──────────────────────────────────────────
 # Cantera is used for high-fidelity real-gas properties.
 # NOTE: A fresh ct.Solution is created per call to avoid state-mutation
@@ -259,7 +268,7 @@ class CycleAnalyzer:
         tt9_in = tt5
         if ab_enabled:
             tt9_in = ab_temp
-            pt9_in = pt5 * 0.95
+            pt9_in = pt5 * (1.0 - nozzle_dp_frac - AB_EXTRA_DP_FRAC)
             _, cp7, _ = get_gas_props(tt9_in, pt9_in, f=f+0.05)
             f_ab   = cp4 * (ab_temp - tt5) / (eta_ab * h_fuel - cp7 * ab_temp)
             f_ab   = max(f_ab, 0.0)
@@ -315,6 +324,7 @@ class CycleAnalyzer:
         inlet_recovery: float = 0.98,
         burner_eta: float     = 0.99,
         burner_dp_frac: float = 0.04,
+        nozzle_dp_frac: float = 0.02,
         mixed_exhaust: bool   = False,
         phi_inlet: float = 0.0,
         eta_install_nozzle: float = 1.0,
@@ -340,6 +350,8 @@ class CycleAnalyzer:
             inlet_recovery: Inlet total pressure recovery factor.
             burner_eta: Combustion efficiency.
             burner_dp_frac: Burner total pressure drop fraction.
+            nozzle_dp_frac: Core nozzle total pressure drop fraction. The bypass
+                nozzle uses BYPASS_NOZZLE_DP_RATIO of this value.
             mixed_exhaust: Whether core and bypass streams are mixed.
             phi_inlet: Inlet spillage/drag fraction.
             eta_install_nozzle: Nozzle installation efficiency.
@@ -448,7 +460,7 @@ class CycleAnalyzer:
             
             if ab_enabled:
                 tt9_in = ab_temp
-                pt9_in = pt_mix * 0.95
+                pt9_in = pt_mix * (1.0 - nozzle_dp_frac - AB_EXTRA_DP_FRAC)
                 _, cp7, mw7 = get_gas_props(tt9_in, pt9_in, f=(f/m_total)+0.05)
                 f_ab = (m_total * cp7 * (ab_temp - tt_mix)) / (eta_ab * h_fuel)
                 f_ab = max(f_ab, 0.0)
@@ -489,11 +501,11 @@ class CycleAnalyzer:
         else:
             # Separate streams
             # Core Nozzle (9)
-            pt9_in = pt5 * 0.98
+            pt9_in = pt5 * (1.0 - nozzle_dp_frac)
             gn_c, cpn_c, mwn_c = get_gas_props(tt5, pt9_in, f=f)
             v9, ps9, ts9, m9 = self._nozzle_exit(pt9_in, tt5, self.p0, gn_c, ct.gas_constant/mwn_c)
             # Bypass Nozzle (19)
-            pt19_in = pt21 * 0.99
+            pt19_in = pt21 * (1.0 - nozzle_dp_frac * BYPASS_NOZZLE_DP_RATIO)
             gn_b, cpn_b, mwn_b = get_gas_props(tt21, pt19_in)
             v19, ps19, ts19, m19 = self._nozzle_exit(pt19_in, tt21, self.p0, gn_b, ct.gas_constant/mwn_b)
             
@@ -542,6 +554,7 @@ class CycleAnalyzer:
         eta_mech_hp: float = 0.99,
         eta_mech_lp: float = 0.99,
         h_fuel: float = 42.8e6,
+        nozzle_dp_frac: float = 0.02,
     ) -> dict:
         """
         High-fidelity multi-spool turbofan cycle with iterative HP/LP work matching.
@@ -559,6 +572,8 @@ class CycleAnalyzer:
             eta_fan/lpc/hpc/hpt/lpt: Polytropic efficiencies.
             eta_mech_hp/lp: Spool mechanical efficiencies.
             h_fuel: Fuel Lower Heating Value [J/kg].
+            nozzle_dp_frac: Core nozzle total pressure drop fraction. The bypass
+                nozzle uses BYPASS_NOZZLE_DP_RATIO of this value.
 
         Returns:
             dict with spec_thrust, tsfc, eta_thermal, eta_propulsive, station data.
@@ -659,11 +674,11 @@ class CycleAnalyzer:
         # ── Station 9 / 19: Separate nozzles ─────────────────────────────
         v0 = self.m0 * math.sqrt(g2 * R_AIR * self.t0)
 
-        pt9_in = pt5 * 0.98
+        pt9_in = pt5 * (1.0 - nozzle_dp_frac)
         gn_c, cpn_c, mwn_c = get_gas_props(tt5, pt9_in, f=f)
         v9, ps9, ts9, m9 = self._nozzle_exit(pt9_in, tt5, self.p0, gn_c, ct.gas_constant / mwn_c)
 
-        pt19_in = pt21 * 0.99
+        pt19_in = pt21 * (1.0 - nozzle_dp_frac * BYPASS_NOZZLE_DP_RATIO)
         gn_b, cpn_b, mwn_b = get_gas_props(tt21, pt19_in)
         v19, ps19, ts19, m19 = self._nozzle_exit(pt19_in, tt21, self.p0, gn_b, ct.gas_constant / mwn_b)
 

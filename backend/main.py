@@ -287,6 +287,7 @@ async def analyze_turbofan(request: TurbofanRequest):
             inlet_recovery=request.inlet_recovery,
             burner_eta=request.burner_eta,
             burner_dp_frac=request.burner_dp_frac,
+            nozzle_dp_frac=request.nozzle_dp_frac,
             phi_inlet=request.phi_inlet,
             eta_install_nozzle=request.eta_install_nozzle,
             mixed_exhaust=request.mixed_exhaust,
@@ -640,7 +641,6 @@ async def analyze_rocket_moc(request: MoCRequest):
 @app.post("/analyze/rocket/export/stl")
 async def export_rocket_stl(request: MoCRequest):
     try:
-        from fastapi.responses import PlainTextResponse
         designer = MoCNozzle(request.gamma, request.mach_exit, request.throat_radius)
         stl_text = designer.generate_stl_mesh()
         return PlainTextResponse(
@@ -659,7 +659,6 @@ async def export_rocket_csv(request: MoCRequest):
     Returns (X [m], R [m]) coordinate pairs for CFD meshing or CAD import.
     """
     try:
-        from fastapi.responses import PlainTextResponse
         designer = MoCNozzle(request.gamma, request.mach_exit, request.throat_radius)
         x_vals, y_vals = designer.solve_contour()
 
@@ -790,6 +789,7 @@ class MultispoolRequest(BaseModel):
     fpr:    float = Field(3.5,   ge=1.1, le=6.0)
     lpc_pr: float = Field(4.0,   ge=1.0, le=10.0)
     tit:    float = Field(1850.0, ge=800, le=2500)
+    nozzle_dp_frac: float = Field(0.02, ge=0.0, le=0.10)
 
 
 @app.post("/analyze/cycle/multispool")
@@ -809,6 +809,7 @@ async def analyze_multispool(request: MultispoolRequest):
             fpr=request.fpr,
             lpc_pr=request.lpc_pr,
             tit=request.tit,
+            nozzle_dp_frac=request.nozzle_dp_frac,
         )
         return _sanitize(result)
     except Exception as e:
