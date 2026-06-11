@@ -1,0 +1,13 @@
+[tool.pytest.ini_options]
+# Make the repo root importable so `core` and `backend` resolve without the
+# per-file sys.path manipulation that the test modules currently fall back to.
+pythonpath = ["."]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-ra"
+filterwarnings = [
+    # Cantera/numpy emit deprecation noise that is not actionable here.
+    "ignore::DeprecationWarning",
+]

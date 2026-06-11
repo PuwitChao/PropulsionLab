@@ -91,6 +91,8 @@ class MissionAnalyzer:
                     val = self.tw_takeoff(ws, c['sto'], c['cl_max'])
                 elif ctype == 'ceiling':
                     val = self.tw_service_ceiling(ws, c['alt'], c['mach'])
+                elif ctype == 'climb':
+                    val = self.tw_climb(ws, c['alt'], c['mach'], c['angle_deg'])
                 else:
                     val = 0
                 values.append(val)
