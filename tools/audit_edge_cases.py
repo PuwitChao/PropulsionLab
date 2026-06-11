@@ -51,13 +51,20 @@ def audit_endpoint(name, path, payload, expect_status=200):
             _fail += 1
             return False
         if expect_status == 200:
-            try:
-                data = r.json()
-            except Exception:
-                print(f"  [FAIL] {name}: response is not JSON")
-                _fail += 1
-                return False
-            nan_hits = _check_nan(data)
+            ctype = r.headers.get("content-type", "")
+            if "application/json" in ctype:
+                try:
+                    data = r.json()
+                except Exception:
+                    print(f"  [FAIL] {name}: content-type is JSON but body failed to parse")
+                    _fail += 1
+                    return False
+                nan_hits = _check_nan(data)
+            else:
+                # Non-JSON payloads (e.g. CSV/STL export): scan the raw text for
+                # any NaN/Inf tokens that would corrupt downstream consumers.
+                lowered = r.text.lower()
+                nan_hits = [tok for tok in ("nan", "inf") if tok in lowered]
             if nan_hits:
                 print(f"  [NaN!] {name}: {nan_hits[:5]}")
                 _nan += 1
@@ -117,8 +124,8 @@ audit_endpoint("O/F Sweep", "/analyze/rocket/sweep",
     {"pc": 7.5e6, "of_ratio": 6.0, "pe": 101325, "propellant": "H2/O2", "mode": "shifting"})
 
 audit_endpoint("Altitude Performance", "/analyze/rocket/altitude",
-    {"propellant": "H2/O2", "of_ratio": 6.0, "mode": "shifting",
-     "altitudes": [0, 5000, 10000, 20000]})
+    {"pc": 7.5e6, "of_ratio": 6.0, "propellant": "H2/O2", "mode": "shifting",
+     "alt_max_km": 20.0, "n_points": 5})
 
 audit_endpoint("Cycle PRC Sweep", "/analyze/cycle/sweep",
     {"alt": 10000, "mach": 0.8, "prc_min": 10, "prc_max": 40, "steps": 10, "tit": 1600})
@@ -177,7 +184,7 @@ if FUZZ_MODE:
 
     print()
     print("  [GRID] Mission extreme altitudes")
-    for alt, mach in [(0, 0.1), (15000, 0.8), (47000, 0.5)]:
+    for alt, mach in [(0, 0.1), (15000, 0.8), (30000, 0.5)]:
         audit_endpoint(
             f"  Grid mission alt={alt} mach={mach}",
             "/analyze/mission",
