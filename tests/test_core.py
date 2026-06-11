@@ -8,6 +8,7 @@ Run with: python -m pytest tests/ -v
 import pytest
 import sys
 import os
+import math
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -214,6 +215,42 @@ def test_moc_contour_monotonic():
     for i in range(1, len(x_vals)):
         assert x_vals[i] >= x_vals[i - 1], \
             f"X not monotonic at index {i}: {x_vals[i-1]} -> {x_vals[i]}"
+
+
+def test_moc_exit_area_ratio_matches_isentropic():
+    """The MoC exit radius must reproduce the isentropic area-Mach relation.
+
+    For an axisymmetric nozzle Ae/At = (re/rt)^2, and Ae/At is fixed by the
+    design exit Mach number via the isentropic area ratio. This guards the
+    Method-of-Characteristics solution against contour-shape regressions.
+    """
+    def area_ratio(M, g):
+        return (1.0 / M) * ((2.0 / (g + 1.0)) * (1.0 + (g - 1.0) / 2.0 * M * M)) \
+            ** ((g + 1.0) / (2.0 * (g - 1.0)))
+
+    for me, g in [(2.0, 1.4), (3.0, 1.2), (4.0, 1.25)]:
+        designer = MoCNozzle(gamma=g, mach_exit=me, throat_radius=0.1)
+        _, r_vals = designer.solve_contour(subdivisions=60)
+        expected_re = 0.1 * math.sqrt(area_ratio(me, g))
+        rel_err = abs(r_vals[-1] - expected_re) / expected_re
+        assert rel_err < 0.02, (
+            f"Me={me}, g={g}: exit radius {r_vals[-1]:.5f} vs expected "
+            f"{expected_re:.5f} (err {rel_err*100:.2f}%)"
+        )
+        # Wall starts at the throat radius.
+        assert abs(r_vals[0] - 0.1) < 1e-6
+
+
+def test_moc_planar_height_ratio():
+    """Planar minimum-length nozzle height ratio matches A/A* (no revolve)."""
+    def area_ratio(M, g):
+        return (1.0 / M) * ((2.0 / (g + 1.0)) * (1.0 + (g - 1.0) / 2.0 * M * M)) \
+            ** ((g + 1.0) / (2.0 * (g - 1.0)))
+
+    designer = MoCNozzle(gamma=1.4, mach_exit=2.4, throat_radius=1.0, axisymmetric=False)
+    _, h_vals = designer.solve_contour(subdivisions=80)
+    rel_err = abs(h_vals[-1] - area_ratio(2.4, 1.4)) / area_ratio(2.4, 1.4)
+    assert rel_err < 0.02, f"planar height ratio err {rel_err*100:.2f}%"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
