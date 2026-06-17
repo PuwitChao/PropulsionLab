@@ -7,6 +7,7 @@ import RocketAnalysis from './pages/RocketAnalysis'
 import PerformanceMap from './pages/PerformanceMap'
 import Settings from './pages/Settings'
 import Diagnostics from './pages/Diagnostics'
+import ErrorBoundary from './components/ErrorBoundary'
 
 // ── Nav items ────────────────────────────────────────────────────────────────
 const navItems = [
@@ -151,7 +152,9 @@ function App() {
       {/* ── Main Content Area ──────────────────────────────────────────── */}
       <main className="app-main ml-[280px] mt-20 p-16 w-[calc(100%-280px)] h-[calc(100vh-80px)] overflow-y-auto scrollbar-hide grid-bg">
         <div className="max-w-[1400px] mx-auto">
-            {renderContent()}
+            <ErrorBoundary key={activeTab}>
+                {renderContent()}
+            </ErrorBoundary>
         </div>
       </main>
 
@@ -245,10 +248,10 @@ function Dashboard({ status, onNavigate }) {
             <div className="space-y-8">
                 <h4 className="text-[11px] font-black text-white/20 tracking-[0.3em] mb-6">DOCUMENTATION</h4>
                 <div className="flex flex-col gap-4">
-                    <a href="https://github.com/PuwitChao/PropulsionLab/blob/main/DOCUMENTATION.md" target="_blank" rel="noreferrer" className="text-[12px] font-mono text-white/60 hover:text-white transition-all flex items-center gap-3">
+                    <a href="https://github.com/PuwitChao/PropulsionLab/blob/main/docs/DOCUMENTATION.md" target="_blank" rel="noreferrer" className="text-[12px] font-mono text-white/60 hover:text-white transition-all flex items-center gap-3">
                         <div className="w-1.5 h-1.5 bg-white/20"></div> USER_GUIDE.MD
                     </a>
-                    <a href="https://github.com/PuwitChao/PropulsionLab/blob/main/ARCHITECTURE_WIKI.md" target="_blank" rel="noreferrer" className="text-[12px] font-mono text-white/60 hover:text-white transition-all flex items-center gap-3">
+                    <a href="https://github.com/PuwitChao/PropulsionLab/blob/main/docs/ARCHITECTURE_WIKI.md" target="_blank" rel="noreferrer" className="text-[12px] font-mono text-white/60 hover:text-white transition-all flex items-center gap-3">
                          <div className="w-1.5 h-1.5 bg-white/20"></div> ARCHITECTURE_WIKI.MD
                     </a>
                 </div>

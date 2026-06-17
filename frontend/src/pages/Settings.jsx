@@ -36,13 +36,19 @@ export default function Settings() {
           version: d.version || '2.2.0',
           cantera: d.cantera_version || '3.0.x'
       }))
-      .catch(() => setVersionInfo({ version: 'Unavailable', cantera: 'Unavailable' }))
+      .catch((e) => {
+        console.error('Version fetch failed:', e)
+        setVersionInfo({ version: 'Unavailable', cantera: 'Unavailable' })
+      })
 
     // Check health
     fetch(`${API_BASE_URL}/health`)
       .then(r => r.json())
       .then(d => setApiStatus(d.status === 'healthy' ? 'HEALTHY' : 'DEGRADED'))
-      .catch(() => setApiStatus('OFFLINE'))
+      .catch((e) => {
+        console.error('Health check failed:', e)
+        setApiStatus('OFFLINE')
+      })
 
     // Live session clock
     const start = parseInt(sessionStorage.getItem('session_start') || Date.now())

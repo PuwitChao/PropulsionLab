@@ -10,6 +10,8 @@ import { useSettings } from '../context/SettingsContext'
 import HelpTooltip from '../components/HelpTooltip'
 import { getLayout } from '../utils/chartUtils'
 import usePersistentState from '../hooks/usePersistentState'
+import useJsonScenario from '../hooks/useJsonScenario'
+import ErrorBanner from '../components/ErrorBanner'
 
 // ── MoC Nozzle Visualization ──────────────────────────────────────────────────
 
@@ -178,13 +180,13 @@ function MocVisualization({ mocData, loading, onExportCSV, onExportSTL, exportLo
           </button>
           <div className="w-[1px] h-10 bg-white/10 my-auto mx-4"></div>
           <button
-            onClick={() => setViewMode('2D')} title="2D MESH VIEW"
+            onClick={() => setViewMode('2D')} title="2D MESH VIEW" aria-label="2D mesh view"
             className={`w-14 h-14 border border-white/10 flex items-center justify-center transition-all ${viewMode === '2D' ? 'bg-white text-black' : 'text-white/60 hover:bg-white/5'}`}
           >
             <span className="material-symbols-outlined !text-[20px]">grid_4x4</span>
           </button>
           <button
-            onClick={() => setViewMode('3D')} title="3D SPATIAL VIEW"
+            onClick={() => setViewMode('3D')} title="3D SPATIAL VIEW" aria-label="3D spatial view"
             className={`w-14 h-14 border border-white/10 flex items-center justify-center transition-all ${viewMode === '3D' ? 'bg-white text-black' : 'text-white/60 hover:bg-white/5'}`}
           >
             <span className="material-symbols-outlined !text-[20px]">3d_rotation</span>
@@ -208,17 +210,11 @@ export default function RocketAnalysis() {
         propellant: 'H2/O2', mode: 'shifting',
         thrust_target_N: 500000
     })
-    const exportScenario = () => {
-        const blob = new Blob([JSON.stringify({ params }, null, 2)], { type: 'application/json' })
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
-        a.download = 'rocket_scenario.json'; a.click()
-    }
-    const importScenario = (e) => {
-        const file = e.target.files?.[0]; if (!file) return
-        const reader = new FileReader()
-        reader.onload = (evt) => { try { const d = JSON.parse(evt.target.result); if (d.params) setParams(prev => ({ ...prev, ...d.params })) } catch { /* invalid JSON */ } }
-        reader.readAsText(file); e.target.value = ''
-    }
+    const { exportScenario, importScenario } = useJsonScenario({
+        filename: 'rocket_scenario.json',
+        data: { params },
+        onImport: (d) => { if (d.params) setParams(prev => ({ ...prev, ...d.params })) },
+    })
     const [mocData, setMocData] = useState(null)
     const [exportLoading, setExportLoading] = useState(null) // 'csv' | 'stl' | null
     const [toast, setToast] = useState(null)
@@ -424,12 +420,7 @@ export default function RocketAnalysis() {
             </div>
 
             {/* Error Banner */}
-            {activeView === 'design' && error && !loading && (
-                <div className="warning-panel px-12 py-8 flex items-center gap-8">
-                    <span className="material-symbols-outlined warning-text !text-[22px] shrink-0">error_outline</span>
-                    <p className="mono text-[11px] warning-text uppercase tracking-widest leading-relaxed">{error}</p>
-                </div>
-            )}
+            {activeView === 'design' && !loading && <ErrorBanner error={error} onRetry={runAnalysis} />}
 
             {activeView === 'design' && <div className="grid grid-cols-12 gap-12">
                 {/* Left Col: Params */}

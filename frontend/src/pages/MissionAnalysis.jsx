@@ -9,6 +9,8 @@ import SliderControl from '../components/SliderControl'
 import { useSettings } from '../context/SettingsContext'
 import { getLayout } from '../utils/chartUtils'
 import usePersistentState from '../hooks/usePersistentState'
+import useJsonScenario from '../hooks/useJsonScenario'
+import ErrorBanner from '../components/ErrorBanner'
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -19,17 +21,11 @@ export default function MissionAnalysis() {
     const [data, setData] = useState(null)
     const [error, setError] = useState(null)
     const [aircraftData, setAircraftData] = usePersistentState('mission_aircraft_data', { k: 0.1, cd0: 0.02, cl_max: 2.0 })
-    const exportScenario = () => {
-        const blob = new Blob([JSON.stringify({ aircraftData }, null, 2)], { type: 'application/json' })
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
-        a.download = 'mission_scenario.json'; a.click()
-    }
-    const importScenario = (e) => {
-        const file = e.target.files?.[0]; if (!file) return
-        const reader = new FileReader()
-        reader.onload = (evt) => { try { const d = JSON.parse(evt.target.result); if (d.aircraftData) setAircraftData(prev => ({ ...prev, ...d.aircraftData })) } catch { /* invalid JSON */ } }
-        reader.readAsText(file); e.target.value = ''
-    }
+    const { exportScenario, importScenario } = useJsonScenario({
+        filename: 'mission_scenario.json',
+        data: { aircraftData },
+        onImport: (d) => { if (d.aircraftData) setAircraftData(prev => ({ ...prev, ...d.aircraftData })) },
+    })
 
     const runAnalysis = useCallback(async () => {
         setLoading(true)
@@ -131,12 +127,7 @@ export default function MissionAnalysis() {
             </div>
 
             {/* Error Banner */}
-            {error && !loading && (
-                <div className="warning-panel px-12 py-8 flex items-center gap-8">
-                    <span className="material-symbols-outlined warning-text !text-[22px] shrink-0">error_outline</span>
-                    <p className="mono text-[11px] warning-text uppercase tracking-widest">{error}</p>
-                </div>
-            )}
+            {!loading && <ErrorBanner error={error} onRetry={runAnalysis} />}
 
             <div className="grid grid-cols-12 gap-12">
                 {/* Aircraft Configuration */}

@@ -8,6 +8,7 @@ import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
 import { useSettings } from '../context/SettingsContext'
 import usePersistentState from '../hooks/usePersistentState'
+import useJsonScenario from '../hooks/useJsonScenario'
 
 // ── Station Blueprint Diagram ─────────────────────────────────────────────────
 
@@ -197,17 +198,11 @@ export default function ParametricCycle() {
     inlet_recovery: 0.98, phi_inlet: 0.0, eta_install_nozzle: 1.0,
     ab_enabled: false, ab_temp: 2000
   })
-  const exportScenario = () => {
-    const blob = new Blob([JSON.stringify({ engine: activeEngine, params: p }, null, 2)], { type: 'application/json' })
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
-    a.download = 'cycle_scenario.json'; a.click()
-  }
-  const importScenario = (e) => {
-    const file = e.target.files?.[0]; if (!file) return
-    const reader = new FileReader()
-    reader.onload = (evt) => { try { const d = JSON.parse(evt.target.result); if (d.params) setP(prev => ({ ...prev, ...d.params })) } catch { /* invalid JSON */ } }
-    reader.readAsText(file); e.target.value = ''
-  }
+  const { exportScenario, importScenario } = useJsonScenario({
+    filename: 'cycle_scenario.json',
+    data: { engine: activeEngine, params: p },
+    onImport: (d) => { if (d.params) setP(prev => ({ ...prev, ...d.params })) },
+  })
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
