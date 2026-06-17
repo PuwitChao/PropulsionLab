@@ -8,6 +8,9 @@ import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
 import { useSettings } from '../context/SettingsContext'
 import usePersistentState from '../hooks/usePersistentState'
+import useJsonScenario from '../hooks/useJsonScenario'
+import ErrorBanner from '../components/ErrorBanner'
+import ChartPlaceholder from '../components/ChartPlaceholder'
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -25,6 +28,12 @@ export default function PerformanceMap() {
         mach: 0.0,
         prc: 20,
         tit: 1550,
+    })
+
+    const { exportScenario, importScenario } = useJsonScenario({
+        filename: 'perf_map_scenario.json',
+        data: { params: dpParams },
+        onImport: (d) => { if (d.params) setDpParams(prev => ({ ...prev, ...d.params })) },
     })
 
     // Compute surge margin from the lowest-throttle operating point vs design point
@@ -124,13 +133,7 @@ export default function PerformanceMap() {
         return traces
     }
 
-    const chartPlaceholder = (msg) => (
-        <div className="w-full h-full flex items-center justify-center">
-            <div className={`text-white/10 uppercase tracking-[0.5em] text-[13px] font-black ${loading ? 'animate-pulse' : ''}`}>
-                {msg}
-            </div>
-        </div>
-    )
+    const chartPlaceholder = (msg) => <ChartPlaceholder loading={loading} message={msg} />
 
     return (
         <div className="space-y-16 animate-in pb-20">
@@ -151,12 +154,7 @@ export default function PerformanceMap() {
             </div>
 
             {/* Error Banner */}
-            {error && !loading && (
-                <div className="warning-panel px-12 py-8 flex items-center gap-8">
-                    <span className="material-symbols-outlined warning-text !text-[22px] shrink-0">error_outline</span>
-                    <p className="mono text-[11px] warning-text uppercase tracking-widest">{error}</p>
-                </div>
-            )}
+            {!loading && <ErrorBanner error={error} onRetry={runAnalysis} />}
 
             <div className="grid grid-cols-12 gap-12">
                 {/* Parameters Sidebar */}
@@ -178,12 +176,12 @@ export default function PerformanceMap() {
                         {loading ? 'COMPUTING...' : 'RECALIBRATE_ENGINE_MAP'}
                    </button>
                    <div className="grid grid-cols-2 gap-4">
-                        <button onClick={() => { const blob = new Blob([JSON.stringify({ params: dpParams }, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'perf_map_scenario.json'; a.click() }} className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors">
+                        <button onClick={exportScenario} className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors">
                             EXPORT_JSON
                         </button>
                         <label className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors text-center cursor-pointer">
                             IMPORT_JSON
-                            <input type="file" accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = (ev) => { try { const d = JSON.parse(ev.target.result); if (d.params) setDpParams(prev => ({ ...prev, ...d.params })) } catch { /* invalid JSON */ } }; r.readAsText(f); e.target.value = '' }} />
+                            <input type="file" accept=".json" className="hidden" onChange={importScenario} />
                         </label>
                     </div>
                 </section>
