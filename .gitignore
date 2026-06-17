@@ -26,6 +26,7 @@ frontend/build/
 .gemini/
 brain/
 tmp/
+to-be-deleted/
 *.img
 *.png
 *.webp
