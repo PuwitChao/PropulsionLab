@@ -42,7 +42,7 @@ def _check_nan(obj, path=""):
     return []
 
 
-def audit_endpoint(name, path, payload, expect_status=200):
+def audit_endpoint(name, path, payload, expect_status=200, expect_json=True):
     global _pass, _fail, _nan
     try:
         r = requests.post(f"{BASE_URL}{path}", json=payload, timeout=30)
@@ -50,7 +50,7 @@ def audit_endpoint(name, path, payload, expect_status=200):
             print(f"  [FAIL] {name}: expected {expect_status}, got {r.status_code} — {r.text[:120]}")
             _fail += 1
             return False
-        if expect_status == 200:
+        if expect_status == 200 and expect_json:
             try:
                 data = r.json()
             except Exception:
@@ -63,6 +63,11 @@ def audit_endpoint(name, path, payload, expect_status=200):
                 _nan += 1
                 _fail += 1
                 return False
+        elif expect_status == 200 and not r.text.strip():
+            # Non-JSON endpoint (e.g. CSV/STL export): require a non-empty body.
+            print(f"  [FAIL] {name}: empty response body")
+            _fail += 1
+            return False
         print(f"  [PASS] {name}")
         _pass += 1
         return True
@@ -111,14 +116,14 @@ audit_endpoint("MoC Nozzle Contour", "/analyze/rocket/moc",
     {"gamma": 1.2, "mach_exit": 3.0, "throat_radius": 0.05})
 
 audit_endpoint("CSV Export", "/analyze/rocket/export/csv",
-    {"gamma": 1.2, "mach_exit": 3.0, "throat_radius": 0.05})
+    {"gamma": 1.2, "mach_exit": 3.0, "throat_radius": 0.05}, expect_json=False)
 
 audit_endpoint("O/F Sweep", "/analyze/rocket/sweep",
     {"pc": 7.5e6, "of_ratio": 6.0, "pe": 101325, "propellant": "H2/O2", "mode": "shifting"})
 
 audit_endpoint("Altitude Performance", "/analyze/rocket/altitude",
-    {"propellant": "H2/O2", "of_ratio": 6.0, "mode": "shifting",
-     "altitudes": [0, 5000, 10000, 20000]})
+    {"pc": 7.5e6, "of_ratio": 6.0, "propellant": "H2/O2", "mode": "shifting",
+     "alt_max_km": 100.0, "n_points": 10})
 
 audit_endpoint("Cycle PRC Sweep", "/analyze/cycle/sweep",
     {"alt": 10000, "mach": 0.8, "prc_min": 10, "prc_max": 40, "steps": 10, "tit": 1600})

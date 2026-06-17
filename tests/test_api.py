@@ -266,6 +266,18 @@ def test_turbofan_cruise_tsfc_benchmark():
     assert tsfc < 2.5e-5, f"Turbofan cruise TSFC too high: {tsfc:.6f} kg/N/s"
 
 
+def test_turbofan_nozzle_dp_frac_affects_output():
+    """nozzle_dp_frac is now wired through the turbofan solver (was silently ignored).
+    Higher nozzle pressure loss must reduce specific thrust."""
+    low_loss  = dict(_TURBOFAN_PAYLOAD, nozzle_dp_frac=0.0)
+    high_loss = dict(_TURBOFAN_PAYLOAD, nozzle_dp_frac=0.10)
+    st_low  = client.post("/analyze/cycle/turbofan", json=low_loss).json()["spec_thrust"]
+    st_high = client.post("/analyze/cycle/turbofan", json=high_loss).json()["spec_thrust"]
+    assert st_low > st_high, (
+        f"nozzle_dp_frac had no effect on turbofan: {st_low} vs {st_high}"
+    )
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Gas Turbine — Sweeps and Sensitivity
 # ══════════════════════════════════════════════════════════════════════════════

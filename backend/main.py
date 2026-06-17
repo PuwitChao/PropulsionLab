@@ -31,7 +31,7 @@ Core dependencies: Cantera (Equilibrium), FastAPI (REST), Pydantic (Validation).
 import os, sys
 from typing import List, Dict, Any, Optional
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from pydantic import model_validator, field_validator
 
@@ -45,7 +45,7 @@ logger = logging.getLogger("propulsion-api")
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
@@ -287,6 +287,7 @@ async def analyze_turbofan(request: TurbofanRequest):
             inlet_recovery=request.inlet_recovery,
             burner_eta=request.burner_eta,
             burner_dp_frac=request.burner_dp_frac,
+            nozzle_dp_frac=request.nozzle_dp_frac,
             phi_inlet=request.phi_inlet,
             eta_install_nozzle=request.eta_install_nozzle,
             mixed_exhaust=request.mixed_exhaust,
@@ -632,7 +633,7 @@ async def analyze_rocket_moc(request: MoCRequest):
         designer = MoCNozzle(request.gamma, request.mach_exit, request.throat_radius)
         x, y     = designer.solve_contour()
         mesh     = designer.get_mesh_data()
-        return {"x": x, "y": y, "mesh": mesh}
+        return _sanitize({"x": x, "y": y, "mesh": mesh})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -640,7 +641,6 @@ async def analyze_rocket_moc(request: MoCRequest):
 @app.post("/analyze/rocket/export/stl")
 async def export_rocket_stl(request: MoCRequest):
     try:
-        from fastapi.responses import PlainTextResponse
         designer = MoCNozzle(request.gamma, request.mach_exit, request.throat_radius)
         stl_text = designer.generate_stl_mesh()
         return PlainTextResponse(
@@ -659,11 +659,9 @@ async def export_rocket_csv(request: MoCRequest):
     Returns (X [m], R [m]) coordinate pairs for CFD meshing or CAD import.
     """
     try:
-        from fastapi.responses import PlainTextResponse
         designer = MoCNozzle(request.gamma, request.mach_exit, request.throat_radius)
         x_vals, y_vals = designer.solve_contour()
 
-        from datetime import timezone
         # Rich metadata header: tools (Excel, MATLAB, pandas, numpy.loadtxt) all
         # accept comment lines starting with '#'. Provides timestamp + design
         # params + solver version so exported files are self-describing.
