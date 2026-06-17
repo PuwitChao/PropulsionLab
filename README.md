@@ -72,9 +72,9 @@
 
 ## Documentation & Wiki
 
-Detailed technical methodology and system architecture are available in the repository:
-- [User Documentation Guide](DOCUMENTATION.md)
-- [Technical Architecture Wiki](ARCHITECTURE_WIKI.md)
+Detailed technical methodology and system architecture are available in the [`docs/`](docs/) directory ([index](docs/README.md)):
+- [User Documentation Guide](docs/DOCUMENTATION.md)
+- [Technical Architecture Wiki](docs/ARCHITECTURE_WIKI.md)
 
 ---
 

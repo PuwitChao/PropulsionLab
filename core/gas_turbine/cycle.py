@@ -315,6 +315,7 @@ class CycleAnalyzer:
         inlet_recovery: float = 0.98,
         burner_eta: float     = 0.99,
         burner_dp_frac: float = 0.04,
+        nozzle_dp_frac: float = 0.02,
         mixed_exhaust: bool   = False,
         phi_inlet: float = 0.0,
         eta_install_nozzle: float = 1.0,
@@ -340,6 +341,7 @@ class CycleAnalyzer:
             inlet_recovery: Inlet total pressure recovery factor.
             burner_eta: Combustion efficiency.
             burner_dp_frac: Burner total pressure drop fraction.
+            nozzle_dp_frac: Nozzle total pressure drop fraction (core; bypass uses half).
             mixed_exhaust: Whether core and bypass streams are mixed.
             phi_inlet: Inlet spillage/drag fraction.
             eta_install_nozzle: Nozzle installation efficiency.
@@ -489,11 +491,11 @@ class CycleAnalyzer:
         else:
             # Separate streams
             # Core Nozzle (9)
-            pt9_in = pt5 * 0.98
+            pt9_in = pt5 * (1.0 - nozzle_dp_frac)
             gn_c, cpn_c, mwn_c = get_gas_props(tt5, pt9_in, f=f)
             v9, ps9, ts9, m9 = self._nozzle_exit(pt9_in, tt5, self.p0, gn_c, ct.gas_constant/mwn_c)
-            # Bypass Nozzle (19)
-            pt19_in = pt21 * 0.99
+            # Bypass Nozzle (19) - shorter duct, proportionally lower loss
+            pt19_in = pt21 * (1.0 - nozzle_dp_frac * 0.5)
             gn_b, cpn_b, mwn_b = get_gas_props(tt21, pt19_in)
             v19, ps19, ts19, m19 = self._nozzle_exit(pt19_in, tt21, self.p0, gn_b, ct.gas_constant/mwn_b)
             
@@ -542,6 +544,7 @@ class CycleAnalyzer:
         eta_mech_hp: float = 0.99,
         eta_mech_lp: float = 0.99,
         h_fuel: float = 42.8e6,
+        nozzle_dp_frac: float = 0.02,
     ) -> dict:
         """
         High-fidelity multi-spool turbofan cycle with iterative HP/LP work matching.
@@ -559,6 +562,7 @@ class CycleAnalyzer:
             eta_fan/lpc/hpc/hpt/lpt: Polytropic efficiencies.
             eta_mech_hp/lp: Spool mechanical efficiencies.
             h_fuel: Fuel Lower Heating Value [J/kg].
+            nozzle_dp_frac: Nozzle total pressure drop fraction (core; bypass uses half).
 
         Returns:
             dict with spec_thrust, tsfc, eta_thermal, eta_propulsive, station data.
@@ -659,11 +663,11 @@ class CycleAnalyzer:
         # ── Station 9 / 19: Separate nozzles ─────────────────────────────
         v0 = self.m0 * math.sqrt(g2 * R_AIR * self.t0)
 
-        pt9_in = pt5 * 0.98
+        pt9_in = pt5 * (1.0 - nozzle_dp_frac)
         gn_c, cpn_c, mwn_c = get_gas_props(tt5, pt9_in, f=f)
         v9, ps9, ts9, m9 = self._nozzle_exit(pt9_in, tt5, self.p0, gn_c, ct.gas_constant / mwn_c)
 
-        pt19_in = pt21 * 0.99
+        pt19_in = pt21 * (1.0 - nozzle_dp_frac * 0.5)
         gn_b, cpn_b, mwn_b = get_gas_props(tt21, pt19_in)
         v19, ps19, ts19, m19 = self._nozzle_exit(pt19_in, tt21, self.p0, gn_b, ct.gas_constant / mwn_b)
 
