@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import API_BASE_URL from './api'
 import './index.css'
-import MissionAnalysis from './pages/MissionAnalysis'
-import ParametricCycle from './pages/ParametricCycle'
-import RocketAnalysis from './pages/RocketAnalysis'
-import PerformanceMap from './pages/PerformanceMap'
-import Settings from './pages/Settings'
-import Diagnostics from './pages/Diagnostics'
 import ErrorBoundary from './components/ErrorBoundary'
+
+// Page bundles are loaded on demand. The analysis pages each pull in Plotly
+// (~4.9 MB), so route-level code splitting keeps it out of the initial shell
+// and only fetches it when a chart page is actually opened.
+const MissionAnalysis = lazy(() => import('./pages/MissionAnalysis'))
+const ParametricCycle = lazy(() => import('./pages/ParametricCycle'))
+const RocketAnalysis = lazy(() => import('./pages/RocketAnalysis'))
+const PerformanceMap = lazy(() => import('./pages/PerformanceMap'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Diagnostics = lazy(() => import('./pages/Diagnostics'))
 
 // ── Nav items ────────────────────────────────────────────────────────────────
 const navItems = [
@@ -65,7 +69,7 @@ function App() {
     return () => clearInterval(interval)
   }, [])
 
-  const renderContent = () => {
+  const renderPage = () => {
     switch (activeTab) {
       case 'on-design': return <ParametricCycle />
       case 'off-design': return <PerformanceMap />
@@ -76,6 +80,16 @@ function App() {
       default: return <Dashboard status={backendStatus} onNavigate={setActiveTab} />
     }
   }
+
+  const renderContent = () => (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64 text-xs uppercase tracking-widest opacity-60">
+        Loading module...
+      </div>
+    }>
+      {renderPage()}
+    </Suspense>
+  )
 
   return (
     <div className="app-shell flex w-full min-h-screen bg-surface selection:bg-white selection:text-black">

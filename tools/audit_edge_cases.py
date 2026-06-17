@@ -50,14 +50,21 @@ def audit_endpoint(name, path, payload, expect_status=200, expect_json=True):
             print(f"  [FAIL] {name}: expected {expect_status}, got {r.status_code} — {r.text[:120]}")
             _fail += 1
             return False
-        if expect_status == 200 and expect_json:
-            try:
-                data = r.json()
-            except Exception:
-                print(f"  [FAIL] {name}: response is not JSON")
-                _fail += 1
-                return False
-            nan_hits = _check_nan(data)
+        if expect_status == 200:
+            ctype = r.headers.get("content-type", "")
+            if "application/json" in ctype:
+                try:
+                    data = r.json()
+                except Exception:
+                    print(f"  [FAIL] {name}: content-type is JSON but body failed to parse")
+                    _fail += 1
+                    return False
+                nan_hits = _check_nan(data)
+            else:
+                # Non-JSON payloads (e.g. CSV/STL export): scan the raw text for
+                # any NaN/Inf tokens that would corrupt downstream consumers.
+                lowered = r.text.lower()
+                nan_hits = [tok for tok in ("nan", "inf") if tok in lowered]
             if nan_hits:
                 print(f"  [NaN!] {name}: {nan_hits[:5]}")
                 _nan += 1
@@ -182,7 +189,7 @@ if FUZZ_MODE:
 
     print()
     print("  [GRID] Mission extreme altitudes")
-    for alt, mach in [(0, 0.1), (15000, 0.8), (47000, 0.5)]:
+    for alt, mach in [(0, 0.1), (15000, 0.8), (30000, 0.5)]:
         audit_endpoint(
             f"  Grid mission alt={alt} mach={mach}",
             "/analyze/mission",

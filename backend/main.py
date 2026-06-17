@@ -173,10 +173,44 @@ class AircraftData(BaseModel):
     cl_max: float = Field(2.0,  ge=0.5,  le=5.0,  description="Max lift coefficient")
 
 
+class MissionConstraint(BaseModel):
+    """A single T/W-vs-W/S constraint curve.
+
+    `type` selects the governing equation; the remaining fields are the
+    inputs that equation needs. Declaring them here means malformed
+    constraints are rejected with a 422 rather than raising a KeyError
+    (HTTP 500) deep inside the analyzer.
+    """
+    type:      str = Field(..., pattern="^(level|ps|turn|takeoff|ceiling|climb)$")
+    label:     str
+    alt:       Optional[float] = Field(None, ge=0, le=30000)
+    mach:      Optional[float] = Field(None, ge=0, le=4.0)
+    ps:        Optional[float] = Field(None, ge=0, le=500)
+    n:         Optional[float] = Field(None, ge=1, le=12)
+    sto:       Optional[float] = Field(None, ge=100, le=10000)
+    cl_max:    Optional[float] = Field(None, ge=0.5, le=5.0)
+    angle_deg: Optional[float] = Field(None, ge=0, le=89)
+
+    @model_validator(mode='after')
+    def validate_required_for_type(self):
+        needed = {
+            'level':   ('alt', 'mach'),
+            'ps':      ('alt', 'mach', 'ps'),
+            'turn':    ('alt', 'mach', 'n'),
+            'takeoff': ('sto', 'cl_max'),
+            'ceiling': ('alt', 'mach'),
+            'climb':   ('alt', 'mach', 'angle_deg'),
+        }[self.type]
+        missing = [f for f in needed if getattr(self, f) is None]
+        if missing:
+            raise ValueError(f"constraint type '{self.type}' requires: {', '.join(missing)}")
+        return self
+
+
 class MissionConstraintRequest(BaseModel):
     """Data model for mission matching charts (T/W vs W/S)."""
     aircraft_data: AircraftData
-    constraints:   List[Dict[str, Any]]
+    constraints:   List[MissionConstraint]
     ws_min:   float = Field(1000.0, ge=100,   le=20000)
     ws_max:   float = Field(8000.0, ge=200,   le=50000)
     ws_steps: int   = Field(50,     ge=5,     le=200)
@@ -199,7 +233,8 @@ async def analyze_mission(request: MissionConstraintRequest):
             request.ws_min + i * (request.ws_max - request.ws_min) / request.ws_steps
             for i in range(request.ws_steps + 1)
         ]
-        result = analyzer.generate_constraint_data(ws_range, request.constraints)
+        constraints = [c.model_dump() for c in request.constraints]
+        result = analyzer.generate_constraint_data(ws_range, constraints)
         return _sanitize(result)
     except Exception as e:
         logger.error("Mission analysis error: %s", e, exc_info=True)
@@ -788,6 +823,7 @@ class MultispoolRequest(BaseModel):
     fpr:    float = Field(3.5,   ge=1.1, le=6.0)
     lpc_pr: float = Field(4.0,   ge=1.0, le=10.0)
     tit:    float = Field(1850.0, ge=800, le=2500)
+    nozzle_dp_frac: float = Field(0.02, ge=0.0, le=0.10)
 
 
 @app.post("/analyze/cycle/multispool")
@@ -807,6 +843,7 @@ async def analyze_multispool(request: MultispoolRequest):
             fpr=request.fpr,
             lpc_pr=request.lpc_pr,
             tit=request.tit,
+            nozzle_dp_frac=request.nozzle_dp_frac,
         )
         return _sanitize(result)
     except Exception as e:

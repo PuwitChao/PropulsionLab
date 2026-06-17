@@ -32,7 +32,7 @@
 
 ## Technology Stack
 
-- **Frontend**: React 18, Plotly.js (Dual-axis interactive charts), Vanilla CSS (Premium Monochromatic UI).
+- **Frontend**: React 19, Vite, Plotly.js (Dual-axis interactive charts), Tailwind CSS (Premium Monochromatic UI).
 - **Backend**: FastAPI (Asynchronous Python), Pydantic.
 - **Physics Engine**: [Cantera](https://cantera.org/) (Chemical kinetics and thermodynamics).
 - **Architecture**: Decoupled client-server design with RESTful API communication.
@@ -61,12 +61,37 @@
    python -m uvicorn main:app --reload
    ```
 
+   The API serves on `http://127.0.0.1:8000`. Confirm it is up with
+   `curl http://127.0.0.1:8000/health`.
+
 3. **Frontend Setup**
    ```bash
    cd frontend
    npm install
-   npm run dev
+   npm run dev          # dev server at http://localhost:5173
    ```
+
+   The frontend reads the API base URL from `VITE_API_URL` (see
+   `frontend/.env.example`); it falls back to `http://127.0.0.1:8000` for
+   local development.
+
+### Running Tests & Checks
+
+```bash
+# Backend unit + API tests (matches CI)
+pytest tests/ -v
+
+# Frontend lint + production build (matches CI)
+cd frontend && npm run lint && npm run build
+```
+
+### Troubleshooting
+
+If port 8000 is held by a stale process, free it on any OS with:
+
+```bash
+python scripts/kill_port_8000.py        # defaults to 8000; pass a port to override
+```
 
 ---
 

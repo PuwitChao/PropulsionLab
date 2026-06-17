@@ -103,3 +103,29 @@ def test_multispool_high_alt_cruise():
     assert result['spec_thrust'] > 0
     assert math.isfinite(result['tsfc'])
     assert math.isfinite(result['spec_thrust'])
+
+
+def test_multispool_nozzle_dp_frac_reduces_thrust():
+    """Higher nozzle pressure loss must reduce specific thrust (param is honoured)."""
+    lo = _make_analyzer(alt=10000.0, mach=0.9).solve_multispool(
+        opr=28.0, bpr=1.0, fpr=3.0, lpc_pr=3.5, tit=1750.0, nozzle_dp_frac=0.01
+    )
+    hi = _make_analyzer(alt=10000.0, mach=0.9).solve_multispool(
+        opr=28.0, bpr=1.0, fpr=3.0, lpc_pr=3.5, tit=1750.0, nozzle_dp_frac=0.08
+    )
+    assert hi['spec_thrust'] < lo['spec_thrust'], (
+        f"Greater nozzle loss should reduce thrust: {hi['spec_thrust']:.2f} vs {lo['spec_thrust']:.2f}"
+    )
+
+
+def test_turbofan_nozzle_dp_frac_reduces_thrust():
+    """nozzle_dp_frac must be honoured by the separate-stream turbofan solver."""
+    lo = _make_analyzer(alt=10000.0, mach=0.85).solve_turbofan(
+        bpr=5.0, fpr=1.6, opr=30.0, tit=1600.0, nozzle_dp_frac=0.01
+    )
+    hi = _make_analyzer(alt=10000.0, mach=0.85).solve_turbofan(
+        bpr=5.0, fpr=1.6, opr=30.0, tit=1600.0, nozzle_dp_frac=0.09
+    )
+    assert hi['spec_thrust'] < lo['spec_thrust'], (
+        f"Greater nozzle loss should reduce thrust: {hi['spec_thrust']:.2f} vs {lo['spec_thrust']:.2f}"
+    )

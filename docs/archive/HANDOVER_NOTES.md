@@ -1,8 +1,18 @@
 # 📑 SESSION HANDOVER NOTES (v2.2.0-dev)
 
-## 🎯 Current Status: SPRINT 4 IN PROGRESS
+## 🎯 Current Status
 
-v2.2.0-dev backend is operational. New sensitivity sweep and nozzle CSV export endpoints are live. Frontend wiring for the new endpoints is pending.
+> **Update (audit sprint):** The notes below this banner are historical and were
+> written mid-Sprint-4. Several claims are now out of date:
+> - The multi-spool solver is **fully implemented** (8-iteration HP/LP work
+>   matching) and `/analyze/cycle/multispool` returns results — it is **not** a
+>   501 stub.
+> - The test suite is **112 tests passing**, not 4.
+> - Sensitivity sweep and CSV/STL export are wired to the frontend.
+>
+> See `CHANGELOG.md` and `CLAUDE.md` for the authoritative current state.
+
+v2.2.0-dev backend is operational. Sensitivity sweep and nozzle CSV/STL export endpoints are live and wired.
 
 ---
 
