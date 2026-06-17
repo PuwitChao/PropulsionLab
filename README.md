@@ -42,7 +42,7 @@ Using the delivered specific impulse (Isp) and user-specified target thrust, the
 
 #### Bartz Heat Flux Model
 Convective heat transfer coefficients (h_g) and wall heat fluxes (q) along the nozzle liner are evaluated using the semi-empirical Bartz relation:
-\[h_g = \left[ \frac{0.026}{D_t^{0.2}} \left(\frac{\mu^{0.2} C_p}{Pr^{0.6}}\right)_0 \left(\frac{P_c}{c^*}\right)^{0.8} \left(\frac{D_t}{D}\right)^{1.8} \right] \sigma\]
+h_g = [ (0.026 / D_t^0.2) * (mu_0^0.2 * C_p / Pr_0^0.6) * (P_c / c*)^0.8 * (D_t / D)^1.8 ] * sigma
 where:
 - D_t is the throat diameter
 - P_c is the chamber pressure
@@ -52,10 +52,10 @@ where:
 
 #### Method of Characteristics (MoC) Nozzle Design
 The nozzle expansion contour is synthesized using the Method of Characteristics for a minimum-length nozzle (MLN). The solver integrates characteristic curves along C+ and C- Mach lines:
-\[\frac{dy}{dx} = \tan(\theta \pm \mu)\]
+dy/dx = tan(theta +/- mu)
 where:
 - theta is the local flow angle
-- mu is the local Mach angle, \(\mu = \arcsin(1/M)\)
+- mu is the local Mach angle: mu = arcsin(1 / M)
 The resulting contour points are exported directly as 3D meshes (STL) or 2D coordinate files (CSV).
 
 ---
@@ -63,11 +63,11 @@ The resulting contour points are exported directly as 3D meshes (STL) or 2D coor
 ### 3. Mission Constraint Synthesis
 The mission analysis module evaluates thrust-to-weight ratio (T/W) versus wing loading (W/S) requirements for civil or military design specifications. It computes boundary constraints for:
 - Stall Speed Limits:
-  \[\left(\frac{W}{S}\right)_{stall} = \frac{1}{2} \rho_\infty V_{stall}^2 C_{L,max}\]
+  (W/S)_stall = 0.5 * rho_inf * V_stall^2 * C_L_max
 - Takeoff Field Length:
   Expressed as a function of wing loading and thrust-to-weight ratio based on takeoff parameter correlations.
 - Clean Cruise and High-Speed Dash:
-  \[\frac{T}{W} = q_\infty \left[ \frac{C_{D0}}{W/S} + k \left(\frac{W}{S}\right) \frac{1}{q_\infty^2} \right]\]
+  T/W = q_inf * [ C_D0 / (W/S) + k * (W/S) / q_inf^2 ]
 - Climb Rate and Turn Performance:
   Evaluates constraints based on specific excess power (P_s) requirements.
 
@@ -76,11 +76,11 @@ The mission analysis module evaluates thrust-to-weight ratio (T/W) versus wing l
 ### 4. Component Diagnostics Engine
 The diagnostic engine evaluates component degradation and isolates faults from simulated test-cell or flight telemetry:
 - Compressor Isentropic Efficiency:
-  \[\eta_c = \frac{T_{t2} \left[ \left(\frac{P_{t3}}{P_{t2}}\right)^{\frac{\gamma-1}{\gamma}} - 1 \right]}{T_{t3} - T_{t2}}\]
+  eta_c = (T_t2 * ((P_t3 / P_t2)^((gamma - 1) / gamma) - 1)) / (T_t3 - T_t2)
 - Turbine Isentropic Efficiency:
-  \[\eta_t = \frac{T_{t4} - T_{t5}}{T_{t4} \left[ 1 - \left(\frac{P_{t5}}{P_{t4}}\right)^{\frac{\gamma-1}{\gamma}} \right]}\]
+  eta_t = (T_t4 - T_t5) / (T_t4 * (1 - (P_t5 / P_t4)^((gamma - 1) / gamma)))
 - Combustor Pressure Loss:
-  \[\Delta P_b = \frac{P_{t3} - P_{t4}}{P_{t3}}\]
+  delta_P_b = (P_t3 - P_t4) / P_t3
 
 Efficiency values below nominal thresholds generate fault flags:
 - F01: Compressor Fouling (efficiency < 84%)
