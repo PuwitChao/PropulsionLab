@@ -19,22 +19,21 @@ function MocVisualization({ mocData, loading, onExportCSV, onExportSTL, exportLo
   const { theme } = useSettings()
   const isLight = theme === 'light'
 
-  const [viewMode, setViewMode] = useState('2D')
   const traces = []
 
   const hasData = mocData && Array.isArray(mocData.x) && Array.isArray(mocData.y) && mocData.x.length > 0
 
-  if (hasData && viewMode === '2D') {
+  if (hasData) {
     traces.push({
       x: mocData.x, y: mocData.y,
       name: 'NOZZLE_WALL', type: 'scatter', mode: 'lines',
-      line: { color: isLight ? '#0f172a' : '#fff', width: 3 },
+      line: { color: '#00f0ff', width: 3 },
       hovertemplate: 'WALL_NODE<br>X: %{x:.4f}m<br>R: %{y:.4f}m<extra></extra>'
     })
     traces.push({
       x: mocData.x, y: mocData.y.map(v => -v),
       name: 'WALL_LOWER', type: 'scatter', mode: 'lines',
-      line: { color: isLight ? 'rgba(15,23,42,0.25)' : 'rgba(255,255,255,0.2)', width: 1, dash: 'dash' },
+      line: { color: 'rgba(0, 240, 255, 0.20)', width: 1, dash: 'dash' },
       showlegend: false, hoverinfo: 'skip'
     })
     if (Array.isArray(mocData.mesh)) {
@@ -45,14 +44,14 @@ function MocVisualization({ mocData, loading, onExportCSV, onExportSTL, exportLo
             name: i === 0 ? 'WAVE_REFLECTIONS' : '',
             legendgroup: 'waves', showlegend: i === 0,
             type: 'scatter', mode: 'lines',
-            line: { color: wave.type === 'C+' ? (isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.1)') : (isLight ? 'rgba(15,23,42,0.18)' : 'rgba(255,255,255,0.15)'), width: 0.8 },
+            line: { color: wave.type === 'C+' ? 'rgba(0, 240, 255, 0.12)' : 'rgba(0, 240, 255, 0.22)', width: 0.8 },
             hovertemplate: `${wave.type}_WAVE<br>MACH: ${wave.mach || 'N/A'}<extra></extra>`
           })
           traces.push({
             x: wave.x, y: wave.y.map(v => -v),
             legendgroup: 'waves', showlegend: false,
             type: 'scatter', mode: 'lines',
-            line: { color: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.05)', width: 0.5 },
+            line: { color: 'rgba(0, 240, 255, 0.05)', width: 0.5 },
             hoverinfo: 'skip'
           })
         }
@@ -64,24 +63,6 @@ function MocVisualization({ mocData, loading, onExportCSV, onExportSTL, exportLo
       line: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.05)', width: 1, dash: 'dot' },
       hoverinfo: 'skip'
     })
-  } else if (hasData && viewMode === '3D') {
-    const nThetas = 40
-    const thetas = Array.from({length: nThetas}, (_, i) => (i * 2 * Math.PI) / (nThetas - 1))
-    const xMesh = [], yMesh = [], zMesh = []
-    mocData.x.forEach((x, i) => {
-      const r = mocData.y[i]
-      const xRow = [], yRow = [], zRow = []
-      thetas.forEach(theta => { xRow.push(x); yRow.push(r * Math.cos(theta)); zRow.push(r * Math.sin(theta)) })
-      xMesh.push(xRow); yMesh.push(yRow); zMesh.push(zRow)
-    })
-    traces.push({
-      type: 'surface', x: xMesh, y: yMesh, z: zMesh,
-      colorscale: isLight ? [[0, 'rgba(15,23,42,0.05)'], [1, 'rgba(15,23,42,0.4)']] : [[0, 'rgba(255,255,255,0.1)'], [1, 'rgba(255,255,255,0.5)']],
-      showscale: false,
-      lighting: { ambient: 0.4, diffuse: 0.8, fresnel: 0.2, specular: 0.6, roughness: 0.1 },
-      lightposition: { x: 100, y: 100, z: 1000 },
-      contours: { x: { show: true, color: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.2)', width: 1 }, y: { show: false }, z: { show: false } }
-    })
   }
 
   return (
@@ -90,17 +71,17 @@ function MocVisualization({ mocData, loading, onExportCSV, onExportSTL, exportLo
 
       <div className="absolute top-12 left-12 z-20 space-y-3 pointer-events-none">
         <h2 className="text-[14px] font-black tracking-[0.3em] text-white">
-          {viewMode === '2D' ? 'NOZZLE_EXPANSION_MESH' : 'NOZZLE_SPATIAL_TOPOLOGY'}
+          NOZZLE_EXPANSION_MESH
         </h2>
         <p className="mono text-[11px] text-white/30 uppercase underline tracking-widest">
-          {hasData ? `NODE_COUNT: ${mocData.x?.length || 0} // VIEW: ${viewMode}_RENDER` : 'Awaiting Design Initialization...'}
+          {hasData ? `NODE_COUNT: ${mocData.x?.length || 0} // VIEW: 2D_CROSS_SECTION` : 'Awaiting Design Initialization...'}
         </p>
         <p className="mono text-[10px] text-white/20 uppercase tracking-widest">
           BELL_APPROX // PARABOLIC_FIT // NOT_TRUE_MOC
         </p>
       </div>
 
-      <div className="flex-1 w-full bg-black/20 relative">
+      <div className="w-full h-[450px] bg-black/20 relative">
         {loading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50">
             <div className="text-white/30 uppercase tracking-[0.5em] text-[12px] font-black animate-pulse">
@@ -111,27 +92,19 @@ function MocVisualization({ mocData, loading, onExportCSV, onExportSTL, exportLo
         {hasData ? (
           <Plot
             data={traces}
-            layout={{
-              plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
-              autosize: true, margin: { t: 40, b: 60, l: 60, r: 60 },
-              scene: viewMode === '3D' ? {
-                xaxis: { title: 'X [m]', gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', backgroundcolor: 'transparent', showbackground: false, tickfont: { family: 'JetBrains Mono', color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
-                yaxis: { title: 'Y [m]', gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', backgroundcolor: 'transparent', showbackground: false, tickfont: { family: 'JetBrains Mono', color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
-                zaxis: { title: 'Z [m]', gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', backgroundcolor: 'transparent', showbackground: false, tickfont: { family: 'JetBrains Mono', color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
-                aspectmode: 'data'
-              } : undefined,
-              xaxis: viewMode === '2D' ? {
-                gridcolor: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)', tickfont: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
-                showline: true, linecolor: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.1)', zeroline: false, scaleanchor: 'y'
-              } : undefined,
-              yaxis: viewMode === '2D' ? {
-                gridcolor: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)', tickfont: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
-                showline: true, linecolor: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.1)', zeroline: false
-              } : undefined,
-              showlegend: viewMode === '2D',
-              legend: { font: { family: 'JetBrains Mono', size: 10, color: isLight ? '#0f172a' : 'white' }, y: 0.95, x: 0.95, xanchor: 'right' },
-              hovermode: 'closest', font: { family: 'Inter', color: isLight ? '#0f172a' : '#fff' }
-            }}
+            layout={getLayout(theme, {
+              height: 450,
+              xaxis: {
+                title: 'Position X [m]',
+                scaleanchor: 'y',
+                scaleratio: 1,
+              },
+              yaxis: {
+                title: 'Radius Y [m]',
+              },
+              showlegend: true,
+              margin: { t: 40, b: 60, l: 60, r: 60 }
+            })}
             className="w-full h-full"
             config={{ displayModeBar: false, responsive: true }}
           />
@@ -177,19 +150,6 @@ function MocVisualization({ mocData, loading, onExportCSV, onExportSTL, exportLo
             <span className={`material-symbols-outlined !text-[16px] ${exportLoading === 'stl' ? 'animate-spin' : ''}`}>
               {exportLoading === 'stl' ? 'sync' : 'draw'}
             </span>
-          </button>
-          <div className="w-[1px] h-10 bg-white/10 my-auto mx-4"></div>
-          <button
-            onClick={() => setViewMode('2D')} title="2D MESH VIEW" aria-label="2D mesh view"
-            className={`w-14 h-14 border border-white/10 flex items-center justify-center transition-all ${viewMode === '2D' ? 'bg-white text-black' : 'text-white/60 hover:bg-white/5'}`}
-          >
-            <span className="material-symbols-outlined !text-[20px]">grid_4x4</span>
-          </button>
-          <button
-            onClick={() => setViewMode('3D')} title="3D SPATIAL VIEW" aria-label="3D spatial view"
-            className={`w-14 h-14 border border-white/10 flex items-center justify-center transition-all ${viewMode === '3D' ? 'bg-white text-black' : 'text-white/60 hover:bg-white/5'}`}
-          >
-            <span className="material-symbols-outlined !text-[20px]">3d_rotation</span>
           </button>
         </div>
       </div>
@@ -389,7 +349,7 @@ export default function RocketAnalysis() {
 
     return (
         <div className="space-y-16 animate-in pb-20">
-            <div className="flex items-center justify-between border-b border-white/10 pb-6">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between border-b border-white/10 pb-6">
                 <span className="uppercase tracking-[0.4em] text-[13px] font-black text-white font-headline">
                   ROCKET PROPULSION DESIGN SUITE
                 </span>
@@ -399,7 +359,7 @@ export default function RocketAnalysis() {
             </div>
 
             {/* View tabs */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
                 {[
                     { id: 'design',    label: 'CHAMBER_DESIGN' },
                     { id: 'of_sweep',  label: 'O/F OPTIMUM' },
@@ -410,8 +370,8 @@ export default function RocketAnalysis() {
                         onClick={() => setActiveView(tab.id)}
                         className={`px-10 py-3 text-[11px] font-black tracking-[0.2em] uppercase font-headline border transition-all ${
                             activeView === tab.id
-                                ? 'bg-white text-black border-white'
-                                : 'bg-transparent text-white/40 border-white/10 hover:border-white/30 hover:text-white'
+                                ? 'bg-accent-cyan text-black border-accent-cyan'
+                                : 'bg-transparent text-white/40 border-white/10 hover:border-accent-cyan/30 hover:text-accent-cyan'
                         }`}
                     >
                         {tab.label}
@@ -514,7 +474,7 @@ export default function RocketAnalysis() {
                         exportLoading={exportLoading} 
                     />
 
-                    <div className="grid grid-cols-4 gap-1 grid-bg">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 grid-bg">
                         <StatPanel label="VAC. THRUST"    value={result ? (result.thrust_vac/1000).toFixed(0) : '-'} unit="kN"  sub="DESIGN_TARGET" />
                         <StatPanel label="SPECIFIC ISP"   value={result ? fmt(result.isp_delivered) : '-'}           unit="s"   sub="SHIFTING_EQ" />
                         <StatPanel label="MASS FLOW"      value={result ? fmt(result.mdot_total, 2) : '-'}            unit="kg/s" sub="COMBUSTION" />

@@ -91,14 +91,14 @@ export default function MissionAnalysis() {
         {
             x: data.ws, y: feasibleTW,
             name: 'FEASIBLE_REGION', fill: 'tonexty',
-            fillcolor: isLight ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.03)',
+            fillcolor: isLight ? 'rgba(0, 240, 255, 0.04)' : 'rgba(0, 240, 255, 0.03)',
             type: 'scatter', mode: 'none', hoverinfo: 'skip', showlegend: true
         },
         ...data.series.map((s, idx) => ({
             x: data.ws, y: s.values,
             name: s.label.toUpperCase(), type: 'scatter', mode: 'lines',
             line: {
-                color: idx === 0 ? (isLight ? '#0f172a' : '#fff') : (isLight ? `rgba(15,23,42,${0.2 + (idx/data.series.length)*0.45})` : `rgba(255,255,255,${0.1 + (idx/data.series.length)*0.4})`),
+                color: idx === 0 ? '#00f0ff' : (isLight ? `rgba(15,23,42,${0.2 + (idx/data.series.length)*0.45})` : `rgba(255,255,255,${0.1 + (idx/data.series.length)*0.4})`),
                 width: idx === 0 ? 2.5 : 1.5,
                 dash: idx === 0 ? 'solid' : 'dash'
             },
@@ -107,7 +107,7 @@ export default function MissionAnalysis() {
         {
             x: [data.optimum?.ws], y: [data.optimum?.tw],
             name: 'DESIGN_CORNER', mode: 'markers',
-            marker: { color: isLight ? '#0f172a' : '#fff', size: 15, symbol: 'cross-thin', line: { width: 2, color: isLight ? '#0f172a' : '#fff' } },
+            marker: { color: '#00f0ff', size: 15, symbol: 'cross-thin', line: { width: 2, color: '#00f0ff' } },
             type: 'scatter',
             hovertemplate: `<b>OPTIMUM_CORNER</b><br>W/S: %{x} Pa<br>T/W: %{y:.3f}<extra></extra>`
         },
@@ -117,7 +117,7 @@ export default function MissionAnalysis() {
 
     return (
         <div className="space-y-16 animate-in pb-20">
-            <div className="flex items-center justify-between border-b border-white/10 pb-6">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between border-b border-white/10 pb-6">
                 <span className="uppercase tracking-[0.4em] text-[13px] font-black text-white font-headline">
                   MISSION CONSTRAINT ARCHITECTURE
                 </span>
@@ -172,9 +172,9 @@ export default function MissionAnalysis() {
 
                 {/* Main Workspace */}
                 <section className="col-span-12 lg:col-span-9 flex flex-col gap-12">
-                    <div className="h-[600px] bg-surface-container-lowest border border-white/10 relative overflow-hidden flex flex-col group p-12">
+                    <div className="h-[450px] lg:h-[600px] bg-surface-container-lowest border border-white/10 relative overflow-hidden flex flex-col group p-6 lg:p-12">
                         <div className="panel-accent"></div>
-                        <div className="absolute top-12 right-12 z-20 space-y-3 text-right">
+                        <div className="absolute top-6 right-6 lg:top-12 lg:right-12 z-20 space-y-2 lg:space-y-3 text-right pointer-events-none">
                             <h3 className="mono text-[12px] font-black text-white tracking-[0.2em] uppercase">PERFORMANCE CLOUD SYNTHESIS</h3>
                             <p className="mono text-[11px] text-white/30 tracking-widest">
                               {data ? `[COMPLIANCE: ${envelopeCompliance}%]` : '[REGION_ID: ENVELOPE_PENDING]'}
@@ -209,7 +209,7 @@ export default function MissionAnalysis() {
                                     },
                                     showlegend: true,
                                     legend: { font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.4)' }, orientation: 'h', y: -0.25, x: 0.5, xanchor: 'center' },
-                                    hovermode: 'closest', font: { family: 'Inter', size: 14, color: isLight ? '#0f172a' : '#fff' }
+                                    hovermode: 'closest', font: { family: 'Outfit', size: 14, color: isLight ? '#0f172a' : '#fff' }
                                 })}
                                 className="w-full h-full"
                                 config={{ displayModeBar: false, responsive: true }}
@@ -217,7 +217,7 @@ export default function MissionAnalysis() {
                         )}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-1 grid-bg">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 grid-bg">
                         <StatPanel label="DESIGN WING LOADING" value={data?.optimum?.ws != null ? fmt(data.optimum.ws) : '-'} unit="Pa" sub="MIN_AIRCRAFT_SIZE" />
                         <StatPanel label="MINIMUM T/W"         value={data?.optimum?.tw  != null ? data.optimum.tw.toFixed(3) : '-'} unit="" sub="FEASIBLE_BOUND" />
                         <StatPanel label="ENVELOPE COMPLIANCE" value={envelopeCompliance != null ? `${envelopeCompliance}` : '-'} unit="%" sub="REGION_OPTIMIZED" />
@@ -231,7 +231,7 @@ export default function MissionAnalysis() {
                              <h2 className="text-[13px] font-black tracking-[0.3em] uppercase text-white">OPERATIONAL_SYNTHESIS_REPORT</h2>
                         </div>
                         {summary ? (
-                            <div className="grid grid-cols-2 gap-20">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-20">
                                 <div className="space-y-5">
                                     <p className="text-[12px] font-black text-white tracking-[0.2em] uppercase">Binding_Constraint</p>
                                     <p className="text-[13px] mono text-white/50 leading-[1.8] uppercase border-l-2 border-white/20 pl-8">

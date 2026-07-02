@@ -11,15 +11,15 @@
  */
 export default function StatPanel({ label, value, unit, sub, alert = false }) {
     return (
-        <div className={`flex flex-col items-end group p-12 border bg-surface-container-low hover:bg-surface-container transition-all ${alert ? 'border-white/25 bg-white/[0.04]' : 'border-white/10'}`}>
-            <span className={`text-[11px] font-black tracking-[0.2em] uppercase mb-5 font-headline transition-colors ${alert ? 'warning-text' : 'text-white/40 group-hover:text-white'}`}>
+        <div className={`flex flex-col items-end group p-8 border bg-surface-container-low hover:bg-surface-container transition-all duration-200 ${alert ? 'border-white/22 bg-white/[0.03]' : 'border-white/[0.07] hover:border-white/18'}`}>
+            <span className={`text-[9px] font-bold tracking-[0.3em] uppercase mb-4 font-headline transition-colors duration-200 ${alert ? 'warning-text' : 'text-white/35 group-hover:text-white/65'}`}>
                 {label}
             </span>
-            <div className="flex items-baseline gap-3">
-                <span className="text-4xl font-black mono text-white">{value}</span>
-                {unit && <span className="text-[12px] mono text-white/30 uppercase font-bold tracking-[0.1em]">{unit}</span>}
+            <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black font-mono text-white tabular-nums">{value}</span>
+                {unit && <span className="text-[11px] font-mono text-white/25 uppercase font-semibold tracking-[0.1em] group-hover:text-white/45 transition-colors duration-200">{unit}</span>}
             </div>
-            {sub && <span className="text-[10px] mono text-white/20 uppercase tracking-[0.1em] mt-2 italic">{sub}</span>}
+            {sub && <span className="text-[9px] font-mono text-white/18 uppercase tracking-[0.15em] mt-2">{sub}</span>}
         </div>
     )
 }

@@ -129,3 +129,38 @@ def test_turbofan_nozzle_dp_frac_reduces_thrust():
     assert hi['spec_thrust'] < lo['spec_thrust'], (
         f"Greater nozzle loss should reduce thrust: {hi['spec_thrust']:.2f} vs {lo['spec_thrust']:.2f}"
     )
+
+
+def test_multispool_zero_bypass_ratio():
+    """Multi-spool solver with bpr=0 (pure turbojet + booster config) must solve successfully."""
+    ca = _make_analyzer()
+    result = ca.solve_multispool(
+        opr=30.0, bpr=0.0, fpr=2.5, lpc_pr=3.0, tit=1800.0
+    )
+    assert result['spec_thrust'] > 0
+    assert result['tsfc'] > 0
+    # Confirm it does not contain inf or nan
+    for k, v in result['stations'].items():
+        assert math.isfinite(v['tt'])
+        assert math.isfinite(v['pt'])
+
+
+def test_multispool_max_bypass_ratio():
+    """Multi-spool solver with bpr=12.0 (high bypass) must solve successfully."""
+    ca = _make_analyzer(alt=11000.0, mach=0.8)
+    result = ca.solve_multispool(
+        opr=45.0, bpr=12.0, fpr=1.4, lpc_pr=2.0, tit=1700.0
+    )
+    assert result['spec_thrust'] > 0
+    assert result['tsfc'] > 0
+
+
+def test_multispool_extreme_pressure_ratios():
+    """Multi-spool solver with extreme pressure ratios (fpr/lpc_pr close to OPR limits) must convergence without crash."""
+    ca = _make_analyzer()
+    # High FPR, booster PR = 1.0 (no booster pressure rise)
+    result_high_fpr = ca.solve_multispool(
+        opr=25.0, bpr=0.8, fpr=5.0, lpc_pr=1.0, tit=1600.0
+    )
+    assert result_high_fpr['spec_thrust'] > 0
+

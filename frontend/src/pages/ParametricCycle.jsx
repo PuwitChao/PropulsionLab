@@ -22,7 +22,7 @@ function StationDiagram({ activeEngine }) {
 
   if (activeEngine === 'turbofan' || activeEngine === 'multispool_turbofan') {
     return (
-      <div className="relative w-full h-full flex items-center justify-center p-20 pt-32 animate-in">
+      <div className="relative w-full h-[250px] lg:h-full flex items-center justify-center p-4 lg:p-20 lg:pt-32 animate-in">
         <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -translate-y-1/2"></div>
         <svg className="w-full h-full relative z-10" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 400">
           <defs>
@@ -85,7 +85,7 @@ function StationDiagram({ activeEngine }) {
 
   if (activeEngine === 'mixed_flow') {
     return (
-      <div className="relative w-full h-full flex items-center justify-center p-20 pt-32 animate-in">
+      <div className="relative w-full h-[250px] lg:h-full flex items-center justify-center p-4 lg:p-20 lg:pt-32 animate-in">
         <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -translate-y-1/2"></div>
         <svg className="w-full h-full relative z-10" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 400">
           <defs>
@@ -147,7 +147,7 @@ function StationDiagram({ activeEngine }) {
 
   // Fallback to classic single-spool turbojet for "turbojet" or sensitivity background
   return (
-    <div className="relative w-full h-full flex items-center justify-center p-20 pt-32 animate-in">
+    <div className="relative w-full h-[250px] lg:h-full flex items-center justify-center p-4 lg:p-20 lg:pt-32 animate-in">
        <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -translate-y-1/2"></div>
       <svg className="w-full h-full relative z-10" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 400">
         <defs>
@@ -342,14 +342,18 @@ export default function ParametricCycle() {
   return (
     <div className="space-y-16 animate-in pb-20">
       {/* Platform Controls */}
-      <div className="flex items-center justify-between border-b border-white/10 pb-6">
-        <div className="flex gap-12 items-center">
+      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between border-b border-white/10 pb-6">
+        <div className="flex gap-4 sm:gap-10 items-center flex-wrap">
             {['turbojet', 'turbofan', 'mixed_flow', 'multispool_turbofan', 'sensitivity'].map(mode => (
                 <button
-                    key={mode} onClick={() => setActiveEngine(mode)}
-                    className={`text-[12px] tracking-[0.3em] uppercase transition-all pb-3 ${activeEngine === mode ? 'text-white border-b border-white font-black' : 'text-white/30 font-bold hover:text-white'}`}
+                    key={mode}
+                    id={`engine-tab-${mode}`}
+                    onClick={() => setActiveEngine(mode)}
+                    className={`text-[11px] tracking-[0.25em] uppercase transition-all duration-200 pb-3 font-headline ${
+                        activeEngine === mode ? 'tab-active' : 'tab-inactive'
+                    }`}
                 >
-                    {mode === 'sensitivity' ? '⚡ SENSITIVITY' : mode === 'multispool_turbofan' ? '⚡ MULTI-SPOOL' : mode.replace('_', ' ').toUpperCase()}
+                    {mode === 'sensitivity' ? 'SENSITIVITY' : mode === 'multispool_turbofan' ? 'MULTI-SPOOL' : mode.replace('_', ' ').toUpperCase()}
                 </button>
             ))}
         </div>
@@ -423,60 +427,60 @@ export default function ParametricCycle() {
         </section>
 
         {/* Right: Visualization */}
-        <section className="col-span-12 lg:col-span-9 flex flex-col gap-12">
-            <div className="h-[600px] bg-surface-container-lowest border border-white/10 relative overflow-hidden group">
-                <div className="panel-accent"></div>
+          <section className="col-span-12 lg:col-span-9 flex flex-col gap-12">
+              <div className="h-auto lg:h-[650px] bg-surface-container-lowest border border-white/10 relative overflow-hidden group flex flex-col lg:block p-6 lg:p-0">
+                  <div className="panel-accent"></div>
 
-                {/* Overlay Performance Panel */}
-                <div className="absolute top-12 left-12 right-12 flex justify-between items-start z-30">
-                    <div className="space-y-3">
-                        <h2 className="text-[14px] font-black tracking-[0.3em] text-white">STATION_THERMO_BLUEPRINT</h2>
-                        <p className="mono text-[11px] text-white/30 uppercase tracking-widest underline decoration-white/20">
-                          SYSTEM_ID: {activeEngine.toUpperCase()}_EXPLORER
-                        </p>
-                    </div>
-                    <div className="flex gap-16">
-                        <StatPanel
-                          label="SPECIFIC THRUST"
-                          value={result ? (result.spec_thrust ?? 0).toFixed(1) : '-'}
-                          unit="Ns/kg"
-                          sub="NET_AIR_FORCE"
-                        />
-                        <StatPanel
-                          label="THERMAL EFF."
-                          value={result?.eta_thermal != null ? (result.eta_thermal * 100).toFixed(1) : '-'}
-                          unit="%"
-                          sub="CYCLE_TOTAL"
-                        />
-                        <StatPanel
-                          label="SFC"
-                          value={result?.tsfc != null ? (result.tsfc * 1e6).toFixed(2) : '-'}
-                          unit="mg/Ns"
-                          sub="FUEL_EFFICIENCY"
-                        />
-                    </div>
-                </div>
+                  {/* Overlay Performance Panel */}
+                  <div className="relative lg:absolute lg:top-12 lg:left-12 lg:right-12 flex flex-col md:flex-row justify-between items-start gap-6 lg:gap-0 z-30 mb-8 lg:mb-0">
+                      <div className="space-y-3">
+                          <h2 className="text-[14px] font-black tracking-[0.3em] text-white">STATION_THERMO_BLUEPRINT</h2>
+                          <p className="mono text-[11px] text-white/30 uppercase tracking-widest underline decoration-white/20">
+                            SYSTEM_ID: {activeEngine.toUpperCase()}_EXPLORER
+                          </p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-16 w-full lg:w-auto">
+                          <StatPanel
+                            label="SPECIFIC THRUST"
+                            value={result ? (result.spec_thrust ?? 0).toFixed(1) : '-'}
+                            unit="Ns/kg"
+                            sub="NET_AIR_FORCE"
+                          />
+                          <StatPanel
+                            label="THERMAL EFF."
+                            value={result?.eta_thermal != null ? (result.eta_thermal * 100).toFixed(1) : '-'}
+                            unit="%"
+                            sub="CYCLE_TOTAL"
+                          />
+                          <StatPanel
+                            label="SFC"
+                            value={result?.tsfc != null ? (result.tsfc * 1e6).toFixed(2) : '-'}
+                            unit="mg/Ns"
+                            sub="FUEL_EFFICIENCY"
+                          />
+                      </div>
+                  </div>
 
-                {/* Loading overlay */}
-                {loading && (
-                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40">
-                        <div className="text-white/30 uppercase tracking-[0.5em] text-[13px] font-black animate-pulse">
-                            EXECUTING_CYCLE_SOLVER...
-                        </div>
-                    </div>
-                )}
+                  {/* Loading overlay */}
+                  {loading && (
+                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40">
+                          <div className="text-white/30 uppercase tracking-[0.5em] text-[13px] font-black animate-pulse">
+                              EXECUTING_CYCLE_SOLVER...
+                          </div>
+                      </div>
+                  )}
 
-                {/* Error state */}
-                {error && !loading && (
-                    <div className="absolute inset-0 z-20 flex items-center justify-center">
-                        <div className="warning-panel px-16 py-10 text-center space-y-4 max-w-md">
-                            <span className="material-symbols-outlined warning-text !text-[28px]">error_outline</span>
-                            <p className="mono text-[11px] warning-text uppercase tracking-widest leading-relaxed">{error}</p>
-                        </div>
-                    </div>
-                )}
+                  {/* Error state */}
+                  {error && !loading && (
+                      <div className="absolute inset-0 z-20 flex items-center justify-center">
+                          <div className="warning-panel px-16 py-10 text-center space-y-4 max-w-md">
+                              <span className="material-symbols-outlined warning-text !text-[28px]">error_outline</span>
+                              <p className="mono text-[11px] warning-text uppercase tracking-widest leading-relaxed">{error}</p>
+                          </div>
+                      </div>
+                  )}
 
-                <div className="absolute bottom-12 left-12 right-12 h-[200px] z-20">
+                  <div className="relative lg:absolute lg:bottom-12 lg:left-12 lg:right-12 h-[250px] lg:h-[200px] z-20 mt-6 lg:mt-0">
                     {result && (
                         <Plot
                             data={[
@@ -486,8 +490,8 @@ export default function ParametricCycle() {
                                     name: 'T_tot (Temperature)',
                                     type: 'scatter',
                                     mode: 'lines+markers',
-                                    line: { color: isLight ? 'rgba(15,23,42,0.85)' : 'rgba(255,255,255,0.85)', width: 2 },
-                                    marker: { size: 7, color: isLight ? '#0f172a' : '#fff' },
+                                    line: { color: '#00f0ff', width: 2 },
+                                    marker: { size: 7, color: '#00f0ff' },
                                     yaxis: 'y1'
                                 },
                                 {
@@ -496,8 +500,8 @@ export default function ParametricCycle() {
                                     name: 'P_tot (Pressure)',
                                     type: 'scatter',
                                     mode: 'lines+markers',
-                                    line: { color: isLight ? 'rgba(15,23,42,0.35)' : 'rgba(255,255,255,0.35)', width: 2, dash: 'dot' },
-                                    marker: { size: 5, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.4)' },
+                                    line: { color: 'rgba(0, 240, 255, 0.40)', width: 2, dash: 'dot' },
+                                    marker: { size: 5, color: 'rgba(0, 240, 255, 0.50)' },
                                     yaxis: 'y2'
                                 }
                             ]}
@@ -612,10 +616,10 @@ export default function ParametricCycle() {
                         sweep_min: val==='t4' ? 800 : val==='alt' ? 0 : 5,
                         sweep_max: val==='t4' ? 2200 : val==='alt' ? 15000 : 60
                       }))}
-                      className={`text-left py-4 px-8 border text-[11px] mono tracking-widest uppercase transition-all ${
+                      className={`text-left py-3 px-6 border text-[10px] font-mono tracking-[0.2em] uppercase transition-all duration-200 ${
                         sensParams.sweep_type === val
-                          ? 'border-white bg-white/10 text-white font-black'
-                          : 'border-white/10 text-white/40 hover:border-white/30'
+                          ? 'border-accent-cyan/40 bg-accent-cyan/[0.06] text-accent-cyan font-bold'
+                          : 'border-white/[0.08] text-white/35 hover:border-accent-cyan/20 hover:text-accent-cyan/60'
                       }`}
                     >{lab}</button>
                   ))}
@@ -661,8 +665,8 @@ export default function ParametricCycle() {
                         y: sensData.data.map(d => d.spec_thrust),
                         name: 'SPEC_THRUST',
                         type: 'scatter', mode: 'lines+markers',
-                        line: { color: isLight ? '#0f172a' : '#ffffff', width: 2 },
-                        marker: { size: 6, color: isLight ? '#0f172a' : '#fff' },
+                        line: { color: '#00f0ff', width: 2 },
+                        marker: { size: 6, color: '#00f0ff' },
                         yaxis: 'y1',
                         hovertemplate: `${sensData.sweep_label}: %{x}<br>Spec Thrust: %{y:.2f} Ns/kg<extra></extra>`
                       },
@@ -671,8 +675,8 @@ export default function ParametricCycle() {
                         y: sensData.data.map(d => d.tsfc * 1e6),
                         name: 'TSFC [mg/Ns]',
                         type: 'scatter', mode: 'lines+markers',
-                        line: { color: isLight ? 'rgba(15,23,42,0.35)' : 'rgba(255,255,255,0.35)', width: 2, dash: 'dot' },
-                        marker: { size: 5, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.4)' },
+                        line: { color: 'rgba(0, 240, 255, 0.40)', width: 2, dash: 'dot' },
+                        marker: { size: 5, color: 'rgba(0, 240, 255, 0.50)' },
                         yaxis: 'y2',
                         hovertemplate: `${sensData.sweep_label}: %{x}<br>TSFC: %{y:.3f} mg/Ns<extra></extra>`
                       },
@@ -681,7 +685,7 @@ export default function ParametricCycle() {
                         y: sensData.data.map(d => (d.eta_thermal ?? 0) * 100),
                         name: 'eta_THERMAL [%]',
                         type: 'scatter', mode: 'lines',
-                        line: { color: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.15)', width: 1.5, dash: 'longdash' },
+                        line: { color: 'rgba(0, 240, 255, 0.20)', width: 1.5, dash: 'longdash' },
                         yaxis: 'y1',
                         hovertemplate: `${sensData.sweep_label}: %{x}<br>eta_th: %{y:.1f}%<extra></extra>`
                       }
@@ -710,7 +714,7 @@ export default function ParametricCycle() {
                         tickfont: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.3)' : 'rgba(255,255,255,0.2)' },
                         showgrid: false
                       },
-                      font: { family: 'Inter', color: isLight ? '#0f172a' : '#fff' }
+                      font: { family: 'Outfit', color: isLight ? '#0f172a' : '#fff' }
                     }}
                     className="w-full h-full"
                     config={{ displayModeBar: false, responsive: true }}

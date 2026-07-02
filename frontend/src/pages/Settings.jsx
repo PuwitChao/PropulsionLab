@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { API_BASE_URL } from '../api';
+import { API_BASE_URL, fetchData } from '../api';
 
 function SidebarParameter({ label, value, unit, min, max, onChange, step }) {
     return (
@@ -30,8 +30,7 @@ export default function Settings() {
 
   useEffect(() => {
     // Fetch version info from backend
-    fetch(`${API_BASE_URL}/version`)
-      .then(r => r.json())
+    fetchData('/version')
       .then(d => setVersionInfo({
           version: d.version || '2.2.0',
           cantera: d.cantera_version || '3.0.x'
@@ -42,8 +41,7 @@ export default function Settings() {
       })
 
     // Check health
-    fetch(`${API_BASE_URL}/health`)
-      .then(r => r.json())
+    fetchData('/health')
       .then(d => setApiStatus(d.status === 'healthy' ? 'HEALTHY' : 'DEGRADED'))
       .catch((e) => {
         console.error('Health check failed:', e)
@@ -66,7 +64,7 @@ export default function Settings() {
 
   return (
     <div className="space-y-16 animate-in max-w-5xl">
-        <div className="flex items-center justify-between border-b border-white/10 pb-6">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between border-b border-white/10 pb-6">
             <div className="flex items-center gap-8">
                 <span className="w-2 h-2 bg-white"></span>
                 <h1 className="text-[13px] font-black tracking-[0.4em] uppercase text-white font-headline">SYSTEM_ENVIRONMENT_CONFIG</h1>
@@ -83,19 +81,21 @@ export default function Settings() {
                         WORKSPACE_DISPLAY_MODES
                     </h2>
 
-                    <div className="grid grid-cols-2 gap-12">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                          <div className="space-y-8">
                             <label className="text-[11px] font-black uppercase tracking-[0.2em] text-white/30 block mb-6">Luminance Profile</label>
-                            <div className="flex gap-6">
+                            <div className="flex gap-4 flex-wrap">
                                 <button
+                                    id="theme-dark"
                                     onClick={() => setTheme('dark')}
-                                    className={`flex-1 py-5 px-8 text-[11px] font-black tracking-[0.2em] uppercase transition-all font-mono border ${theme === 'dark' ? 'bg-white text-black border-white' : 'bg-transparent text-white/30 border-white/10 hover:border-white/30'}`}
+                                    className={`flex-1 py-4 px-8 text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-200 font-mono border ${theme === 'dark' ? 'bg-accent-cyan text-black border-accent-cyan' : 'bg-transparent text-white/30 border-white/[0.08] hover:border-accent-cyan/25 hover:text-white/55'}`}
                                 >
                                     MONO_DARK
                                 </button>
                                 <button
+                                    id="theme-light"
                                     onClick={() => setTheme('light')}
-                                    className={`flex-1 py-5 px-8 text-[11px] font-black tracking-[0.2em] uppercase transition-all font-mono border ${theme === 'light' ? 'bg-white text-black border-white' : 'bg-transparent text-white/30 border-white/10 hover:border-white/30'}`}
+                                    className={`flex-1 py-4 px-8 text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-200 font-mono border ${theme === 'light' ? 'bg-accent-cyan text-black border-accent-cyan' : 'bg-transparent text-white/30 border-white/[0.08] hover:border-accent-cyan/25 hover:text-white/55'}`}
                                 >
                                     MONO_LIGHT
                                 </button>
@@ -120,7 +120,7 @@ export default function Settings() {
                         <span className="w-6 h-[1px] bg-white/20 mr-4"></span>
                         DATA_RETENTION_POLICY
                     </h2>
-                    <div className="flex gap-12 items-start">
+                    <div className="flex flex-col sm:flex-row gap-6 sm:gap-12 items-start sm:items-center">
                         <div className="flex-1 space-y-6">
                             <p className="text-[12px] text-white/50 leading-relaxed uppercase mono">
                                 Analysis parameters and display settings are cached in browser localStorage. Clearing will restore all defaults.
@@ -128,7 +128,7 @@ export default function Settings() {
                         </div>
                         <button
                             onClick={() => { localStorage.clear(); window.location.reload(); }}
-                            className="bg-transparent border border-white/10 px-10 py-4 text-[11px] font-black tracking-[0.2em] uppercase text-white/40 hover:text-white hover:border-white transition-all whitespace-nowrap"
+                            className="bg-transparent border border-white/10 px-10 py-4 text-[11px] font-black tracking-[0.2em] uppercase text-white/40 hover:text-white hover:border-white transition-all whitespace-nowrap cursor-pointer"
                         >
                             Flush_Local_Cache
                         </button>

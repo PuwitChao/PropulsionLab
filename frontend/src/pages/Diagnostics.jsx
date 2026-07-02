@@ -162,8 +162,8 @@ export default function Diagnostics() {
         </section>
 
         {/* Right Side: Diagnostics Analysis */}
-        <section className="col-span-12 lg:col-span-8 space-y-8 flex flex-col justify-between">
-          <div className="grid grid-cols-3 gap-6">
+        <section className="col-span-12 lg:col-span-8 space-y-8 flex flex-col justify-start">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div className="bg-surface-container-low border border-white/10 p-12 flex flex-col justify-between h-[180px] relative">
               <div className="panel-accent"></div>
               <div>

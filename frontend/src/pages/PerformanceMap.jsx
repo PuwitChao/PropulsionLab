@@ -113,8 +113,8 @@ export default function PerformanceMap() {
                 y: throttleData.map(r => r.pr),
                 name: 'OPERATING_LINE',
                 mode: 'lines+markers',
-                marker: { size: 4, color: isLight ? '#0f172a' : '#fff' },
-                line: { color: isLight ? '#0f172a' : '#fff', width: 2.5 },
+                marker: { size: 4, color: '#00f0ff' },
+                line: { color: '#00f0ff', width: 2.5 },
                 hovertemplate: `OP_POINT<br>Throttle: %{text}%<extra></extra>`,
                 text: throttleData.map(r => r.throttle_pct)
             })
@@ -126,7 +126,7 @@ export default function PerformanceMap() {
                 y: [mapData.design_point.pr],
                 name: 'ANCHOR_DESIGN_POINT',
                 mode: 'markers',
-                marker: { color: isLight ? '#0f172a' : '#fff', size: 12, symbol: 'star-triangle-up' },
+                marker: { color: '#00f0ff', size: 12, symbol: 'star-triangle-up' },
                 hovertemplate: `DESIGN_POINT<br>W_corr: 1.0<br>PR: ${mapData.design_point.pr?.toFixed(2)}<extra></extra>`
             })
         }
@@ -142,7 +142,7 @@ export default function PerformanceMap() {
                     {['compressor', 'throttle', 'surge_profile'].map(view => (
                         <button
                             key={view} onClick={() => setActiveView(view)}
-                            className={`text-[12px] tracking-[0.3em] uppercase transition-all pb-3 ${activeView === view ? 'text-white border-b border-white font-black' : 'text-white/30 font-bold hover:text-white'}`}
+                            className={`text-[12px] tracking-[0.3em] uppercase transition-all pb-3 font-headline ${activeView === view ? 'tab-active' : 'tab-inactive'}`}
                         >
                             {view.replace('_', ' ')}
                         </button>
@@ -218,7 +218,7 @@ export default function PerformanceMap() {
                                                 showline: true, linecolor: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.1)'
                                             },
                                             showlegend: false, hovermode: 'closest',
-                                            font: { family: 'Inter', size: 14, color: isLight ? '#0f172a' : '#fff' }
+                                            font: { family: 'Outfit', size: 14, color: isLight ? '#0f172a' : '#fff' }
                                         }}
                                         className="w-full h-full"
                                         config={{ displayModeBar: false, responsive: true }}
@@ -226,7 +226,7 @@ export default function PerformanceMap() {
                                 ) : chartPlaceholder(error ? 'SOLVER_ERROR - CHECK BACKEND' : 'Awaiting_Analysis...')}
                             </div>
 
-                            <div className="grid grid-cols-4 gap-1 grid-bg shrink-0">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 grid-bg shrink-0">
                                 <StatPanel
                                     label="SURGE MARGIN"
                                     value={surgeMargin ?? (loading ? '-' : '-')}
@@ -269,8 +269,8 @@ export default function PerformanceMap() {
                                 >EXPORT ENGINE DECK</button>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 grow h-[500px]">
-                                <div className="bg-surface-container-lowest border border-white/10 p-8 flex flex-col group">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 grow lg:h-[500px]">
+                                <div className="bg-surface-container-lowest border border-white/10 p-8 flex flex-col group min-h-[350px] lg:min-h-0">
                                     <h4 className="mono text-[11px] font-black text-white/30 mb-8 uppercase tracking-[0.3em]">TSFC_THRUST_CORRELATION (FISHHOOK)</h4>
                                     {loading ? chartPlaceholder('COMPUTING...') : throttleData ? (
                                         <Plot
@@ -295,7 +295,7 @@ export default function PerformanceMap() {
                                     ) : chartPlaceholder('Awaiting_Analysis...')}
                                 </div>
 
-                                <div className="bg-surface-container-lowest border border-white/10 p-8 flex flex-col overflow-hidden">
+                                <div className="bg-surface-container-lowest border border-white/10 p-8 flex flex-col overflow-hidden min-h-[300px] lg:min-h-0">
                                      <h4 className="mono text-[11px] font-black text-white/30 mb-8 uppercase tracking-[0.3em]">TABULAR_STATE_AUDIT</h4>
                                      <div className="overflow-y-auto grow custom-scrollbar">
                                         <table className="w-full text-left mono text-[11px]">
@@ -355,7 +355,7 @@ export default function PerformanceMap() {
                                         yaxis: { title: { text: 'Surge Margin [%]', font: { family: 'JetBrains Mono', size: 11, color: isLight ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.4)' } }, gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)', tickfont: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' } },
                                         shapes: [{ type: 'line', x0: 0, x1: 100, y0: 10, y1: 10, line: { color: isLight ? 'rgba(15,23,42,0.32)' : 'rgba(255,255,255,0.35)', width: 1, dash: 'dash' } }],
                                         annotations: [{ x: 50, y: 10, text: 'MIN_SM_THRESHOLD (10%)', showarrow: false, font: { family: 'JetBrains Mono', size: 10, color: isLight ? 'rgba(15,23,42,0.55)' : 'rgba(255,255,255,0.58)' }, yshift: 10 }],
-                                        showlegend: false, font: { family: 'Inter', color: isLight ? '#0f172a' : '#fff' }
+                                        showlegend: false, font: { family: 'Outfit', color: isLight ? '#0f172a' : '#fff' }
                                     }}
                                     className="w-full h-full"
                                     config={{ displayModeBar: false, responsive: true }}

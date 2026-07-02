@@ -639,3 +639,34 @@ def test_offdesign_turbine_pr_from_work_balance():
     # Sweep must vary across throttle settings (not a flat number)
     pr_values = sorted({r['turb_pr'] for r in valid})
     assert len(pr_values) >= 3, f"Turbine PR is too flat across throttle: {pr_values}"
+
+
+def test_offdesign_sweep_throttle_invalid_points():
+    """sweep_throttle should return an empty list or handle n_points <= 0 gracefully."""
+    p0, t0, _ = isa_atmosphere(0.0)
+    ca = CycleAnalyzer(p0, t0, 0.0)
+    dp = ca.solve_turbojet(prc=20.0, tit=1500.0)
+    solver = OffDesignSolver(dp)
+
+    for n in (0, -5):
+        results = solver.sweep_throttle(p0, t0, 0.0, 42.8e6, n_points=n)
+        assert isinstance(results, list)
+        assert len(results) == 0
+
+
+def test_rocket_extreme_impurity():
+    """Rocket equilibrium should handle 100% or negative fuel impurity safely (clean errors)."""
+    analyzer = RocketAnalyzer(5e6)
+    
+    # 1. 100% impurity: no fuel species left, should raise clean error
+    with pytest.raises(Exception):
+        analyzer.solve_equilibrium(
+            "H2/O2", of_ratio=6.0, impurity_species="N2", impurity_mass_frac=1.0
+        )
+        
+    # 2. Negative mass fraction: should be ignored or raise clean error
+    with pytest.raises(Exception):
+        analyzer.solve_equilibrium(
+            "H2/O2", of_ratio=6.0, impurity_species="N2", impurity_mass_frac=-0.5
+        )
+

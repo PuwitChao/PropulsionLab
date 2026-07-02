@@ -32,7 +32,7 @@ export default class ErrorBoundary extends React.Component {
                     </p>
                     <button
                         onClick={this.reset}
-                        className="mono text-[11px] font-black uppercase tracking-widest text-white border border-white/20 hover:border-white px-8 py-3 transition-colors"
+                        className="mono text-[11px] font-black uppercase tracking-widest text-white border border-white/20 hover:border-accent-cyan hover:text-accent-cyan px-8 py-3 transition-colors cursor-pointer"
                     >
                         Reset Module
                     </button>

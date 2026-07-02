@@ -2,6 +2,7 @@ import math
 from typing import Any
 import cantera as ct
 from ..units import R_AIR
+from .thermo import poly_to_isen_comp, poly_to_isen_turb, nozzle_exit
 
 # ── Nozzle / afterburner loss model ──────────────────────────────────
 # Additional total-pressure loss across the afterburner flame-holder and
@@ -133,39 +134,15 @@ class CycleAnalyzer:
     # ─────────────────────────────────────────────────────────────────────────
     def _poly_to_isen_comp(self, prc: float, eta_poly: float, g: float) -> float:
         """Compressor isentropic efficiency from polytropic efficiency."""
-        exp = (g - 1.0) / g
-        ideal = prc ** exp - 1.0
-        actual = prc ** (exp / eta_poly) - 1.0
-        return ideal / actual if actual != 0 else 1.0
+        return poly_to_isen_comp(prc, eta_poly, g)
 
     def _poly_to_isen_turb(self, tau_t: float, eta_poly: float, g: float) -> float:
         """Turbine isentropic efficiency from polytropic efficiency & temp ratio."""
-        if abs(1.0 - tau_t) < 1e-9:
-            return eta_poly
-        exp = (g - 1.0) / g
-        try:
-            num = 1.0 - tau_t ** (1.0 / eta_poly)
-            den = 1.0 - tau_t
-            return num / den
-        except Exception:
-            return eta_poly
+        return poly_to_isen_turb(tau_t, eta_poly, g)
 
     def _nozzle_exit(self, pt_in: float, tt_in: float, p_amb: float, g: float, r: float):
         """Calculate choked/unchoked nozzle exit conditions."""
-        crit_pr = ((g + 1.0) / 2.0) ** (g / (g - 1.0))
-        if pt_in / p_amb >= crit_pr:
-            # Choked
-            m9  = 1.0
-            ps9 = pt_in / crit_pr
-            ts9 = tt_in * 2.0 / (g + 1.0)
-        else:
-            # Unchoked
-            exp = (g - 1.0) / g
-            m9  = math.sqrt(((pt_in / p_amb) ** exp - 1.0) * 2.0 / (g - 1.0))
-            ps9 = p_amb
-            ts9 = tt_in / (1.0 + 0.5 * (g - 1.0) * m9 ** 2)
-        v9 = m9 * math.sqrt(g * r * ts9)
-        return v9, ps9, ts9, m9
+        return nozzle_exit(pt_in, tt_in, p_amb, g, r)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Public cycle solvers
