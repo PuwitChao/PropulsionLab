@@ -30,6 +30,10 @@ class RocketAnalyzer:
     and provides a Bartz model for convective heat transfer distribution along the nozzle wall.
     """
 
+    def _new_gas(self) -> ct.Solution:
+        """Returns a fresh, isolated Cantera GRI30 solution object for thread safety."""
+        return ct.Solution('gri30.yaml', transport_model='mixture-averaged')
+
     def __init__(self, chamber_p_pa: float) -> None:
         """
         Initialize the analyzer with design chamber pressure.
@@ -38,8 +42,6 @@ class RocketAnalyzer:
             chamber_p_pa: Combustion chamber stagnation pressure [Pa].
         """
         # Load the chemical mechanism. GRI30 provides excellent coverage for CH4, H2, and RP1 surrogates.
-        # Note: transport_model='mixture-averaged' is required for viscosity/thermal_conductivity
-        self.gas  = ct.Solution('gri30.yaml', transport_model='mixture-averaged')
         self.pc   = chamber_p_pa
         self.propellants = {
             # Rocket Standard Liquid Propellants
@@ -206,55 +208,68 @@ class RocketAnalyzer:
         if of_ratio <= 0:
             raise ValueError(f"O/F ratio must be positive, got {of_ratio}")
 
+        gas = self._new_gas()
+
+        if impurity_species:
+            if not (0.0 <= impurity_mass_frac < 1.0):
+                raise ValueError(
+                    f"Impurity mass fraction must be in range [0.0, 1.0), got {impurity_mass_frac}"
+                )
+            if impurity_species not in gas.species_names:
+                raise ValueError(
+                    f"Impurity species '{impurity_species}' not found in the Cantera mechanism."
+                )
+
+
         math_trace = []
         prop = self.propellants[propellant_name]
         phi  = prop['stoich'] / of_ratio
         math_trace.append(f"Propellants: {propellant_name} (Stoich O/F: {prop['stoich']})")
         math_trace.append(f"Equivalence Ratio φ = {phi:.4f}")
 
-        self.gas.TP = 300.0, self.pc
+        gas.TP = 300.0, self.pc
         if impurity_species and impurity_mass_frac > 0:
             # Handle impurity in fuel
             # Y_fuel = 1 - impurity_mass_frac, Y_impurity = impurity_mass_frac
             fuel_mix = {prop['fuel']: (1.0 - impurity_mass_frac), impurity_species: impurity_mass_frac}
-            self.gas.set_equivalence_ratio(phi, fuel_mix, prop['ox'])
+            gas.set_equivalence_ratio(phi, fuel_mix, prop['ox'])
         else:
-            self.gas.set_equivalence_ratio(phi, prop['fuel'], prop['ox'])
+            gas.set_equivalence_ratio(phi, prop['fuel'], prop['ox'])
 
         # ── Chamber ──────────────────────────────────────────────────────
-        self.gas.equilibrate('HP')
-        t_chamber    = self.gas.T
-        h_chamber    = self.gas.h
+        gas.equilibrate('HP')
+        t_chamber    = gas.T
+        h_chamber    = gas.h
         math_trace.append(f"Chamber Equilibrium (HP): T={t_chamber:.1f} K, h={h_chamber/1e6:.3f} MJ/kg")
-        s_chamber    = self.gas.s
-        rho_chamber  = self.gas.density
-        visc_chamber = self.gas.viscosity
-        cond_chamber = self.gas.thermal_conductivity
-        cp_chamber   = self.gas.cp
-        mw_chamber   = self.gas.mean_molecular_weight
+        s_chamber    = gas.s
+        rho_chamber  = gas.density
+        visc_chamber = gas.viscosity
+        cond_chamber = gas.thermal_conductivity
+        cp_chamber   = gas.cp
+        mw_chamber   = gas.mean_molecular_weight
         gamma_chamber = cp_chamber / (cp_chamber - ct.gas_constant / mw_chamber)
         r_spec_chamber = ct.gas_constant / mw_chamber
 
-        frozen_X = self.gas.X.copy() if mode == 'frozen' else None
+        frozen_X = gas.X.copy() if mode == 'frozen' else None
 
         # ── Nozzle exit ───────────────────────────────────────────────────
         if mode == 'shifting':
-            self.gas.SP = s_chamber, p_exit_pa
+            gas.SP = s_chamber, p_exit_pa
             try:
-                self.gas.equilibrate('SP')
+                gas.equilibrate('SP')
             except Exception as exc:
                 raise ValueError(
                     f"Nozzle exit equilibration failed (SP at {p_exit_pa:.0f} Pa): {exc}"
                 ) from exc
         else:
-            self.gas.X = frozen_X
-            self.gas.SP = s_chamber, p_exit_pa
+            gas.X = frozen_X
+            gas.SP = s_chamber, p_exit_pa
 
-        t_exit   = self.gas.T
-        h_exit   = self.gas.h
-        rho_exit = self.gas.density
-        visc_exit = self.gas.viscosity
-        cond_exit = self.gas.thermal_conductivity
+        t_exit   = gas.T
+        h_exit   = gas.h
+        rho_exit = gas.density
+        visc_exit = gas.viscosity
+        cond_exit = gas.thermal_conductivity
 
         v_exit_ideal = math.sqrt(max(0.0, 2.0 * (h_chamber - h_exit)))
 
@@ -275,18 +290,18 @@ class RocketAnalyzer:
 
         # ── Area ratio ε ──────────────────────────────────────────────────
         if mode == 'shifting':
-            self.gas.TP = t_chamber * (2 / (g + 1)), self.pc * (2 / (g + 1)) ** (g / (g - 1))
-            self.gas.SP = s_chamber, self.gas.P
+            gas.TP = t_chamber * (2 / (g + 1)), self.pc * (2 / (g + 1)) ** (g / (g - 1))
+            gas.SP = s_chamber, gas.P
             try:
-                self.gas.equilibrate('SP')
+                gas.equilibrate('SP')
             except Exception as exc:
                 raise ValueError(f"Throat equilibration failed: {exc}") from exc
         else:
-            self.gas.X = frozen_X
-            self.gas.SP = s_chamber, self.pc * (2 / (g + 1)) ** (g / (g - 1))
+            gas.X = frozen_X
+            gas.SP = s_chamber, self.pc * (2 / (g + 1)) ** (g / (g - 1))
 
-        rho_star = self.gas.density
-        v_star   = math.sqrt(max(0.0, 2.0 * (h_chamber - self.gas.h)))
+        rho_star = gas.density
+        v_star   = math.sqrt(max(0.0, 2.0 * (h_chamber - gas.h)))
         epsilon  = (rho_star * v_star) / (rho_exit * v_exit_ideal) if v_exit_ideal > 0 else 0.0
 
         # ── Specific impulse ──────────────────────────────────────────────
@@ -375,8 +390,8 @@ class RocketAnalyzer:
                 regime = 'Separation Warning'
 
         # Sonic velocity at exit
-        cpn_exit = self.gas.cp
-        mwn_exit = self.gas.mean_molecular_weight
+        cpn_exit = gas.cp
+        mwn_exit = gas.mean_molecular_weight
         gn_exit  = cpn_exit / (cpn_exit - ct.gas_constant / mwn_exit)
         rn_exit = ct.gas_constant / mwn_exit
         a_exit  = math.sqrt(max(0.1, gn_exit * rn_exit * t_exit))
@@ -436,7 +451,7 @@ class RocketAnalyzer:
             'thrust_vac'        : mdot * isp_vac * G,
             'thrust_sl'         : mdot * isp_sl * G,
             # ── Exit species ─────────────────────────────────────────────
-            'composition_exit'  : self.gas.mole_fraction_dict(),
+            'composition_exit'  : gas.mole_fraction_dict(),
             'math_trace'        : math_trace,
         }
 

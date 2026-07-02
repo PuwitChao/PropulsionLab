@@ -13,7 +13,7 @@ export const getLayout = (theme, extra = {}) => {
     plot_bgcolor: paperColor,
     font: { 
         color: textColor, 
-        family: 'Inter, sans-serif', 
+        family: 'Outfit, sans-serif', 
         size: 10 
     },
     margin: { l: 60, r: 20, t: 40, b: 60 },
@@ -35,7 +35,7 @@ export const getLayout = (theme, extra = {}) => {
       tickfont: { family: 'JetBrains Mono, monospace', size: 9, color: mutedTextColor },
       title: { 
         text: extra.xaxis?.title?.text || extra.xaxis?.title || '',
-        font: { family: 'Inter, sans-serif', size: 10, color: textColor, weight: 'bold' } 
+        font: { family: 'Outfit, sans-serif', size: 10, color: textColor, weight: 'bold' } 
       } 
     },
     yaxis: { 
@@ -46,7 +46,7 @@ export const getLayout = (theme, extra = {}) => {
       tickfont: { family: 'JetBrains Mono, monospace', size: 9, color: mutedTextColor },
       title: { 
         text: extra.yaxis?.title?.text || extra.yaxis?.title || '',
-        font: { family: 'Inter, sans-serif', size: 10, color: textColor, weight: 'bold' } 
+        font: { family: 'Outfit, sans-serif', size: 10, color: textColor, weight: 'bold' } 
       } 
     },
     yaxis2: { 
@@ -57,7 +57,7 @@ export const getLayout = (theme, extra = {}) => {
       tickfont: { family: 'JetBrains Mono, monospace', size: 9, color: mutedTextColor },
       title: { 
         text: extra.yaxis2?.title?.text || extra.yaxis2?.title || '',
-        font: { family: 'Inter, sans-serif', size: 10, color: textColor, weight: 'bold' } 
+        font: { family: 'Outfit, sans-serif', size: 10, color: textColor, weight: 'bold' } 
       } 
     },
   };

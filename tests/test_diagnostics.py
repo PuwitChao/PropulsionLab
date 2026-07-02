@@ -82,3 +82,79 @@ def test_diagnostics_validation():
     }
     r = client.post("/analyze/diagnostics", json=payload)
     assert r.status_code == 422
+
+
+def test_diagnostics_divide_by_zero_safety():
+    """Diagnostics with identical temps must not crash with division by zero."""
+    payload = {
+        "pt2": 101325.0,
+        "tt2": 300.0,
+        "pt3": 2026500.0,
+        "tt3": 300.0,  # tt3 == tt2 -> potential division by zero
+        "pt4": 1945440.0,
+        "tt4": 1600.0,
+        "pt5": 291816.0,
+        "tt5": 1600.0,  # tt5 == tt4 -> potential division by zero
+        "gamma_c": 1.4,
+        "gamma_t": 1.33,
+    }
+    r = client.post("/analyze/diagnostics", json=payload)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["eta_c"] == 0.0
+    assert data["eta_t"] == 0.0
+
+
+def test_diagnostics_unphysical_sensor_readings():
+    """Diagnostics engine must handle extreme or physically contradictory sensor telemetry cleanly."""
+    # 1. Compressor temperature drop: tt3 < tt2 (unphysical cooling)
+    payload = {
+        "pt2": 101325.0,
+        "tt2": 300.0,
+        "pt3": 2026500.0,
+        "tt3": 280.0,  # tt3 < tt2 -> must result in eta_c = 0.0
+        "pt4": 1945440.0,
+        "tt4": 1600.0,
+        "pt5": 291816.0,
+        "tt5": 1047.57,
+        "gamma_c": 1.4,
+        "gamma_t": 1.33,
+    }
+    r = client.post("/analyze/diagnostics", json=payload)
+    assert r.status_code == 200
+    assert r.json()["eta_c"] == 0.0
+
+    # 2. Turbine temperature rise: tt5 > tt4 (unphysical heating)
+    payload = {
+        "pt2": 101325.0,
+        "tt2": 288.15,
+        "pt3": 2026500.0,
+        "tt3": 680.0,
+        "pt4": 1945440.0,
+        "tt4": 1600.0,
+        "pt5": 291816.0,
+        "tt5": 1700.0,  # tt5 > tt4 -> must result in eta_t = 0.0
+        "gamma_c": 1.4,
+        "gamma_t": 1.33,
+    }
+    r = client.post("/analyze/diagnostics", json=payload)
+    assert r.status_code == 200
+    assert r.json()["eta_t"] == 0.0
+
+    # 3. Burner pressure rise: pt4 > pt3 (unphysical pressure gain)
+    payload = {
+        "pt2": 101325.0,
+        "tt2": 288.15,
+        "pt3": 2026500.0,
+        "tt3": 680.0,
+        "pt4": 2500000.0,  # pt4 > pt3 -> must not crash, results in negative dp_b
+        "tt4": 1600.0,
+        "pt5": 291816.0,
+        "tt5": 1047.57,
+        "gamma_c": 1.4,
+        "gamma_t": 1.33,
+    }
+    r = client.post("/analyze/diagnostics", json=payload)
+    assert r.status_code == 200
+    assert r.json()["dp_b"] < 0.0
+

@@ -1,31 +1,6 @@
 """
 Propulsion Analysis Platform — FastAPI Backend
 All physical quantities in SI units unless explicitly labelled.
-
-Endpoints
----------
-GET  /                          — health ping
-GET  /health                    — structured health check
-
-POST /analyze/mission           — T/W vs W/S constraint diagram
-POST /analyze/cycle             — on-design gas turbine cycle (turbojet or turbofan)
-POST /analyze/cycle/sweep       — pressure ratio sweep (sensitivity)
-POST /analyze/cycle/turbofan    — turbofan specific on-design
-POST /analyze/offdesign/map     — compressor map data (full speed + surge lines)
-POST /analyze/offdesign/throttle — throttle sweep at fixed ambient/Mach
-
-POST /analyze/rocket            — chemical equilibrium rocket analysis
-POST /analyze/rocket/sweep      — OF ratio sweep
-POST /analyze/rocket/moc           — Method of Characteristics nozzle contour
-POST /analyze/rocket/altitude      — altitude Isp/Cf performance table
-POST /analyze/rocket/export/csv    — Nozzle contour coordinates as CSV
-POST /analyze/cycle/sensitivity    — Multi-parameter sensitivity sweep (T4/Alt/OPR)
-Propulsion Analysis Suite — Backend API (v2.2.0-dev)
-
-System architect for high-fidelity gas turbine cycle analysis, rocket equilibriumCEA,
-and mission performance synthesis.
-
-Core dependencies: Cantera (Equilibrium), FastAPI (REST), Pydantic (Validation).
 """
 
 import os, sys
@@ -33,7 +8,6 @@ from typing import List, Dict, Any, Optional
 import math
 from datetime import datetime, timezone
 import logging
-from pydantic import model_validator, field_validator
 
 # Configure logging
 logging.basicConfig(
@@ -48,7 +22,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
 
 # Local analytical modules
 from core.units import isa_atmosphere
@@ -57,6 +30,27 @@ from core.gas_turbine.off_design import OffDesignSolver
 from core.rocket.analyzer import RocketAnalyzer
 from core.rocket.moc import MoCNozzle
 from core.gas_turbine.mission import MissionAnalyzer
+from core.diagnostics import DiagnosticsAnalyzer
+
+# Pydantic request models
+from backend.models import (
+    AircraftData,
+    MissionConstraint,
+    MissionConstraintRequest,
+    CycleRequest,
+    TurbofanRequest,
+    CycleSweepRequest,
+    OffDesignMapRequest,
+    ThrottleSweepRequest,
+    RocketRequest,
+    AltitudeRequest,
+    SizingRequest,
+    MoCRequest,
+    SensitivityRequest,
+    MultispoolRequest,
+    DiagnosticsRequest,
+    _VALID_PROPELLANTS,
+)
 
 app = FastAPI(
     title="Propulsion Architecture API",
@@ -76,8 +70,6 @@ def _sanitize(obj: Any) -> Any:
     return obj
 
 # ── Security & Policy ────────────────────────────────────────────────────────
-# CORS_ORIGINS env var: comma-separated list of allowed origins.
-# Defaults to localhost for dev. Set to your deployed domain in production.
 _cors_origins_env = os.environ.get("CORS_ORIGINS", "")
 _cors_origins = (
     [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
@@ -101,6 +93,7 @@ def read_root():
     """Returns the API status and versioning."""
     return {"message": "Propulsion Analysis API v2.2.0 is running"}
 
+
 @app.get("/version")
 def get_version():
     """Returns the structured version info."""
@@ -110,10 +103,12 @@ def get_version():
         "status": "operational"
     }
 
+
 @app.get("/health")
 def health_check():
     """System health audit endpoint for frontend status badges."""
     return {"status": "healthy", "version": "2.2.0", "timestamp": datetime.now().isoformat()}
+
 
 @app.get("/health/diagnostics")
 def get_diagnostics():
@@ -166,61 +161,6 @@ def get_diagnostics():
 # Mission Analysis
 # ════════════════════════════════════════════════════════════════════════════
 
-class AircraftData(BaseModel):
-    """Aircraft aerodynamic and geometry parameters for mission analysis."""
-    k:      float = Field(0.1,  ge=0.01, le=1.0,  description="Induced drag factor")
-    cd0:    float = Field(0.02, ge=0.0,  le=0.5,  description="Zero-lift drag coefficient")
-    cl_max: float = Field(2.0,  ge=0.5,  le=5.0,  description="Max lift coefficient")
-
-
-class MissionConstraint(BaseModel):
-    """A single T/W-vs-W/S constraint curve.
-
-    `type` selects the governing equation; the remaining fields are the
-    inputs that equation needs. Declaring them here means malformed
-    constraints are rejected with a 422 rather than raising a KeyError
-    (HTTP 500) deep inside the analyzer.
-    """
-    type:      str = Field(..., pattern="^(level|ps|turn|takeoff|ceiling|climb)$")
-    label:     str
-    alt:       Optional[float] = Field(None, ge=0, le=30000)
-    mach:      Optional[float] = Field(None, ge=0, le=4.0)
-    ps:        Optional[float] = Field(None, ge=0, le=500)
-    n:         Optional[float] = Field(None, ge=1, le=12)
-    sto:       Optional[float] = Field(None, ge=100, le=10000)
-    cl_max:    Optional[float] = Field(None, ge=0.5, le=5.0)
-    angle_deg: Optional[float] = Field(None, ge=0, le=89)
-
-    @model_validator(mode='after')
-    def validate_required_for_type(self):
-        needed = {
-            'level':   ('alt', 'mach'),
-            'ps':      ('alt', 'mach', 'ps'),
-            'turn':    ('alt', 'mach', 'n'),
-            'takeoff': ('sto', 'cl_max'),
-            'ceiling': ('alt', 'mach'),
-            'climb':   ('alt', 'mach', 'angle_deg'),
-        }[self.type]
-        missing = [f for f in needed if getattr(self, f) is None]
-        if missing:
-            raise ValueError(f"constraint type '{self.type}' requires: {', '.join(missing)}")
-        return self
-
-
-class MissionConstraintRequest(BaseModel):
-    """Data model for mission matching charts (T/W vs W/S)."""
-    aircraft_data: AircraftData
-    constraints:   List[MissionConstraint]
-    ws_min:   float = Field(1000.0, ge=100,   le=20000)
-    ws_max:   float = Field(8000.0, ge=200,   le=50000)
-    ws_steps: int   = Field(50,     ge=5,     le=200)
-
-    @model_validator(mode='after')
-    def validate_ws_range(self):
-        if self.ws_min >= self.ws_max:
-            raise ValueError("ws_min must be less than ws_max")
-        return self
-
 @app.post("/analyze/mission")
 async def analyze_mission(request: MissionConstraintRequest):
     """
@@ -244,27 +184,6 @@ async def analyze_mission(request: MissionConstraintRequest):
 # ════════════════════════════════════════════════════════════════════════════
 # Gas Turbine — On-Design (Turbojet & Turbofan)
 # ════════════════════════════════════════════════════════════════════════════
-
-class CycleRequest(BaseModel):
-    """Thermodynamic parameters for gas turbine cycle synthesis."""
-    alt:        float = Field(...,  ge=0,    le=50000, description="Altitude [m]")
-    mach:       float = Field(...,  ge=0,    le=4.0,   description="Flight Mach number")
-    prc:        float = Field(...,  ge=1.1,  le=80.0,  description="Compressor Pressure Ratio")
-    tit:        float = Field(...,  ge=300,  le=2500,  description="Turbine Inlet Temperature [K]")
-    eta_c:      float = Field(0.88, ge=0.6,  le=0.97)
-    eta_t:      float = Field(0.92, ge=0.6,  le=0.97)
-    eta_ab:     float = Field(0.95, ge=0.5,  le=1.0)
-    h_fuel:     float = Field(42.8e6)
-    ab_enabled: bool  = False
-    ab_temp:    float = Field(2000.0, ge=1000, le=2500)
-    inlet_recovery:  float = Field(0.98,  ge=0.8,  le=1.0)
-    burner_eta:      float = Field(0.99,  ge=0.8,  le=1.0)
-    burner_dp_frac:  float = Field(0.04,  ge=0.0,  le=0.15)
-    nozzle_dp_frac:  float = Field(0.02,  ge=0.0,  le=0.10)
-    phi_inlet:       float = Field(0.0,   ge=0.0,  le=0.10)
-    eta_install_nozzle: float = Field(1.0, ge=0.8, le=1.0)
-    eta_mech_hp: float = Field(0.99, ge=0.9, le=1.0)
-    eta_mech_lp: float = Field(0.99, ge=0.9, le=1.0)
 
 @app.post("/analyze/cycle")
 async def analyze_cycle(request: CycleRequest):
@@ -294,16 +213,6 @@ async def analyze_cycle(request: CycleRequest):
         logger.error("Turbojet cycle error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Cycle analysis computation failed.")
 
-
-# ── Turbofan On-Design ─────────────────────────────────────────────────────
-
-class TurbofanRequest(CycleRequest):
-    """Extended parameters for multi-stream turbofan analysis."""
-    bpr:      float = Field(..., ge=0,   le=20.0, description="Bypass Ratio")
-    fpr:      float = Field(..., ge=1.1, le=4.0,  description="Fan Pressure Ratio")
-    eta_fan: float = Field(0.90, ge=0.6, le=0.97) # Renamed from eta_f to eta_fan to match original
-    mixed_exhaust: bool = False # Renamed from mixed to mixed_exhaust to match original
-    lpc_pr:   float = Field(1.0, ge=1.0, le=5.0)  # LPC/Booster PR
 
 @app.post("/analyze/cycle/turbofan")
 async def analyze_turbofan(request: TurbofanRequest):
@@ -335,23 +244,6 @@ async def analyze_turbofan(request: TurbofanRequest):
         logger.error("Turbofan cycle error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Turbofan cycle computation failed.")
 
-
-# ── Parametric Sweep (pressure ratio) ─────────────────────────────────────
-
-class CycleSweepRequest(BaseModel):
-    """Parameters for a parametric sweep of compressor pressure ratio."""
-    alt:     float = Field(10000.0, ge=0,   le=47000)
-    mach:    float = Field(0.8,     ge=0,   le=4.0)
-    tit:     float = Field(1600.0,  ge=300, le=2500)
-    prc_min: float = Field(2.0,     ge=1.1, le=79.0)
-    prc_max: float = Field(50.0,    ge=1.2, le=80.0)
-    steps:   int   = Field(25,      ge=2,   le=100)
-
-    @model_validator(mode='after')
-    def validate_sweep(self):
-        if self.prc_min >= self.prc_max:
-            raise ValueError("prc_min must be less than prc_max")
-        return self
 
 @app.post("/analyze/cycle/sweep")
 async def analyze_cycle_sweep(request: CycleSweepRequest):
@@ -386,16 +278,6 @@ async def analyze_cycle_sweep(request: CycleSweepRequest):
 # Gas Turbine — Off-Design
 # ════════════════════════════════════════════════════════════════════════════
 
-class OffDesignMapRequest(BaseModel):
-    """Config for generating scaled compressor performance maps."""
-    n_speed_lines: int = Field(7,  ge=3, le=12)
-    n_flow_points: int = Field(20, ge=8, le=50)
-    # Design-point params used to anchor the map
-    alt:  float = Field(0.0,  ge=0, le=20000)
-    mach: float = Field(0.0,  ge=0, le=1.5)
-    prc:  float = Field(20.0, ge=2, le=60)
-    tit:  float = Field(1500, ge=600, le=2500)
-
 @app.post("/analyze/offdesign/map")
 async def offdesign_map(request: OffDesignMapRequest):
     """
@@ -420,15 +302,6 @@ async def offdesign_map(request: OffDesignMapRequest):
         raise HTTPException(status_code=500, detail="Compressor map computation failed.")
 
 
-class ThrottleSweepRequest(BaseModel):
-    """Simulation parameters for throttle transient performance."""
-    alt:   float = Field(0.0,  ge=0, le=20000)
-    mach:  float = Field(0.0,  ge=0, le=1.5)
-    prc:   float = Field(20.0, ge=2, le=60)
-    tit:   float = Field(1500, ge=600, le=2500)
-    h_fuel: float = Field(42.8e6)
-    n_points: int = Field(20, ge=5, le=50)
-
 @app.post("/analyze/offdesign/throttle")
 async def offdesign_throttle(request: ThrottleSweepRequest):
     """
@@ -451,36 +324,6 @@ async def offdesign_throttle(request: ThrottleSweepRequest):
 # ════════════════════════════════════════════════════════════════════════════
 # Rocket — On-Design (CEA & Equilibrium)
 # ════════════════════════════════════════════════════════════════════════════
-
-_VALID_MODES = {'shifting', 'frozen'}
-
-
-class RocketRequest(BaseModel):
-    """Rocket architecture request for chemical equilibrium analysis."""
-    pc:                   float = Field(..., ge=1e5,  le=50e6, description="Chamber Pressure [Pa]")
-    of_ratio:             float = Field(..., ge=0.5,  le=20.0, description="Mixture Ratio")
-    pe:                   float = Field(101325.0, ge=0, le=1e6, description="Exit Pressure [Pa]")
-    propellant:           str   = Field("H2/O2")
-    mode:                 str   = Field("shifting", description="Shifting or Frozen composition")
-    exit_half_angle_deg:  float = Field(15.0, ge=1, le=45)
-    thrust_target_N:      Optional[float] = Field(None, ge=100, le=10e6)
-    compute_heat_transfer: bool = True
-    impurity_species:      Optional[str]   = Field(None)
-    impurity_mass_frac:    float           = Field(0.0, ge=0.0, le=0.5)
-
-    @field_validator('mode')
-    @classmethod
-    def validate_mode(cls, v: str) -> str:
-        if v not in _VALID_MODES:
-            raise ValueError(f"mode must be one of {sorted(_VALID_MODES)}, got '{v}'")
-        return v
-
-_VALID_PROPELLANTS = {
-    'H2/O2', 'CH4/O2', 'RP1/O2', 'Propane/O2', 'Ethanol/O2', 'Methanol/O2',
-    'Ammonia/O2', 'C2H2/O2', 'C2H4/O2', 'C2H6/O2', 'CH4/N2O', 'C3H8/N2O',
-    'UDMH/N2O4', 'MMH/N2O4',
-}
-
 
 @app.post("/analyze/rocket")
 async def analyze_rocket(request: RocketRequest):
@@ -551,22 +394,6 @@ async def analyze_rocket_sweep(request: RocketRequest):
 
 # ── Altitude Performance ───────────────────────────────────────────────────
 
-class AltitudeRequest(BaseModel):
-    """Inputs for generating rocket performance across an altitude range."""
-    pc:         float = Field(..., ge=1e5, le=50e6)
-    of_ratio:   float = Field(..., ge=0.5, le=20.0)
-    propellant: str   = Field("H2/O2")
-    mode:       str   = Field("shifting")
-    alt_max_km: float = Field(100.0, ge=0, le=500)
-    n_points:   int   = Field(20, ge=5, le=50)
-
-    @field_validator('mode')
-    @classmethod
-    def validate_mode(cls, v: str) -> str:
-        if v not in _VALID_MODES:
-            raise ValueError(f"mode must be one of {sorted(_VALID_MODES)}, got '{v}'")
-        return v
-
 @app.post("/analyze/rocket/altitude")
 async def analyze_rocket_altitude(request: AltitudeRequest):
     """
@@ -589,22 +416,6 @@ async def analyze_rocket_altitude(request: AltitudeRequest):
 
 
 # ── Engine Sizing from Thrust Target ──────────────────────────────────────
-
-class SizingRequest(BaseModel):
-    """Inputs for sizing a rocket engine based on thrust targets."""
-    thrust_N:   float = Field(..., ge=100, le=10e6, description="Target vacuum thrust [N]")
-    pc:         float = Field(..., ge=1e5, le=50e6)
-    of_ratio:   float = Field(..., ge=0.5, le=20.0)
-    pe:         float = Field(101325.0)
-    propellant: str   = Field("H2/O2")
-    mode:       str   = Field("shifting")
-
-    @field_validator('mode')
-    @classmethod
-    def validate_mode(cls, v: str) -> str:
-        if v not in _VALID_MODES:
-            raise ValueError(f"mode must be one of {sorted(_VALID_MODES)}, got '{v}'")
-        return v
 
 @app.post("/analyze/rocket/sizing")
 async def analyze_sizing(request: SizingRequest):
@@ -656,11 +467,6 @@ async def analyze_sizing(request: SizingRequest):
 
 
 # ── Method of Characteristics ─────────────────────────────────────────────
-
-class MoCRequest(BaseModel):
-    gamma:         float = Field(1.2,  ge=1.1, le=1.67)
-    mach_exit:     float = Field(3.0,  ge=1.5, le=6.0)
-    throat_radius: float = Field(0.1,  ge=0.001, le=2.0)
 
 @app.post("/analyze/rocket/moc")
 async def analyze_rocket_moc(request: MoCRequest):
@@ -732,32 +538,6 @@ async def export_rocket_csv(request: MoCRequest):
 # Gas Turbine — Sensitivity Sweeps
 # ════════════════════════════════════════════════════════════════════════════
 
-_VALID_SWEEP_TYPES = {'t4', 'alt', 'opr'}
-
-
-class SensitivityRequest(BaseModel):
-    """
-    Multi-parameter sensitivity sweep for gas turbine cycle analysis.
-    Sweeps one parameter (T4, altitude, or OPR) while holding others fixed.
-    """
-    sweep_type: str   = Field("t4", description="'t4', 'alt', or 'opr'")
-    alt:        float = Field(10000.0, ge=0,   le=50000)
-    mach:       float = Field(0.8,     ge=0,   le=4.0)
-    prc:        float = Field(20.0,    ge=1.1, le=80.0)
-    tit:        float = Field(1600.0,  ge=300, le=2500)
-    # Sweep bounds
-    sweep_min:  float = Field(800.0)
-    sweep_max:  float = Field(2200.0)
-    steps:      int   = Field(20, ge=5, le=60)
-
-    @field_validator('sweep_type')
-    @classmethod
-    def validate_sweep_type(cls, v: str) -> str:
-        if v not in _VALID_SWEEP_TYPES:
-            raise ValueError(f"sweep_type must be one of {sorted(_VALID_SWEEP_TYPES)}, got '{v}'")
-        return v
-
-
 @app.post("/analyze/cycle/sensitivity")
 async def analyze_cycle_sensitivity(request: SensitivityRequest):
     """
@@ -808,23 +588,8 @@ async def analyze_cycle_sensitivity(request: SensitivityRequest):
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Gas Turbine — Multi-Spool (Stub / Groundwork)
+# Gas Turbine — Multi-Spool
 # ════════════════════════════════════════════════════════════════════════════
-
-class MultispoolRequest(BaseModel):
-    """
-    Request model for high-fidelity multi-spool turbofan work matching.
-    Intended for military turbofan architectures with LPC/HPC work balancing.
-    """
-    alt:    float = Field(0.0,    ge=0,   le=30000)
-    mach:   float = Field(0.0,   ge=0,   le=3.0)
-    opr:    float = Field(32.0,  ge=5,   le=80.0)
-    bpr:    float = Field(0.3,   ge=0,   le=12.0)
-    fpr:    float = Field(3.5,   ge=1.1, le=6.0)
-    lpc_pr: float = Field(4.0,   ge=1.0, le=10.0)
-    tit:    float = Field(1850.0, ge=800, le=2500)
-    nozzle_dp_frac: float = Field(0.02, ge=0.0, le=0.10)
-
 
 @app.post("/analyze/cycle/multispool")
 async def analyze_multispool(request: MultispoolRequest):
@@ -851,19 +616,9 @@ async def analyze_multispool(request: MultispoolRequest):
         raise HTTPException(status_code=500, detail="Multi-spool computation failed.")
 
 
-class DiagnosticsRequest(BaseModel):
-    """Telemetry parameters for reverse-cycle thermodynamic fault diagnostics."""
-    pt2: float = Field(..., ge=1000.0, le=1e6)
-    tt2: float = Field(..., ge=100.0, le=500.0)
-    pt3: float = Field(..., ge=10000.0, le=1e7)
-    tt3: float = Field(..., ge=200.0, le=1500.0)
-    pt4: float = Field(..., ge=10000.0, le=1e7)
-    tt4: float = Field(..., ge=500.0, le=2500.0)
-    pt5: float = Field(..., ge=1000.0, le=1e6)
-    tt5: float = Field(..., ge=300.0, le=1800.0)
-    gamma_c: float = Field(1.4, ge=1.1, le=1.67)
-    gamma_t: float = Field(1.33, ge=1.1, le=1.67)
-
+# ════════════════════════════════════════════════════════════════════════════
+# Diagnostics
+# ════════════════════════════════════════════════════════════════════════════
 
 @app.post("/analyze/diagnostics")
 async def analyze_diagnostics(request: DiagnosticsRequest):
@@ -873,68 +628,19 @@ async def analyze_diagnostics(request: DiagnosticsRequest):
     from sensor measurements to isolate faults.
     """
     try:
-        math_trace = []
-        alerts = []
-        messages = []
-
-        pt2, tt2 = request.pt2, request.tt2
-        pt3, tt3 = request.pt3, request.tt3
-        pt4, tt4 = request.pt4, request.tt4
-        pt5, tt5 = request.pt5, request.tt5
-        gc, gt = request.gamma_c, request.gamma_t
-
-        math_trace.append("Diagnostics sensor telemetry received.")
-        math_trace.append(f"Inlet conditions: Pt2={pt2/1e3:.1f} kPa, Tt2={tt2:.1f} K")
-        math_trace.append(f"Compressor exit: Pt3={pt3/1e3:.1f} kPa, Tt3={tt3:.1f} K")
-        math_trace.append(f"Turbine inlet: Pt4={pt4/1e3:.1f} kPa, Tt4={tt4:.1f} K")
-        math_trace.append(f"Turbine exit: Pt5={pt5/1e3:.1f} kPa, Tt5={tt5:.1f} K")
-
-        # 1. Compressor Isentropic Efficiency
-        exp_c = (gc - 1.0) / gc
-        tt3_ideal = tt2 * (pt3 / pt2) ** exp_c
-        eta_c = (tt3_ideal - tt2) / (tt3 - tt2) if (tt3 > tt2) else 0.0
-        math_trace.append(f"Compressor Isentropic Efficiency: {eta_c*100:.2f}% (ideal Tt3={tt3_ideal:.1f} K)")
-
-        # 2. Combustor Pressure Loss
-        dp_b = ((pt3 - pt4) / pt3) * 100.0
-        math_trace.append(f"Combustor Total Pressure Loss Fraction: {dp_b:.2f}%")
-
-        # 3. Turbine Isentropic Efficiency
-        exp_t = (gt - 1.0) / gt
-        tt5_ideal = tt4 * (pt5 / pt4) ** exp_t
-        eta_t = (tt4 - tt5) / (tt4 - tt5_ideal) if (tt4 > tt5_ideal and tt4 > tt5) else 0.0
-        math_trace.append(f"Turbine Isentropic Efficiency: {eta_t*100:.2f}% (ideal Tt5={tt5_ideal:.1f} K)")
-
-        # Nominal boundaries:
-        # eta_c >= 84%
-        # eta_t >= 86%
-        # dp_b <= 6.0%
-
-        if eta_c < 0.84:
-            alerts.append("F01: COMPRESSOR_FOULING")
-            messages.append("Compressor efficiency has degraded below nominal 84% threshold, indicating stator/rotor fouling, blade surface roughness increase, or tip clearance distress.")
-
-        if eta_t < 0.86:
-            alerts.append("F02: TURBINE_EROSION")
-            messages.append("Turbine expansion work efficiency shows a loss below nominal 86%, indicating high-pressure turbine blade erosion, thermal coating degradation, or excessive tip clearance.")
-
-        if dp_b > 6.0:
-            alerts.append("F03: COMBUSTOR_RESTRICTION")
-            messages.append("Combustor total pressure drop fraction exceeds safe limit of 6.0%, indicating potential thermal liner distortion, blockage in air diluent swirlers, or fuel nozzle misalignment.")
-
-        status = "NOMINAL" if len(alerts) == 0 else "FAULT_DETECTED"
-        if status == "NOMINAL":
-            messages.append("All mechanical and aerodynamic components are operating within safe isentropic limits.")
-
-        result = {
-            "eta_c": eta_c,
-            "eta_t": eta_t,
-            "dp_b": dp_b,
-            "status": status,
-            "alerts": alerts,
-            "messages": messages,
-            "math_trace": math_trace
-        }
+        analyzer = DiagnosticsAnalyzer()
+        result = analyzer.analyze(
+            pt2=request.pt2,
+            tt2=request.tt2,
+            pt3=request.pt3,
+            tt3=request.tt3,
+            pt4=request.pt4,
+            tt4=request.tt4,
+            pt5=request.pt5,
+            tt5=request.tt5,
+            gamma_c=request.gamma_c,
+            gamma_t=request.gamma_t,
+        )
         return _sanitize(result)
     except Exception as e:
         logger.error("Diagnostics engine failure: %s", e, exc_info=True)
@@ -971,4 +677,3 @@ if __name__ == "__main__":
         kill_port(8000)
     
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
