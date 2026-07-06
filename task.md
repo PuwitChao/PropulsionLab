@@ -1,20 +1,18 @@
-# Refactoring Task Checklist
+# Task List: Design Comparison, Rich Export Headers, and Merge Verification
 
-- [x] Sprint 1: Concurrency & Thread-Safety (Cantera Solutions)
-  - [x] Implement `_new_gas` in `RocketAnalyzer` in `core/rocket/analyzer.py`
-  - [x] Refactor species validation and calculations to use localized gas instances
-  - [x] Verify thread safety changes with pytest
-- [x] Sprint 2: Backend Monolith Decomposition
-  - [x] Create `core/diagnostics.py` containing `DiagnosticsAnalyzer`
-  - [x] Move reverse-thermodynamic diagnostics engine out of `backend/main.py`
-  - [x] Create `backend/models.py` and move Pydantic request/response schemas
-  - [x] Update `backend/main.py` routes and imports
-  - [x] Verify API routes and integration with pytest
-- [x] Sprint 3: Core Calculations Deduplication
-  - [x] Create `core/gas_turbine/thermo.py` with shared gas turbine calculations
-  - [x] Refactor `core/gas_turbine/cycle.py` to use `thermo.py`
-  - [x] Refactor `core/gas_turbine/off_design.py` to use `thermo.py`
-  - [x] Run full physics test suite with pytest
-- [x] Sprint 4: Frontend Sanity & Linting
-  - [x] Audit frontend pages for fetch calls
-  - [x] Run `npm run lint` and `npm run build` in the frontend directory
+- [/] 1. Git Branch Handoff & Merge Verification
+  - [/] Review differences and prepare CHANGELOG.md updates
+  - [ ] Merge `codex/refactor-architecture` into `main` branch
+- [ ] 2. Implement Design Comparison Mode (U2)
+  - [ ] Add reference-caching mechanism and UI buttons to `ParametricCycle.jsx`
+  - [ ] Overlay reference cycle T_tot / P_tot traces on Station Thermo Plot
+  - [ ] Add reference-caching mechanism and UI buttons to `RocketAnalysis.jsx`
+  - [ ] Overlay reference nozzle contour on 2D Nozzle Plot
+  - [ ] Extend O/F Sweep and Altitude Sweep charts in `RocketAnalysis.jsx` with comparative series
+- [ ] 3. Implement Rich Export Headers (U8)
+  - [ ] Add commented metadata headers in `/analyze/rocket/export/csv` route in `main.py`
+  - [ ] Add metadata encoding inside 80-byte header block in `/analyze/rocket/export/stl` route/helper
+- [ ] 4. Verification and Validation
+  - [ ] Extend pytest coverage in `tests/test_api.py` / `tests/test_core.py` for metadata exports
+  - [ ] Run backend tests and verify all 122+ pass
+  - [ ] Run frontend linter and production build checks
