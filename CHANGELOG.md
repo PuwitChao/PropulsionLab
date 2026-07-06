@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-07-06
+
+### Added
+- Refactored `DiagnosticsAnalyzer` in a dedicated `core/diagnostics.py` file to cleanly decouple diagnostic math.
+- Added `backend/models.py` to centralize and share all FastAPI Pydantic request and response schemas.
+- Consolidated Brayton cycle thermodynamic calculation helpers in a dedicated `core/gas_turbine/thermo.py` file.
+- Added full responsive UI layout support for mobile, tablet, and desktop dimensions.
+- Added state-driven mobile navigation hamburger menu and toggle panel overlay.
+
+### Changed
+- Refactored `RocketAnalyzer` to create `ct.Solution` instances locally and dynamically (`_new_gas()`), ensuring multi-threaded request safety.
+- Streamlined `backend/main.py` by removing redundant model and diagnostic definitions, dropping file lines from 975 to 550.
+- Unified frontend HTTP requests to route consistently through the `fetchData` client wrapper in `App.jsx` and `Settings.jsx`.
+- Replaced buggy and unstable WebGL-based Plotly 3D nozzle meshes in `RocketAnalysis.jsx` with responsive 2D cross-section contour plots.
+- Unified responsive grid systems (`grid-cols-*`) and spacing variables across all panels to prevent text and button overlapping.
+
+---
+
 ## [2.2.0-dev] - 2026-03-27
 
 ### Added
