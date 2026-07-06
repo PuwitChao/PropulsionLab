@@ -13,3 +13,6 @@
 - **Cantera Solution Thread Safety**: Created a dynamic helper method `_new_gas()` to return a fresh `ct.Solution` instance per solver request, completely eliminating race conditions.
 - **FastAPI Monolith Decomposition**: Decomposed the 975-line `backend/main.py` monolithic API server by cleanly extracting model definitions into `backend/models.py` and diagnostic computations into `core/diagnostics.py`.
 - **Frontend Client Consistency**: Unified all endpoint calls in the React frontend (App.jsx and Settings.jsx) to route through the centralized `fetchData` client wrapper instead of making raw window `fetch` calls.
+- **Generic Station Mapping Helpers**: Consolidating station coordinate mapping into a single helper `getStationDataFor` allowed cleanly plotting comparison overlays on the cycle blueprints without duplicating mapping definitions.
+- **Self-Describing STL Headers**: Storing engineering design specs (exit Mach, gamma, throat radius) directly in the ASCII STL solid name (e.g., `solid nozzle_moc_gamma_1_2...`) provides safe metadata documentation that integrates seamlessly with CAD/CFD parsers.
+- **On-Demand Comparison Sweeps**: Running comparative O/F and altitude performance sweeps on-demand when the user visits the respective tab prevents making redundant API requests upon reference selection.
