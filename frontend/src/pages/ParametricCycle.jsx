@@ -206,6 +206,20 @@ export default function ParametricCycle() {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [referenceResult, setReferenceResult] = useState(null)
+  const [referenceEngine, setReferenceEngine] = useState(null)
+
+  const setAsReference = () => {
+    if (result) {
+      setReferenceResult(result)
+      setReferenceEngine(activeEngine)
+    }
+  }
+
+  const clearReference = () => {
+    setReferenceResult(null)
+    setReferenceEngine(null)
+  }
   const [sensParams, setSensParams] = useState({
     sweep_type: 't4', alt: 10000, mach: 0.8, prc: 25, tit: 1600,
     sweep_min: 1000, sweep_max: 2200, steps: 30
@@ -277,8 +291,8 @@ export default function ParametricCycle() {
   }, [p, activeEngine, runAnalysis])
 
   // Build station display rows - returns empty array cleanly when no result
-  const getStationData = () => {
-    if (!result || !result.stations) return []
+  const getStationDataFor = (res, eng) => {
+    if (!res || !res.stations || !eng) return []
     const mapping = {
         'turbojet': [
             { id: '00', ref: 'Freestream', k: 0 },
@@ -319,9 +333,9 @@ export default function ParametricCycle() {
             { id: '05', ref: 'LPT Exit', k: 5 },
         ],
     }
-    const set = mapping[activeEngine] || mapping['turbojet']
+    const set = mapping[eng] || mapping['turbojet']
     return set.map(s => {
-        const d = result.stations[s.k]
+        const d = res.stations[s.k]
         if (!d) return { id: s.id, ref: s.ref, tt: null, pt: null, v: null, m: null }
         return {
             id: s.id,
@@ -334,7 +348,8 @@ export default function ParametricCycle() {
     })
   }
 
-  const stations = getStationData()
+  const stations = getStationDataFor(result, activeEngine)
+  const referenceStations = getStationDataFor(referenceResult, referenceEngine)
   const fmt = v => v != null ? v.toFixed(1) : '-'
   const fmtP = v => v != null ? v.toLocaleString() : '-'
   const fmtM = v => v != null ? v.toFixed(3) : '-'
@@ -424,6 +439,37 @@ export default function ParametricCycle() {
                     <input type="file" accept=".json" className="hidden" onChange={importScenario} />
                 </label>
             </div>
+            <div className="grid grid-cols-2 gap-4 mt-4 border-t border-white/5 pt-4">
+                <button 
+                    disabled={!result}
+                    onClick={setAsReference}
+                    className={`mono text-[11px] font-black uppercase tracking-widest py-3 border transition-colors ${
+                        !result 
+                          ? 'text-white/10 border-white/5 cursor-not-allowed' 
+                          : 'text-white/40 hover:text-white border-white/10 hover:border-white/30'
+                    }`}
+                >
+                    SET_REFERENCE
+                </button>
+                <button 
+                    disabled={!referenceResult}
+                    onClick={clearReference}
+                    className={`mono text-[11px] font-black uppercase tracking-widest py-3 border transition-colors ${
+                        !referenceResult 
+                          ? 'text-white/10 border-white/5 cursor-not-allowed' 
+                          : 'text-white/40 hover:text-white border-white/10 hover:border-white/30'
+                    }`}
+                >
+                    CLEAR_REFERENCE
+                </button>
+            </div>
+            {referenceResult && (
+                <div className="text-center mt-1">
+                    <span className="mono text-[9px] uppercase tracking-widest text-[#ffaa00]">
+                        ● COMPARE_ACTIVE: {referenceEngine.toUpperCase()}
+                    </span>
+                </div>
+            )}
         </section>
 
         {/* Right: Visualization */}
@@ -487,7 +533,7 @@ export default function ParametricCycle() {
                                 {
                                     x: stations.map(s => s.id),
                                     y: stations.map(s => s.tt),
-                                    name: 'T_tot (Temperature)',
+                                    name: 'Active T_tot',
                                     type: 'scatter',
                                     mode: 'lines+markers',
                                     line: { color: '#00f0ff', width: 2 },
@@ -497,13 +543,35 @@ export default function ParametricCycle() {
                                 {
                                     x: stations.map(s => s.id),
                                     y: stations.map(s => s.pt),
-                                    name: 'P_tot (Pressure)',
+                                    name: 'Active P_tot',
                                     type: 'scatter',
                                     mode: 'lines+markers',
                                     line: { color: 'rgba(0, 240, 255, 0.40)', width: 2, dash: 'dot' },
                                     marker: { size: 5, color: 'rgba(0, 240, 255, 0.50)' },
                                     yaxis: 'y2'
-                                }
+                                },
+                                ...(referenceStations.length > 0 ? [
+                                    {
+                                        x: referenceStations.map(s => s.id),
+                                        y: referenceStations.map(s => s.tt),
+                                        name: `Ref T_tot (${referenceEngine.toUpperCase()})`,
+                                        type: 'scatter',
+                                        mode: 'lines+markers',
+                                        line: { color: '#ffaa00', width: 2, dash: 'dash' },
+                                        marker: { size: 6, color: '#ffaa00' },
+                                        yaxis: 'y1'
+                                    },
+                                    {
+                                        x: referenceStations.map(s => s.id),
+                                        y: referenceStations.map(s => s.pt),
+                                        name: `Ref P_tot (${referenceEngine.toUpperCase()})`,
+                                        type: 'scatter',
+                                        mode: 'lines+markers',
+                                        line: { color: 'rgba(255, 170, 0, 0.40)', width: 2, dash: 'dashdot' },
+                                        marker: { size: 4, color: 'rgba(255, 170, 0, 0.50)' },
+                                        yaxis: 'y2'
+                                    }
+                                ] : [])
                             ]}
                             layout={{
                                 plot_bgcolor: 'transparent',

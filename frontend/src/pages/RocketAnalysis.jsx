@@ -15,13 +15,14 @@ import ErrorBanner from '../components/ErrorBanner'
 
 // ── MoC Nozzle Visualization ──────────────────────────────────────────────────
 
-function MocVisualization({ mocData, loading, onExportCSV, onExportSTL, exportLoading }) {
+function MocVisualization({ mocData, referenceMocData, loading, onExportCSV, onExportSTL, exportLoading }) {
   const { theme } = useSettings()
   const isLight = theme === 'light'
 
   const traces = []
 
   const hasData = mocData && Array.isArray(mocData.x) && Array.isArray(mocData.y) && mocData.x.length > 0
+  const hasRefData = referenceMocData && Array.isArray(referenceMocData.x) && Array.isArray(referenceMocData.y) && referenceMocData.x.length > 0
 
   if (hasData) {
     traces.push({
@@ -62,6 +63,21 @@ function MocVisualization({ mocData, loading, onExportCSV, onExportSTL, exportLo
       name: 'CENTER_LINE', mode: 'lines',
       line: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.05)', width: 1, dash: 'dot' },
       hoverinfo: 'skip'
+    })
+  }
+
+  if (hasRefData) {
+    traces.push({
+      x: referenceMocData.x, y: referenceMocData.y,
+      name: 'REF_NOZZLE_WALL', type: 'scatter', mode: 'lines',
+      line: { color: '#ffaa00', width: 2.5, dash: 'dash' },
+      hovertemplate: 'REF_WALL_NODE<br>X: %{x:.4f}m<br>R: %{y:.4f}m<extra></extra>'
+    })
+    traces.push({
+      x: referenceMocData.x, y: referenceMocData.y.map(v => -v),
+      name: 'REF_WALL_LOWER', type: 'scatter', mode: 'lines',
+      line: { color: 'rgba(255, 170, 0, 0.15)', width: 1, dash: 'dashdot' },
+      showlegend: false, hoverinfo: 'skip'
     })
   }
 
@@ -176,6 +192,30 @@ export default function RocketAnalysis() {
         onImport: (d) => { if (d.params) setParams(prev => ({ ...prev, ...d.params })) },
     })
     const [mocData, setMocData] = useState(null)
+    const [referenceResult, setReferenceResult] = useState(null)
+    const [referenceMocData, setReferenceMocData] = useState(null)
+    const [referenceParams, setReferenceParams] = useState(null)
+    const [referenceSweepData, setReferenceSweepData] = useState(null)
+    const [referenceAltData, setReferenceAltData] = useState(null)
+
+    const setAsReference = () => {
+        if (result) {
+            setReferenceResult(result)
+            setReferenceMocData(mocData)
+            setReferenceParams(params)
+            setReferenceSweepData(sweepData)
+            setReferenceAltData(altData)
+        }
+    }
+
+    const clearReference = () => {
+        setReferenceResult(null)
+        setReferenceMocData(null)
+        setReferenceParams(null)
+        setReferenceSweepData(null)
+        setReferenceAltData(null)
+    }
+
     const [exportLoading, setExportLoading] = useState(null) // 'csv' | 'stl' | null
     const [toast, setToast] = useState(null)
     const [sweepData, setSweepData] = useState(null)
@@ -201,7 +241,19 @@ export default function RocketAnalysis() {
             console.error('OF sweep error:', e)
         }
         setSweepLoading(false)
-    }, [params])
+
+        if (referenceParams && !referenceSweepData) {
+            try {
+                const data = await fetchData('/analyze/rocket/sweep', {
+                    method: 'POST',
+                    body: JSON.stringify(referenceParams)
+                });
+                setReferenceSweepData(data);
+            } catch (e) {
+                console.error('Reference OF sweep error:', e);
+            }
+        }
+    }, [params, referenceParams, referenceSweepData])
 
     const runAltitudeTable = useCallback(async () => {
         setAltLoading(true)
@@ -223,7 +275,26 @@ export default function RocketAnalysis() {
             console.error('Altitude table error:', e)
         }
         setAltLoading(false)
-    }, [params])
+
+        if (referenceParams && !referenceAltData) {
+            try {
+                const data = await fetchData('/analyze/rocket/altitude', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        pc: referenceParams.pc,
+                        of_ratio: referenceParams.of_ratio,
+                        propellant: referenceParams.propellant,
+                        mode: referenceParams.mode,
+                        alt_max_km: 100.0,
+                        n_points: 20,
+                    })
+                });
+                setReferenceAltData(data);
+            } catch (e) {
+                console.error('Reference altitude table error:', e);
+            }
+        }
+    }, [params, referenceParams, referenceAltData])
 
     useEffect(() => {
         if (activeView === 'of_sweep') {
@@ -445,15 +516,46 @@ export default function RocketAnalysis() {
                         <span className="material-symbols-outlined !text-[20px]">{loading ? 'sync' : 'rocket_launch'}</span>
                         {loading ? 'COMPUTING...' : 'RUN_CHAMBER_SYNTHESIS'}
                    </button>
-                   <div className="grid grid-cols-2 gap-4">
-                        <button onClick={exportScenario} className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors">
-                            EXPORT_JSON
-                        </button>
-                        <label className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors text-center cursor-pointer">
-                            IMPORT_JSON
-                            <input type="file" accept=".json" className="hidden" onChange={importScenario} />
-                        </label>
+                    <div className="grid grid-cols-2 gap-4">
+                         <button onClick={exportScenario} className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors">
+                             EXPORT_JSON
+                         </button>
+                         <label className="mono text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-white border border-white/10 hover:border-white/30 py-3 transition-colors text-center cursor-pointer">
+                             IMPORT_JSON
+                             <input type="file" accept=".json" className="hidden" onChange={importScenario} />
+                         </label>
                     </div>
+                    <div className="grid grid-cols-2 gap-4 mt-4 border-t border-white/5 pt-4">
+                         <button 
+                             disabled={!result}
+                             onClick={setAsReference}
+                             className={`mono text-[11px] font-black uppercase tracking-widest py-3 border transition-colors ${
+                                 !result 
+                                   ? 'text-white/10 border-white/5 cursor-not-allowed' 
+                                   : 'text-white/40 hover:text-white border-white/10 hover:border-white/30'
+                             }`}
+                         >
+                             SET_REFERENCE
+                         </button>
+                         <button 
+                             disabled={!referenceResult}
+                             onClick={clearReference}
+                             className={`mono text-[11px] font-black uppercase tracking-widest py-3 border transition-colors ${
+                                 !referenceResult 
+                                   ? 'text-white/10 border-white/5 cursor-not-allowed' 
+                                   : 'text-white/40 hover:text-white border-white/10 hover:border-white/30'
+                             }`}
+                         >
+                             CLEAR_REFERENCE
+                         </button>
+                    </div>
+                    {referenceResult && (
+                         <div className="text-center mt-1">
+                             <span className="mono text-[9px] uppercase tracking-widest text-[#ffaa00]">
+                                 ● COMPARE_ACTIVE: {referenceParams?.propellant} ({referenceParams?.mode})
+                             </span>
+                         </div>
+                    )}
                 </section>
 
                 {/* Middle: MoC Visualization + Stats */}
@@ -468,6 +570,7 @@ export default function RocketAnalysis() {
                     )}
                     <MocVisualization 
                         mocData={mocData} 
+                        referenceMocData={referenceMocData}
                         loading={loading} 
                         onExportCSV={handleExportCSV} 
                         onExportSTL={handleExportSTL} 
@@ -559,17 +662,33 @@ export default function RocketAnalysis() {
                                     {
                                         x: sweepData.map(d => d.of_ratio),
                                         y: sweepData.map(d => d.isp ?? 0),
-                                        name: 'Isp Delivered',
+                                        name: 'Active Isp',
                                         type: 'scatter', mode: 'lines',
-                                        line: { color: '#fff', width: 2 },
+                                        line: { color: '#00f0ff', width: 2.5 },
                                     },
                                     {
                                         x: sweepData.map(d => d.of_ratio),
                                         y: sweepData.map(d => d.isp_vac ?? 0),
-                                        name: 'Isp Vacuum',
+                                        name: 'Active Isp Vac',
                                         type: 'scatter', mode: 'lines',
-                                        line: { color: 'rgba(255,255,255,0.4)', width: 1, dash: 'dash' },
+                                        line: { color: 'rgba(0,240,255,0.4)', width: 1, dash: 'dash' },
                                     },
+                                    ...(referenceSweepData && referenceSweepData.length > 0 ? [
+                                        {
+                                            x: referenceSweepData.map(d => d.of_ratio),
+                                            y: referenceSweepData.map(d => d.isp ?? 0),
+                                            name: `Ref Isp (${referenceParams?.propellant})`,
+                                            type: 'scatter', mode: 'lines',
+                                            line: { color: '#ffaa00', width: 2, dash: 'dot' },
+                                        },
+                                        {
+                                            x: referenceSweepData.map(d => d.of_ratio),
+                                            y: referenceSweepData.map(d => d.isp_vac ?? 0),
+                                            name: `Ref Isp Vac (${referenceParams?.propellant})`,
+                                            type: 'scatter', mode: 'lines',
+                                            line: { color: 'rgba(255,170,0,0.4)', width: 1, dash: 'dashdot' },
+                                        }
+                                    ] : [])
                                 ]}
                                 layout={getLayout(theme, {
                                     height: 360,
@@ -605,18 +724,35 @@ export default function RocketAnalysis() {
                                     {
                                         x: altData.filter(d => !d.error).map(d => d.altitude_m / 1000),
                                         y: altData.filter(d => !d.error).map(d => d.isp_s),
-                                        name: 'Isp Delivered',
+                                        name: 'Active Isp',
                                         type: 'scatter', mode: 'lines+markers',
-                                        line: { color: '#fff', width: 2 },
-                                        marker: { size: 4 },
+                                        line: { color: '#00f0ff', width: 2 },
+                                        marker: { size: 4, color: '#00f0ff' },
                                     },
                                     {
                                         x: altData.filter(d => !d.error).map(d => d.altitude_m / 1000),
                                         y: altData.filter(d => !d.error).map(d => d.isp_vac),
-                                        name: 'Isp Vacuum',
+                                        name: 'Active Isp Vac',
                                         type: 'scatter', mode: 'lines',
-                                        line: { color: 'rgba(255,255,255,0.4)', width: 1, dash: 'dash' },
+                                        line: { color: 'rgba(0,240,255,0.4)', width: 1, dash: 'dash' },
                                     },
+                                    ...(referenceAltData && referenceAltData.length > 0 ? [
+                                        {
+                                            x: referenceAltData.filter(d => !d.error).map(d => d.altitude_m / 1000),
+                                            y: referenceAltData.filter(d => !d.error).map(d => d.isp_s),
+                                            name: `Ref Isp (${referenceParams?.propellant})`,
+                                            type: 'scatter', mode: 'lines+markers',
+                                            line: { color: '#ffaa00', width: 2, dash: 'dot' },
+                                            marker: { size: 4, color: '#ffaa00' },
+                                        },
+                                        {
+                                            x: referenceAltData.filter(d => !d.error).map(d => d.altitude_m / 1000),
+                                            y: referenceAltData.filter(d => !d.error).map(d => d.isp_vac),
+                                            name: `Ref Isp Vac (${referenceParams?.propellant})`,
+                                            type: 'scatter', mode: 'lines',
+                                            line: { color: 'rgba(255,170,0,0.4)', width: 1, dash: 'dashdot' },
+                                        }
+                                    ] : [])
                                 ]}
                                 layout={getLayout(theme, {
                                     height: 300,

@@ -227,7 +227,9 @@ class MoCNozzle:
             self.solve_contour()
 
         thetas = np.linspace(0, 2*np.pi, num_theta)
-        stl_lines = ["solid nozzle_moc"]
+        # Self-describing solid name with design parameters
+        solid_name = f"nozzle_moc_gamma_{str(self.gamma).replace('.', '_')}_mach_{str(self.me).replace('.', '_')}_rt_{str(self.rt).replace('.', '_')}"
+        stl_lines = [f"solid {solid_name}"]
 
         for i in range(len(self.wall_x) - 1):
             x1, x2 = self.wall_x[i], self.wall_x[i+1]
@@ -259,5 +261,5 @@ class MoCNozzle:
                 stl_lines.append("    endloop")
                 stl_lines.append("  endfacet")
 
-        stl_lines.append("endsolid nozzle_moc")
+        stl_lines.append(f"endsolid {solid_name}")
         return "\n".join(stl_lines)

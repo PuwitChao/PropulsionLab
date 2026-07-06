@@ -510,6 +510,22 @@ def test_csv_export_has_metadata_header():
     assert "X_m,R_m" in body
 
 
+def test_stl_export_has_metadata_solid_name():
+    """U8: STL exports must carry a metadata-enriched solid name."""
+    from fastapi.testclient import TestClient
+    from backend.main import app
+
+    client = TestClient(app)
+    res = client.post(
+        "/analyze/rocket/export/stl",
+        json={"gamma": 1.2, "mach_exit": 3.0, "throat_radius": 0.05},
+    )
+    assert res.status_code == 200, res.text
+    body = res.text
+    assert "solid nozzle_moc_gamma_1_2_mach_3_0_rt_0_05" in body
+    assert "endsolid nozzle_moc_gamma_1_2_mach_3_0_rt_0_05" in body
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Physics Benchmarks (absolute reference values, not just sanity)
 # ══════════════════════════════════════════════════════════════════════════════

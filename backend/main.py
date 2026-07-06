@@ -98,8 +98,8 @@ def read_root():
 def get_version():
     """Returns the structured version info."""
     return {
-        "version": "2.2.0",
-        "build_date": "2026-03-30",
+        "version": "2.3.0",
+        "build_date": "2026-07-06",
         "status": "operational"
     }
 
@@ -107,7 +107,7 @@ def get_version():
 @app.get("/health")
 def health_check():
     """System health audit endpoint for frontend status badges."""
-    return {"status": "healthy", "version": "2.2.0", "timestamp": datetime.now().isoformat()}
+    return {"status": "healthy", "version": "2.3.0", "timestamp": datetime.now().isoformat()}
 
 
 @app.get("/health/diagnostics")
@@ -509,7 +509,7 @@ async def export_rocket_csv(request: MoCRequest):
         header_lines = [
             f"# PropulsionLab nozzle contour export",
             f"# generated_at = {datetime.now(timezone.utc).isoformat()}",
-            f"# solver = PropulsionLab v2.2.0",
+            f"# solver = PropulsionLab v2.3.0",
             f"# gamma = {request.gamma}",
             f"# mach_exit = {request.mach_exit}",
             f"# throat_radius_m = {request.throat_radius}",
