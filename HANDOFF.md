@@ -1,67 +1,74 @@
-# Handoff: Propulsion Suite Architecture Refactoring
+# Handoff: Propulsion Suite Comparison Mode & Export Headers
 
-**Generated**: 2026-07-03 00:23 in local time
+**Generated**: 2026-07-06 23:45 in local time
 **Branch**: main
 **Status**: Ready for Review / Completed
 
 ## Loop Telemetry
-- **Active Subtask**: Complete project refactoring in smaller sprints.
+- **Active Subtask**: Implement Design Comparison overlay mode, Rich Export Headers, and merge refactored branch.
 - **Current Iteration**: Final
-- **Healing Actions Taken**: Used Windows PowerShell-compatible command separators (`;`) instead of bash-like operators (`&&`).
+- **Healing Actions Taken**: Removed unused state variables `referenceSweepLoading` and `referenceAltLoading` to resolve frontend ESLint failures during compilation.
 
 ## Goal
-Perform a systematic code refactoring of the project in smaller sprints (thread-safety, backend monolith decomposition, physics math deduplication, and frontend API client consistency) to improve maintainability while ensuring all physics calculation results remain identical.
+Verify and merge the `codex/refactor-architecture` branch to `main`, implement design comparison overlay mode on Plotly charts (U2), and add rich metadata headers to exported CSV and STL files (U8).
 
 ## Completed
-- [x] **Sprint 1: Concurrency & Thread-Safety (Cantera Solutions)**: Removed the shared, mutable `self.gas` instance from `RocketAnalyzer.__init__` in [analyzer.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/rocket/analyzer.py) and created a dynamic helper `_new_gas()`. Refactored `solve_equilibrium` and altitude sweeps to instantiate `Solution` locally, ensuring full thread safety under concurrent requests.
-- [x] **Sprint 2: Backend Monolith Decomposition**: Extracted all Pydantic request schemas from [main.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/backend/main.py) to a new models file [models.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/backend/models.py). Moved the reverse-thermodynamic calculations from the endpoint route to a standalone `DiagnosticsAnalyzer` class in [diagnostics.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/diagnostics.py).
-- [x] **Sprint 3: Core Calculations Deduplication**: Created [thermo.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/gas_turbine/thermo.py) containing centralized equations for polytropic/isentropic efficiencies and critical pressure ratio nozzle exit conditions. Updated `CycleAnalyzer` in [cycle.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/gas_turbine/cycle.py) to delegate its internal helpers to this module.
-- [x] **Sprint 4: Frontend Sanity**: Refactored raw `window.fetch()` calls in [App.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/App.jsx) and [Settings.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/Settings.jsx) to route pings through the central `fetchData` API client wrapper.
-- [x] **Test Verification**: Pytest suite runs cleanly with **122 passed tests**.
-- [x] **Static Verification**: Frontend linting (`npm run lint`) and production packaging (`npm run build`) complete successfully with 0 errors.
+- [x] **Branch Merging & Pushing**: Checked out `main`, merged `codex/refactor-architecture` containing backend refactoring and responsive UI/UX improvements, reconciled with remote, and pushed successfully.
+- [x] **Design Comparison Mode (U2)**:
+  - Added reference selection and caching buttons in the Parametric Cycle and Rocket Analysis sidebars.
+  - Plotted comparative traces (dashed orange) for temperature and pressure cycles in the Station Thermo Plot.
+  - Overlayed comparative nozzle wall contours on the 2D nozzle Plotly cross-section.
+  - Overlayed comparative sweep curves on O/F and altitude performance charts, triggered on-demand to prevent duplicate API fetches.
+- [x] **Rich Export Headers (U8)**:
+  - Prepend exported CSV coordinates with commented metadata header lines detailing parameters, datetime, and version.
+  - Encode exit Mach, gamma, and throat radius parameters directly into the solid name in ASCII STL exports.
+- [x] **Version Bumping**: Updated application release to `v2.3.0` across `/version`, `/health` endpoints, and file comments.
+- [x] **Validation**: Added `test_stl_export_has_metadata_solid_name` and verified all 123 tests pass cleanly. Verified frontend linter and production build succeed with 0 errors.
 
 ## Not Yet Done
-- None. All sprints are fully completed and verified.
+- None. All targeted features and tests are fully implemented, verified, and pushed.
 
 ## Failed Approaches (Don't Repeat These)
-*   *PowerShell Statement Chaining (&&)*: Attempting to run `npm run lint && npm run build` directly in PowerShell on Windows throws a syntax parser error. Semicolons `;` must be used instead to chain commands sequentially, or commands must be run in separate invocations.
+*   *ASCII STL Comment Prepends*: Prepending `#` comment lines before the `solid` tag in ASCII STL files breaks parser imports in standard CAD applications. Instead, encode the parameters directly within the solid name (e.g. `solid nozzle_moc_gamma_1_2_mach_3_0_rt_0_1`).
+*   *Unused variables in ESLint*: Declaring state variables like `[referenceSweepLoading, setReferenceSweepLoading]` without using them in UI rendering throws ESLint warnings that fail the Vite production build. Always remove or verify clean usage.
 
 ## Key Decisions
 | Decision | Rationale |
 |---|---|
-| Dynamic Cantera Instances | Instantiating a fresh `ct.Solution` per method call in `RocketAnalyzer` prevents data race conditions when multiple API calls run concurrently under FastAPI's async thread pool. |
-| Decoupled API Routing | Moving request schemas to `models.py` and diagnostic physics to `diagnostics.py` reduces [main.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/backend/main.py) size from 975 lines to 550, separating routing concerns from physics logic. |
-| Delegate Helper Design | Delegating `CycleAnalyzer` internal helpers (`_poly_to_isen_comp`, etc.) to `thermo.py` keeps the centralized physics equations deduplicated while avoiding extensive modifications to dozens of calling sites within the Brayton solver class. |
+| Generic Station Mapper | Consolidating station coordinate mapping into `getStationDataFor(res, eng)` in `ParametricCycle.jsx` prevents code duplication and keeps rendering active and reference cycles clean. |
+| On-Demand Sweeps | Launching reference sweeps only when the user switches to the O/F or altitude tabs prevents initial layout lag and avoids making redundant network calls. |
+| Parameter-Enriched Solid Names | Encoding geometry metadata directly inside the STL `solid` header allows CAD software to read standard files while keeping key parameters self-documenting. |
 
 ## Current State
-- **Working**: Fully operational React 19 + FastAPI stack, all physics models (cycle, off-design, rocket, MOC nozzle, mission constraint, diagnostics) are verified.
+- **Working**: React 19 + FastAPI stack, all physics models (cycle, off-design, rocket, MOC nozzle, mission constraint, diagnostics) are verified. Both comparison modes and rich export headers are operational.
 - **Broken**: None.
-- **Uncommitted Changes**: Clean, refactored backend model, route, core physics, and frontend API caller files.
+- **Uncommitted Changes**: None.
 
 ## Files to Know
 | File | Why It Matters |
 |---|---|
-| [core/rocket/analyzer.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/rocket/analyzer.py) | Rocket combustion CEA wrapper with thread-safe localized Cantera Solution creation. |
-| [core/diagnostics.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/diagnostics.py) | Standalone class wrapping reverse-thermodynamic calculations for fault diagnostic telemetry. |
-| [core/gas_turbine/thermo.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/gas_turbine/thermo.py) | Centralized mathematical equations for Brayton cycle calculations. |
-| [backend/models.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/backend/models.py) | Consolidated Pydantic models for request validation. |
-| [backend/main.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/backend/main.py) | Streamlined FastAPI routing server. |
+| [frontend/src/pages/ParametricCycle.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/ParametricCycle.jsx) | Handles parametric gas turbine cycles and Station Thermo comparison plotting. |
+| [frontend/src/pages/RocketAnalysis.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/RocketAnalysis.jsx) | Handles rocket parameters, on-demand reference sweep fetches, and nozzle contour overlays. |
+| [core/rocket/moc.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/rocket/moc.py) | Generates the ASCII STL mesh with parameter-enriched solid name. |
+| [backend/main.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/backend/main.py) | Exposes endpoints and handles rich commented CSV headers. |
+| [tests/test_core.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/tests/test_core.py) | Validates exported CSV and STL formats for rich headers. |
 
 ## Code Context
+```javascript
+// Active and reference mapping logic in ParametricCycle.jsx:
+const stations = getStationDataFor(result, activeEngine)
+const referenceStations = getStationDataFor(referenceResult, referenceEngine)
+```
 ```python
-# Thread-safe localized gas instancing pattern in RocketAnalyzer:
-def solve_equilibrium(self, propellant_name: str, of_ratio: float, ...):
-    # ...
-    gas = self._new_gas()
-    gas.TP = 300.0, self.pc
-    # all calculations use local gas...
+# Self-describing solid name in moc.py:
+solid_name = f"nozzle_moc_gamma_{str(self.gamma).replace('.', '_')}_mach_{str(self.me).replace('.', '_')}_rt_{str(self.rt).replace('.', '_')}"
 ```
 
 ## Resume Instructions
-1. Run `pytest tests/ -v` to confirm the entire test suite passes.
-2. Run `npm run dev` in `frontend/` to spin up the local development interface.
-3. Review changes and commit the staged/unstaged changes to Git.
+1. Run `pytest tests/ -v` to confirm the 123-test suite passes successfully.
+2. Run `npm run dev` inside `frontend/` to spin up the local development interface.
+3. Verify that the comparative overlay lines (amber) render clearly on both the Parametric Cycle and Rocket Analysis charts when a reference design is set.
 
 ## Setup Required
-- Standard python environment with dependencies listed in `backend/requirements.txt`.
-- Node.js environment with dependencies installed via `npm ci` in `frontend/`.
+- Standard python environment with dependencies in `backend/requirements.txt`.
+- Node.js environment with dependencies in `frontend/package.json`.
