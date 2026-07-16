@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import API_BASE_URL, { fetchData } from './api'
+import { versionLabel } from './version'
 import './index.css'
 import ErrorBoundary from './components/ErrorBoundary'
 
@@ -110,7 +111,7 @@ function App() {
              <div className="w-2 h-2 bg-accent-cyan"></div>
              <h1 className="text-[15px] font-black tracking-[0.4em] text-white font-headline">PROPULSION</h1>
           </div>
-          <p className="text-[10px] tracking-[0.3em] text-white/30 mt-4 font-mono border-l border-white/20 pl-4">PROPULSION_SYS_V2.2.0</p>
+          <p className="text-[10px] tracking-[0.3em] text-white/30 mt-4 font-mono border-l border-white/20 pl-4">{versionLabel('PROPULSION_SYS')}</p>
         </div>
         
         <div className="app-sidebar-nav flex flex-col flex-grow px-6 space-y-1 overflow-y-auto custom-scrollbar">
@@ -211,7 +212,7 @@ function App() {
             </div>
             <div className="hidden md:flex gap-3 items-center">
                 <span className="text-[9px] font-mono text-white/18 uppercase tracking-[0.3em]">BUILD</span>
-                <span className="font-mono text-[10px] text-white/35 uppercase">PROPULSION_SUITE_V2.2.0</span>
+                <span className="font-mono text-[10px] text-white/35 uppercase">{versionLabel('PROPULSION_SUITE')}</span>
             </div>
         </div>
         <div className="flex gap-4 lg:gap-8 items-center">
@@ -245,7 +246,7 @@ function Dashboard({ status, onNavigate }) {
         <div className="absolute bottom-0 right-0 w-[400px] h-[200px] bg-white/[0.018] blur-[80px] pointer-events-none"></div>
         <div className="relative z-10">
           <div className="flex items-center gap-6 mb-3">
-            <span className="font-mono text-[9px] tracking-[0.5em] text-white/25 uppercase">PROPULSION_SUITE_V2.2.0</span>
+            <span className="font-mono text-[9px] tracking-[0.5em] text-white/25 uppercase">{versionLabel('PROPULSION_SUITE')}</span>
           </div>
           <div className="flex items-start gap-6 mb-10">
             <div className="w-1 h-12 bg-white/40 mt-1 shrink-0"></div>
@@ -319,7 +320,7 @@ function Dashboard({ status, onNavigate }) {
                       {status === 'STABLE' ? 'API_KERNEL_ONLINE' : status === 'CHECKING' ? 'STATUS_CHECKING...' : 'API_OFFLINE'}
                     </span>
                     <span className="text-[12px] font-mono text-white/60 uppercase tracking-widest">LOCAL_COMPUTE_ONLY</span>
-                    <span className="text-[11px] font-mono text-white/30 mt-4 uppercase tracking-widest">REST_API_V2.2.0</span>
+                    <span className="text-[11px] font-mono text-white/30 mt-4 uppercase tracking-widest">{versionLabel('REST_API')}</span>
                 </div>
             </div>
          </div>

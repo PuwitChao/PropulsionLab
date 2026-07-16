@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { API_BASE_URL, fetchData } from '../api';
+import { APP_VERSION } from '../version';
 
 function SidebarParameter({ label, value, unit, min, max, onChange, step }) {
     return (
@@ -32,7 +33,7 @@ export default function Settings() {
     // Fetch version info from backend
     fetchData('/version')
       .then(d => setVersionInfo({
-          version: d.version || '2.2.0',
+          version: d.version || APP_VERSION,
           cantera: d.cantera_version || '3.0.x'
       }))
       .catch((e) => {

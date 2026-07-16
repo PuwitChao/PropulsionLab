@@ -28,7 +28,7 @@ The Propulsion Analysis Suite is a professional-grade engineering platform desig
 ### 4. Rocket Propulsion Analysis
 
 - **Chemical Equilibrium (CEA)**: Uses Gibbs free energy minimization (via Cantera) for species concentration and Isp prediction.
-- **3D Nozzle Design (MoC)**: Generates Method of Characteristics supersonic contours for bell-shaped nozzles with 3D Surface visualization.
+- **Nozzle Design (MoC)**: Generates planar Method of Characteristics supersonic contours and maps the area schedule to an axisymmetric nozzle radius for CAD/CFD export.
 - **CAD/STL Export**: Generates printable STL mesh files of nozzle contours directly from design points.
 - **Bartz Heat Transfer**: Predicts convective heat flux and gas-side film coefficients along the nozzle.
 

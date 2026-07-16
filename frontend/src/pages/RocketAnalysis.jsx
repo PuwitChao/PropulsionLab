@@ -93,7 +93,7 @@ function MocVisualization({ mocData, referenceMocData, loading, onExportCSV, onE
           {hasData ? `NODE_COUNT: ${mocData.x?.length || 0} // VIEW: 2D_CROSS_SECTION` : 'Awaiting Design Initialization...'}
         </p>
         <p className="mono text-[10px] text-white/20 uppercase tracking-widest">
-          BELL_APPROX // PARABOLIC_FIT // NOT_TRUE_MOC
+          PLANAR_MOC_NET // AXISYMMETRIC_AREA_MAP
         </p>
       </div>
 

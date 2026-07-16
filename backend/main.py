@@ -4,7 +4,9 @@ All physical quantities in SI units unless explicitly labelled.
 """
 
 import os, sys
-from typing import List, Dict, Any, Optional
+import json
+from pathlib import Path
+from typing import Any
 import math
 from datetime import datetime, timezone
 import logging
@@ -16,6 +18,27 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger("propulsion-api")
+
+def _load_app_metadata() -> dict[str, str]:
+    """Load shared release metadata used by backend and frontend."""
+    version_path = Path(__file__).resolve().parents[1] / "app_version.json"
+    try:
+        with version_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as exc:
+        logger.warning("Failed to load app_version.json: %s", exc)
+        data = {}
+    return {
+        "version": str(data.get("version", "0.0.0")),
+        "build_date": str(data.get("build_date", "unknown")),
+        "status": str(data.get("status", "operational")),
+    }
+
+
+APP_METADATA = _load_app_metadata()
+APP_VERSION = APP_METADATA["version"]
+APP_BUILD_DATE = APP_METADATA["build_date"]
+APP_STATUS = APP_METADATA["status"]
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -55,7 +78,7 @@ from backend.models import (
 app = FastAPI(
     title="Propulsion Architecture API",
     description="High-fidelity aerospace solver core for gas turbines and rockets.",
-    version="2.2.0"
+    version=APP_VERSION
 )
 
 
@@ -91,23 +114,23 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     """Returns the API status and versioning."""
-    return {"message": "Propulsion Analysis API v2.2.0 is running"}
+    return {"message": f"Propulsion Analysis API v{APP_VERSION} is running"}
 
 
 @app.get("/version")
 def get_version():
     """Returns the structured version info."""
     return {
-        "version": "2.3.0",
-        "build_date": "2026-07-06",
-        "status": "operational"
+        "version": APP_VERSION,
+        "build_date": APP_BUILD_DATE,
+        "status": APP_STATUS
     }
 
 
 @app.get("/health")
 def health_check():
     """System health audit endpoint for frontend status badges."""
-    return {"status": "healthy", "version": "2.3.0", "timestamp": datetime.now().isoformat()}
+    return {"status": "healthy", "version": APP_VERSION, "timestamp": datetime.now().isoformat()}
 
 
 @app.get("/health/diagnostics")
@@ -150,7 +173,7 @@ def get_diagnostics():
 
     return {
         "status": overall,
-        "version": "2.2.0",
+        "version": APP_VERSION,
         "cantera_version": cantera_version,
         "components": component_status,
         "system_time": datetime.now().isoformat(),
@@ -509,7 +532,7 @@ async def export_rocket_csv(request: MoCRequest):
         header_lines = [
             f"# PropulsionLab nozzle contour export",
             f"# generated_at = {datetime.now(timezone.utc).isoformat()}",
-            f"# solver = PropulsionLab v2.3.0",
+            f"# solver = PropulsionLab v{APP_VERSION}",
             f"# gamma = {request.gamma}",
             f"# mach_exit = {request.mach_exit}",
             f"# throat_radius_m = {request.throat_radius}",
