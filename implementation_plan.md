@@ -1,37 +1,53 @@
-# Implementation Plan: Roadmap And Capability Truth Sync
+# Implementation Plan: UI Review & Accessibility (a11y) Audit & Refactoring
 
-## Objective
+Perform a comprehensive UI design review and WCAG 2.1 AA accessibility audit across PropulsionLab, refactoring styles, markup semantics, focus rings, screen reader labels, and visual components to achieve a premium, Anti-AI-Slop, fully accessible web interface.
 
-Synchronize the repository's planning surfaces and visible product labels with the verified current state of PropulsionLab, then leave a clear next backlog for future implementation.
+## User Review Required
 
-## Scope
+> [!NOTE]
+> This plan audits and refactor frontend CSS and React components to enforce WCAG 2.1 AA standards (keyboard focus, ARIA landmarks, contrast ratios, slider accessibility) and Anti-AI-Slop UI guidelines (typography hierarchy, selected state polish, layout symmetry).
 
-### 1. Roadmap Refresh
+## Proposed Changes
 
-- Replace the stale Sprint 5-8 roadmap with a current roadmap that distinguishes completed work from remaining backlog.
-- Preserve old sprint history in `docs/archive/` only; do not treat archived docs as active planning.
-- Record the current verification baseline and the practical next-session recommendation.
+### 1. Styles & Design System ([index.css](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/index.css))
+- Add global `:focus-visible` focus rings across all interactive elements (`button`, `input`, `select`, `a`) for keyboard navigation.
+- Audit and increase text contrast ratios for muted copy (raising `text-white/20` / `text-white/30` to compliant contrast levels where readability is required).
+- Enforce smooth transitions, rounded corners consistency, backdrop blur, and custom active tab/button styling.
 
-### 2. Visible Product Truth
+### 2. App Shell & Navigation ([App.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/App.jsx))
+- Wrap top header, sidebar navigation, main content, and status footer in HTML5 semantic landmarks (`<header>`, `<nav>`, `<main>`, `<footer>`, `<aside>`).
+- Implement `role="tablist"`, `role="tab"`, `aria-selected`, and `aria-controls` for sidebar navigation buttons.
+- Add `aria-live="polite"` for background API status indicators.
 
-- Align visible UI version labels with `v2.3.0`.
-- Align backend API metadata with `v2.3.0`.
-- Replace stale rocket MoC text that claimed the solver was not a true MoC implementation.
-- Update user documentation so MoC is described as a planar characteristic net with axisymmetric area mapping.
+### 3. Reusable UI Components ([frontend/src/components/](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/components/))
+- **`SliderControl.jsx`**: Add explicit `<label htmlFor="...">`, `id`, `aria-valuemin`, `aria-valuemax`, `aria-valuenow`, and `aria-label` for screen reader readability.
+- **`StatPanel.jsx`**: Ensure metric cards have clear semantic hierarchy (`<article>` or `<dl>/<dt>/<dd>`), high-contrast text, and screen-reader labels.
+- **`ErrorBanner.jsx`**: Add `role="alert"` and `aria-live="assertive"` for error feedback.
+- **`HelpTooltip.jsx`**: Add keyboard support (trigger tooltip on focus/blur and keyboard press) with `aria-describedby`.
 
-### 3. Tracking Artifacts
+### 4. Page View Accessibility & Layout Polish ([frontend/src/pages/](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/))
+- Audit and add semantic landmarks (`<section>`, `<fieldset>`, `<legend>`), accessible button labels, and high-contrast typography across:
+  - `ParametricCycle.jsx` (Add `aria-label` to SVG blueprint diagram)
+  - `PerformanceMap.jsx` (Add `aria-label` to compressor map view toggle and engine deck export)
+  - `RocketAnalysis.jsx` (Add accessible labels to 2D/3D MoC visualization, propellant selectors, and export buttons)
+  - `MissionAnalysis.jsx` (Add accessible labels to constraint settings and envelope compliance indicators)
+  - `Diagnostics.jsx` (Add `role="region"` to sensor telemetry section)
+  - `Settings.jsx` (Add `fieldset`/`legend` for theme and text size choices)
 
-- Replace the completed comparison/export plan with this current plan.
-- Replace the completed task checklist with the active truth-sync checklist.
+## Recommended Skills
+
+- **`ui_review`**: Audit against Anti-AI-Slop guidelines, typography, selected states, and visual polish.
+- **`accessibility`**: Audit against WCAG 2.1 AA standards, semantic HTML, keyboard focus, and screen reader compatibility.
+- **`verify`**: Run frontend linter and production build (`npm run lint; npm run build`).
 
 ## Verification Plan
 
-- Run `pytest tests/ -v` for backend/core/API confidence.
-- Run `npm run lint` in `frontend/`.
-- Run `npm run build` in `frontend/`.
-- Run `rg "2\.2\.0|NOT_TRUE_MOC|BELL_APPROX|PARABOLIC_FIT" backend frontend docs README.md CHANGELOG.md implementation_plan.md task.md` and confirm remaining hits are intentional or absent.
+### Automated Tests
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `pytest tests/ -v`
 
-## Open Questions
-
-- Resolved: centralize application versioning in `app_version.json`; backend and frontend adapters read from that shared file.
-- Resolved: prioritize physics fidelity first, while carrying frontend chart consistency as parallel polish where it overlaps.
+### Manual & UI Verification
+- Verify focus rings are clearly visible on tab key navigation.
+- Verify screen reader accessibility attributes (`aria-label`, `aria-selected`, `role="tab"`).
+- Verify dark/light mode visual contrast and layout symmetry.

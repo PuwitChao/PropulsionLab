@@ -83,25 +83,31 @@ export default function Settings() {
                     </h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                         <div className="space-y-8">
-                            <label className="text-[11px] font-black uppercase tracking-[0.2em] text-white/30 block mb-6">Luminance Profile</label>
+                         <fieldset className="space-y-8 border-0 p-0 m-0">
+                            <legend className="text-[11px] font-black uppercase tracking-[0.2em] text-white/60 block mb-6">Luminance Profile</legend>
                             <div className="flex gap-4 flex-wrap">
                                 <button
                                     id="theme-dark"
+                                    type="button"
+                                    aria-pressed={theme === 'dark'}
+                                    aria-label="Switch to Dark theme mode"
                                     onClick={() => setTheme('dark')}
-                                    className={`flex-1 py-4 px-8 text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-200 font-mono border ${theme === 'dark' ? 'bg-accent-cyan text-black border-accent-cyan' : 'bg-transparent text-white/30 border-white/[0.08] hover:border-accent-cyan/25 hover:text-white/55'}`}
+                                    className={`flex-1 py-4 px-8 text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-200 font-mono border cursor-pointer ${theme === 'dark' ? 'bg-accent-cyan text-black border-accent-cyan' : 'bg-transparent text-white/60 border-white/[0.12] hover:border-accent-cyan/40 hover:text-white'}`}
                                 >
                                     MONO_DARK
                                 </button>
                                 <button
                                     id="theme-light"
+                                    type="button"
+                                    aria-pressed={theme === 'light'}
+                                    aria-label="Switch to Light theme mode"
                                     onClick={() => setTheme('light')}
-                                    className={`flex-1 py-4 px-8 text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-200 font-mono border ${theme === 'light' ? 'bg-accent-cyan text-black border-accent-cyan' : 'bg-transparent text-white/30 border-white/[0.08] hover:border-accent-cyan/25 hover:text-white/55'}`}
+                                    className={`flex-1 py-4 px-8 text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-200 font-mono border cursor-pointer ${theme === 'light' ? 'bg-accent-cyan text-black border-accent-cyan' : 'bg-transparent text-white/60 border-white/[0.12] hover:border-accent-cyan/40 hover:text-white'}`}
                                 >
                                     MONO_LIGHT
                                 </button>
                             </div>
-                        </div>
+                        </fieldset>
 
                         <div className="space-y-6">
                             <SidebarParameter

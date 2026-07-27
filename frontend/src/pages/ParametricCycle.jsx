@@ -24,7 +24,7 @@ function StationDiagram({ activeEngine }) {
     return (
       <div className="relative w-full h-[250px] lg:h-full flex items-center justify-center p-4 lg:p-20 lg:pt-32 animate-in">
         <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -translate-y-1/2"></div>
-        <svg className="w-full h-full relative z-10" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 400">
+        <svg role="img" aria-label="Separate exhaust turbofan engine station schematic diagram showing LP fan, LPC booster, HPC compressor, combustor, HP turbine, LP turbine, and dual exhaust nozzles" className="w-full h-full relative z-10" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 400">
           <defs>
               <linearGradient id="blueprintGrad" x1="0%" y1="0%" x2="0%" y2="100%">
                   <stop offset="0%" style={{stopColor: gradStop, stopOpacity:1}} />

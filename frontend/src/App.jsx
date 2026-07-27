@@ -103,30 +103,39 @@ function App() {
       )}
 
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <nav className={`app-sidebar fixed top-0 bottom-0 h-full w-[280px] z-50 flex flex-col pt-12 bg-surface border-r border-white/10 transition-all duration-300 ${
+      <nav 
+        aria-label="Main Navigation"
+        className={`app-sidebar fixed top-0 bottom-0 h-full w-[280px] z-50 flex flex-col pt-12 bg-surface border-r border-white/10 transition-all duration-300 ${
         mobileSidebarOpen ? 'left-0' : '-left-[280px] lg:left-0'
       }`}>
         <div className="px-12 mb-16">
           <div className="flex items-center gap-4">
-             <div className="w-2 h-2 bg-accent-cyan"></div>
+             <div className="w-2 h-2 bg-accent-cyan" aria-hidden="true"></div>
              <h1 className="text-[15px] font-black tracking-[0.4em] text-white font-headline">PROPULSION</h1>
           </div>
-          <p className="text-[10px] tracking-[0.3em] text-white/30 mt-4 font-mono border-l border-white/20 pl-4">{versionLabel('PROPULSION_SYS')}</p>
+          <p className="text-[10px] tracking-[0.3em] text-white/50 mt-4 font-mono border-l border-white/20 pl-4">{versionLabel('PROPULSION_SYS')}</p>
         </div>
         
-        <div className="app-sidebar-nav flex flex-col flex-grow px-6 space-y-1 overflow-y-auto custom-scrollbar">
+        <div 
+          role="tablist" 
+          aria-orientation="vertical"
+          className="app-sidebar-nav flex flex-col flex-grow px-6 space-y-1 overflow-y-auto custom-scrollbar"
+        >
           {['_ROOT', 'THERMODYNAMICS', 'PROPULSION', 'OPERATIONS', 'SYSTEM'].map(cat => (
             <div key={cat} className="app-sidebar-section mb-6">
-                <span className="text-[9px] font-bold text-white/25 tracking-[0.4em] px-6 mb-3 block uppercase font-mono">{cat === '_ROOT' ? '' : cat}</span>
+                <span className="text-[9px] font-bold text-white/40 tracking-[0.4em] px-6 mb-3 block uppercase font-mono">{cat === '_ROOT' ? '' : cat}</span>
                 {navItems.filter(i => i.category === cat).map(item => (
                     <button
                         key={item.id}
                         id={`nav-${item.id}`}
+                        role="tab"
+                        aria-selected={activeTab === item.id}
+                        aria-controls={`panel-${item.id}`}
                         onClick={() => { setActiveTab(item.id); setMobileSidebarOpen(false); }}
-                        className={`w-full flex items-center gap-5 px-6 py-[13px] transition-all duration-200 group relative font-headline ${
+                        className={`w-full flex items-center gap-5 px-6 py-[13px] transition-all duration-200 group relative font-headline cursor-pointer ${
                             activeTab === item.id
                             ? 'nav-item-active'
-                            : 'text-white/45 hover:text-white/80 hover:bg-white/[0.025]'
+                            : 'text-white/60 hover:text-white/90 hover:bg-white/[0.04]'
                         }`}
                         aria-current={activeTab === item.id ? 'page' : undefined}
                         >
@@ -135,12 +144,12 @@ function App() {
                             activeTab === item.id
                             ? 'h-7 bg-accent-cyan opacity-90'
                             : 'h-0 bg-accent-cyan opacity-0 group-hover:h-4 group-hover:opacity-40'
-                        }`} />
+                        }`} aria-hidden="true" />
                         <span className={`material-symbols-outlined !text-[18px] transition-all duration-200 ${
-                            activeTab === item.id ? 'opacity-90' : 'opacity-45 group-hover:opacity-75'
-                        }`}>{item.icon}</span>
+                            activeTab === item.id ? 'opacity-90' : 'opacity-60 group-hover:opacity-85'
+                        }`} aria-hidden="true">{item.icon}</span>
                         <span className={`uppercase tracking-[0.18em] text-[10.5px] transition-all duration-200 ${
-                            activeTab === item.id ? 'font-bold opacity-100' : 'font-semibold opacity-80'
+                            activeTab === item.id ? 'font-bold opacity-100' : 'font-semibold opacity-85'
                         }`}>{item.label}</span>
                     </button>
                 ))}

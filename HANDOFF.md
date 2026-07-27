@@ -1,110 +1,65 @@
-﻿# Handoff: Roadmap Version Sync
+# Handoff: Full System Audit & Accessibility (a11y) Refactoring
 
-**Generated**: 2026-07-17 01:09 in local time
+**Generated**: 2026-07-28 02:39 in local time
 **Branch**: main
-**Status**: Ready for Review
+**Status**: Ready for Next Session
 
 ## Loop Telemetry
-- **Active Subtask**: Roadmap and visible product truth synchronization.
-- **Current Iteration**: Final wrap-up.
-- **Healing Actions Taken**: Used workspace-scoped elevated PowerShell reads/writes after sandbox ACL failures blocked normal file access; verified with backend tests and frontend lint/build.
+- **Active Task**: Full application, physics, API, and UI accessibility audit & refactoring.
+- **Current Iteration**: Final handoff and wrap-up.
+- **Verification Baseline**: `pytest tests/ -v` passed 123/123 tests; `npm run lint` passed with 0 errors; `npm run build` passed in 1.55s.
 
 ## Goal
-Understand the PropulsionLab codebase, especially core calculation logic and user flow, then align active planning surfaces with repo truth. The user resolved the open decisions: centralize versioning, and prioritize physics fidelity while carrying frontend chart consistency in parallel where useful.
+Perform a comprehensive audit of all existing backend physics solvers, FastAPI endpoints, edge-case handlers, frontend React components, Plotly chart integrations, and UI accessibility standards (WCAG 2.1 AA & Anti-AI-Slop guidelines), then push verified changes and prepare a clear handoff for the next implementation phase.
 
 ## Completed
-- [x] Explored backend, core physics modules, frontend user flow, docs, and tests.
-- [x] Refreshed `docs/ROADMAP.md` from a stale Sprint 5-8 plan into a current completed-vs-backlog roadmap.
-- [x] Replaced the root `implementation_plan.md` and `task.md` with the active truth-sync plan and checklist.
-- [x] Added shared release metadata in `app_version.json`.
-- [x] Added frontend adapter `frontend/src/version.js`.
-- [x] Updated backend API metadata, `/`, `/version`, `/health`, `/health/diagnostics`, and rocket CSV solver header to read the shared version.
-- [x] Updated visible frontend labels and Settings fallback to use shared version metadata.
-- [x] Corrected stale MoC UI/docs wording to describe the current planar MoC net with axisymmetric area mapping.
-- [x] Recorded the next implementation priority: physics fidelity first, frontend chart consistency as parallel polish.
-- [x] Verified backend/core/API tests and frontend lint/build.
+- [x] Executed full backend physics and API test suite (`pytest tests/ -v` — 123/123 tests passing).
+- [x] Audited non-finite (`NaN`/`Inf`) JSON sanitization guards (`_sanitize`) across all 17 API endpoints.
+- [x] Audited Cantera thread/instance isolation and SI unit contracts across `core/gas_turbine/`, `core/rocket/`, and `core/diagnostics.py`.
+- [x] Audited frontend static syntax and production compilation (`npm run lint; npm run build` in `frontend/`).
+- [x] Performed UI Review (`/ui_review`) against Anti-AI-Slop guidelines: typography hierarchy, high-contrast cyan (`#00F0FF`) focus rings, symmetrical badge padding, and controlled background styling.
+- [x] Implemented WCAG 2.1 AA accessibility refactorings:
+  - Form & range input association: `<label htmlFor="...">`, `id`, `aria-valuemin`, `aria-valuemax`, `aria-valuenow` in `SliderControl.jsx`.
+  - Semantic landmarks: `<nav aria-label="Main Navigation">`, `role="tablist"`, `role="tab"`, `aria-selected`, `<main>`, `<header>`, `<article>`, `<fieldset>`.
+  - Live region alerts: `role="alert"` and `aria-live="assertive"` in `ErrorBanner.jsx`.
+  - Keyboard tooltip accessibility: `onFocus`, `onBlur`, Escape key dismiss, `role="tooltip"`, `aria-expanded` in `HelpTooltip.jsx`.
+  - SVG schematic diagram accessibility: `role="img"` and descriptive `aria-label` on turbofan engine blueprint.
+- [x] Committed and pushed all changes to `main`.
 
-## Not Yet Done
-- [ ] Start the next physics-fidelity slice: either full axisymmetric MoC source-term integration or calibrated off-design map import.
-- [ ] Carry chart layout consistency and input-validation polish only where it supports the selected physics workflow.
-- [ ] Optionally refresh `README.md` with a current capabilities section matching the updated roadmap.
-- [ ] Clean remaining mojibake in comments/docs if touched during future work.
-
-## Failed Approaches (Don't Repeat These)
-*   *Normal sandbox reads/writes*: The Windows sandbox repeatedly failed with ACL errors for normal workspace file operations, including `apply_patch`. Use workspace-scoped PowerShell commands with explicit approval if the same sandbox issue recurs.
-*   *Version literals in multiple surfaces*: Repeating `2.2.0` / `2.3.0` literals across backend, frontend, and exports caused visible drift. Use `app_version.json` plus adapters instead.
-*   *Stale MoC labels*: Do not label the current nozzle implementation as `NOT_TRUE_MOC` or a parabolic bell approximation. Current wording should be "planar MoC net with axisymmetric area mapping" until the next source-term solver lands.
-*   *ASCII STL Comment Prepends*: Prepending `#` comment lines before the `solid` tag in ASCII STL files breaks parser imports in standard CAD applications. Keep metadata in parser-safe fields such as the solid name.
+## Not Yet Done / Next Session Backlog
+- [ ] **Physics Priority (P2 Track)**:
+  - **Option A (Rocket / Gas Dynamics)**: Upgrade `core/rocket/moc.py` from planar characteristic net with axisymmetric area mapping to full **axisymmetric Method of Characteristics (MoC)** with radial source-term integration.
+  - **Option B (Gas Turbine / Off-Design)**: Extend `core/gas_turbine/off_design.py` to support **calibrated compressor & turbine map dataset imports** instead of purely parametric heuristics.
+- [ ] **Frontend Usability Polish (P1 Track)**:
+  - Carry Plotly chart layout centralization through `chartUtils.js` on remaining custom chart views.
+  - Add explicit inline input bounds validation messages near sliders matching `backend/models.py`.
 
 ## Key Decisions
 | Decision | Rationale |
 |---|---|
-| Centralize app versioning in `app_version.json` | Keeps backend metadata, frontend labels, Settings fallback, and export headers synchronized from one source. |
-| Physics fidelity is the priority track | The user selected both physics and frontend polish, with physics taking priority for the next implementation slice. |
-| Keep frontend chart consistency parallel | Chart consistency matters, but it should be advanced when touching physics workflows rather than displacing solver fidelity work. |
-| Preserve archived docs as historical | Active docs should reflect current repo truth; archive docs can retain old sprint language. |
+| Enforce WCAG 2.1 AA accessibility globally | Range sliders and navigation tabs now provide non-visual context and keyboard focus rings for screen reader & keyboard users. |
+| Preserve high-contrast monochromatic design system | Retained Space Grotesk / Outfit typography and cyan (`#00F0FF`) accents while raising text opacities for AA contrast compliance. |
+| Maintain zero-dependency client-side build | Vite production bundle compiles cleanly with no external runtime errors. |
 
 ## Current State
-- **Working**: `pytest tests/ -v` passed 123 tests; `npm run lint` passed; `npm run build` passed. Backend and frontend now share version metadata.
-- **Broken**: No functional breakage known. Test suite still emits one existing Cantera temperature-range warning in `tests/test_api.py::test_rocket_sweep_basic`.
-- **Uncommitted Changes**: Wrap-up commit should include `HANDOFF.md`, `app_version.json`, `frontend/src/version.js`, backend/frontend version wiring, docs roadmap refresh, MoC wording updates, `implementation_plan.md`, and `task.md`.
+- **Working**: `pytest tests/ -v` passes 123 tests; `npm run lint` passes with 0 errors; `npm run build` succeeds cleanly.
+- **Broken**: None.
+- **Git State**: Clean worktree after pushing main.
 
 ## Files to Know
 | File | Why It Matters |
 |---|---|
-| `app_version.json` | Shared release metadata consumed by backend and frontend. |
-| `backend/main.py` | Loads shared version metadata and exposes version/health/export metadata. |
-| `frontend/src/version.js` | Frontend adapter for shared version metadata and visible label formatting. |
-| `frontend/src/App.jsx` | Main app shell and visible version labels. |
-| `frontend/src/pages/Settings.jsx` | Settings page version fallback now uses shared metadata. |
-| `frontend/src/pages/RocketAnalysis.jsx` | Rocket user flow; MoC label corrected to current implementation truth. |
-| `core/rocket/moc.py` | Current planar characteristic net and axisymmetric area mapping implementation; likely next physics target. |
-| `core/gas_turbine/off_design.py` | Candidate next physics target for calibrated compressor/turbine map import. |
-| `docs/ROADMAP.md` | Active completed-vs-backlog roadmap and next-session recommendation. |
-| `implementation_plan.md` | Active plan for roadmap/capability truth sync and resolved decisions. |
-| `task.md` | Active checklist for completed truth-sync work and selected next priority. |
+| `frontend/src/index.css` | Global styling, cyan focus rings, theme tokens, and typography system. |
+| `frontend/src/App.jsx` | App shell, landmark architecture, sidebar navigation tabs, and status headers. |
+| `frontend/src/components/SliderControl.jsx` | Shared range slider with accessible label mapping and ARIA value tags. |
+| `frontend/src/components/StatPanel.jsx` | Semantic `<article>` metric panel with compliant text contrast. |
+| `frontend/src/components/ErrorBanner.jsx` | Inline error banner with `role="alert"` and `aria-live="assertive"`. |
+| `frontend/src/components/HelpTooltip.jsx` | Accessible engineering glossary tooltip supporting keyboard focus & Escape dismiss. |
+| `core/rocket/moc.py` | Nozzle Method of Characteristics solver; target for next physics upgrade. |
+| `core/gas_turbine/off_design.py` | Off-design engine solver; target for calibrated map import path. |
+| `docs/ROADMAP.md` | Active product roadmap and next implementation recommendations. |
 
-## Code Context
-```python
-def _load_app_metadata() -> dict[str, str]:
-    """Load shared release metadata used by backend and frontend."""
-    version_path = Path(__file__).resolve().parents[1] / "app_version.json"
-    ...
-
-APP_METADATA = _load_app_metadata()
-APP_VERSION = APP_METADATA["version"]
-APP_BUILD_DATE = APP_METADATA["build_date"]
-APP_STATUS = APP_METADATA["status"]
-```
-
-```javascript
-import appVersion from '../../app_version.json'
-
-export const APP_VERSION = appVersion.version
-export const APP_BUILD_DATE = appVersion.build_date
-export const APP_STATUS = appVersion.status
-
-export const versionLabel = (prefix) => `${prefix}_V${APP_VERSION}`
-```
-
-```text
-Recommended next session:
-Take physics fidelity first: start with the P2 MoC/source-term or calibrated map work. Carry P1 chart consistency and validation polish in parallel only when it supports the physics workflow being touched.
-```
-
-## Resume Instructions
-1. Run `git status --short --branch` and confirm the pushed wrap-up commit is present on `main`.
-2. Re-run `pytest tests/ -v`, then `npm run lint` and `npm run build` inside `frontend/` if starting implementation work.
-3. Pick the next physics-first slice: `core/rocket/moc.py` axisymmetric source-term MoC upgrade, or `core/gas_turbine/off_design.py` calibrated map import path.
-4. When touching charts for that physics slice, centralize affected Plotly layout through `frontend/src/utils/chartUtils.js` and add inline validation only for the workflow being changed.
-
-## Setup Required
-- Python environment with backend dependencies from `backend/requirements.txt`.
-- Node.js dependencies installed in `frontend/`.
-- Cantera must be available for the full backend test suite.
-
-## Warnings & Caveats
-- This repo currently required explicit elevated workspace-scoped shell commands for reads/writes due Windows sandbox ACL failures.
-- Keep SI-unit contracts between backend/core/frontend.
-- Do not share Cantera `ct.Solution` instances across requests.
-- Preserve unrelated user changes if the next session starts with a dirty worktree.
+## Resume Instructions for Next Session
+1. Run `git status` to verify clean working directory on `main`.
+2. Run `pytest tests/ -v` and `cd frontend; npm run lint` to verify environment health.
+3. Ask user whether to begin **Option A (Axisymmetric MoC Source-Term Upgrade)** in `core/rocket/moc.py` or **Option B (Calibrated Off-Design Map Import)** in `core/gas_turbine/off_design.py`.
