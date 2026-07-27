@@ -98,6 +98,7 @@ Endpoint groups:
 - Keep exports wired through API endpoints and `fetchBlob`; avoid duplicating export logic in the frontend.
 - When changing physics behavior, add or update focused tests in `tests/`.
 - When changing user-facing frontend behavior, run lint/build and check the rendered UI in a browser when practical.
+- Mandatory Functional Breakdown Diagram (FBD) Maintenance: Whenever codebase changes, new features, or architectural modifications are implemented, always verify and update the Systems Engineering Functional Breakdown Diagram (FBD) artifact (`functional_breakdown_diagram.md`) to preserve accurate subsystem traceability.
 
 ## Verification
 
