@@ -1,65 +1,74 @@
-# Handoff: Full System Audit & Accessibility (a11y) Refactoring
+# Handoff: Systems Engineering FBD Diagram
 
-**Generated**: 2026-07-28 02:39 in local time
+**Generated**: 2026-07-28 02:55
 **Branch**: main
-**Status**: Ready for Next Session
+**Status**: Completed / Ready for Review
 
 ## Loop Telemetry
-- **Active Task**: Full application, physics, API, and UI accessibility audit & refactoring.
-- **Current Iteration**: Final handoff and wrap-up.
-- **Verification Baseline**: `pytest tests/ -v` passed 123/123 tests; `npm run lint` passed with 0 errors; `npm run build` passed in 1.55s.
+- **Active Subtask**: Systems Engineering Functional Breakdown Diagram (FBD) Creation & Audit
+- **Current Iteration**: 4/4 (Completed)
+- **Healing Actions Taken**: Converted diagram layout to Layered Rank Grouping (`BUS_LAYER` -> `ROW_1` -> `ROW_2`), added multiline `<br/>` breaks, updated `AGENTS.md` with mandatory FBD rule, and pushed to Git.
 
 ## Goal
-Perform a comprehensive audit of all existing backend physics solvers, FastAPI endpoints, edge-case handlers, frontend React components, Plotly chart integrations, and UI accessibility standards (WCAG 2.1 AA & Anti-AI-Slop guidelines), then push verified changes and prepare a clear handoff for the next implementation phase.
+Perform systems engineering functional decomposition of the Propulsion Analysis Suite using `/functional_breakdown_diagram` to generate a Draw.io-compatible FBD, Hierarchical Functional Tree, and Quantitative Breakdown Table, ensuring zero text overflow, no line crossings, and proper boundary definitions.
 
 ## Completed
-- [x] Executed full backend physics and API test suite (`pytest tests/ -v` — 123/123 tests passing).
-- [x] Audited non-finite (`NaN`/`Inf`) JSON sanitization guards (`_sanitize`) across all 17 API endpoints.
-- [x] Audited Cantera thread/instance isolation and SI unit contracts across `core/gas_turbine/`, `core/rocket/`, and `core/diagnostics.py`.
-- [x] Audited frontend static syntax and production compilation (`npm run lint; npm run build` in `frontend/`).
-- [x] Performed UI Review (`/ui_review`) against Anti-AI-Slop guidelines: typography hierarchy, high-contrast cyan (`#00F0FF`) focus rings, symmetrical badge padding, and controlled background styling.
-- [x] Implemented WCAG 2.1 AA accessibility refactorings:
-  - Form & range input association: `<label htmlFor="...">`, `id`, `aria-valuemin`, `aria-valuemax`, `aria-valuenow` in `SliderControl.jsx`.
-  - Semantic landmarks: `<nav aria-label="Main Navigation">`, `role="tablist"`, `role="tab"`, `aria-selected`, `<main>`, `<header>`, `<article>`, `<fieldset>`.
-  - Live region alerts: `role="alert"` and `aria-live="assertive"` in `ErrorBanner.jsx`.
-  - Keyboard tooltip accessibility: `onFocus`, `onBlur`, Escape key dismiss, `role="tooltip"`, `aria-expanded` in `HelpTooltip.jsx`.
-  - SVG schematic diagram accessibility: `role="img"` and descriptive `aria-label` on turbofan engine blueprint.
-- [x] Committed and pushed all changes to `main`.
+- [x] Analyzed complete codebase architecture across backend FastAPI solvers (`CycleAnalyzer`, `OffDesignSolver`, `FaultDiagnosticSolver`, `RocketAnalyzer`, `MoCNozzle`, `MissionAnalyzer`) and frontend React components.
+- [x] Generated comprehensive systems engineering artifact (`functional_breakdown_diagram.md`) featuring FBD, Hierarchical Functional Tree, and Quantitative Subsystem Breakdown Table.
+- [x] Conducted full forensic audit of Draw.io rendering bugs (4-column squashing, double-nested subgraph text tag bugs, text overflow, and line crossings).
+- [x] Resolved Draw.io rendering bugs by implementing Layered Rank Grouping (`BUS_LAYER` -> `ROW_1` -> `ROW_2`), explicit multiline `<br/>` label breaks, and zero line-crossing vertical signal flows.
+- [x] Updated project `AGENTS.md` under Engineering Conventions to mandate checking and updating `functional_breakdown_diagram.md` whenever changes or features are implemented in the codebase.
+- [x] Committed and pushed all changes to `main` branch (`https://github.com/PuwitChao/PropulsionLab.git`).
 
-## Not Yet Done / Next Session Backlog
-- [ ] **Physics Priority (P2 Track)**:
-  - **Option A (Rocket / Gas Dynamics)**: Upgrade `core/rocket/moc.py` from planar characteristic net with axisymmetric area mapping to full **axisymmetric Method of Characteristics (MoC)** with radial source-term integration.
-  - **Option B (Gas Turbine / Off-Design)**: Extend `core/gas_turbine/off_design.py` to support **calibrated compressor & turbine map dataset imports** instead of purely parametric heuristics.
-- [ ] **Frontend Usability Polish (P1 Track)**:
-  - Carry Plotly chart layout centralization through `chartUtils.js` on remaining custom chart views.
-  - Add explicit inline input bounds validation messages near sliders matching `backend/models.py`.
+## Not Yet Done
+- [ ] Future feature expansions (Turbofan Afterburner, Dynamic Transient Throttle Deck, Method of Characteristics Grid Solver, Hybrid-Electric Powertrain Slot) marked as expansion slots in diagram to be implemented in future sprints.
+
+## Failed Approaches (Don't Repeat These)
+- **Double-Nested Subgraphs (`BOUNDARY` -> `ROW` -> `PILLAR`)**: Caused Draw.io's Mermaid importer to generate floating dummy title text boxes at the top rank. Fixed by converting to single-level rank subgraphs (`BUS_LAYER` -> `ROW_1` -> `ROW_2`).
+- **Simultaneous Bus Connections to 4 Pillars**: Connecting `BUS` to all 4 pillar inputs at once forced Draw.io to place all 4 pillars on the same horizontal rank, creating an ultra-wide 4-column squashed layout. Fixed by connecting `BUS` to `ROW_1` (Pillars 1 & 2) and routing `ROW_1` outputs down to `ROW_2` (Pillars 3 & 4).
+- **Single-Line Long Labels (>35 chars)**: Caused text overflow outside Draw.io node boxes. Fixed by inserting explicit `<br/>` HTML breaks and normalizing line lengths to 15–20 characters.
 
 ## Key Decisions
 | Decision | Rationale |
 |---|---|
-| Enforce WCAG 2.1 AA accessibility globally | Range sliders and navigation tabs now provide non-visual context and keyboard focus rings for screen reader & keyboard users. |
-| Preserve high-contrast monochromatic design system | Retained Space Grotesk / Outfit typography and cyan (`#00F0FF`) accents while raising text opacities for AA contrast compliance. |
-| Maintain zero-dependency client-side build | Vite production bundle compiles cleanly with no external runtime errors. |
+| Enforce Layered Rank Grouping | Forces Draw.io to stack pillars in a clean, balanced 2x2 grid layout without line crossings. |
+| Add Mandatory FBD Rule to `AGENTS.md` | Ensures the Systems Engineering FBD diagram (`functional_breakdown_diagram.md`) is continuously updated as new features/modules are implemented. |
 
 ## Current State
-- **Working**: `pytest tests/ -v` passes 123 tests; `npm run lint` passes with 0 errors; `npm run build` succeeds cleanly.
+- **Working**: Draw.io Mermaid code renders with zero text overflow, zero header collisions, clean 2x2 grid topology, and clear boundary styling.
 - **Broken**: None.
-- **Git State**: Clean worktree after pushing main.
+- **Uncommitted Changes**: None (all committed and pushed to `main`).
 
 ## Files to Know
 | File | Why It Matters |
 |---|---|
-| `frontend/src/index.css` | Global styling, cyan focus rings, theme tokens, and typography system. |
-| `frontend/src/App.jsx` | App shell, landmark architecture, sidebar navigation tabs, and status headers. |
-| `frontend/src/components/SliderControl.jsx` | Shared range slider with accessible label mapping and ARIA value tags. |
-| `frontend/src/components/StatPanel.jsx` | Semantic `<article>` metric panel with compliant text contrast. |
-| `frontend/src/components/ErrorBanner.jsx` | Inline error banner with `role="alert"` and `aria-live="assertive"`. |
-| `frontend/src/components/HelpTooltip.jsx` | Accessible engineering glossary tooltip supporting keyboard focus & Escape dismiss. |
-| `core/rocket/moc.py` | Nozzle Method of Characteristics solver; target for next physics upgrade. |
-| `core/gas_turbine/off_design.py` | Off-design engine solver; target for calibrated map import path. |
-| `docs/ROADMAP.md` | Active product roadmap and next implementation recommendations. |
+| `functional_breakdown_diagram.md` | Main Systems Engineering report containing Draw.io FBD Mermaid code, Functional Tree, and Subsystem Breakdown Table. |
+| `AGENTS.md` | Workspace guidance file updated with mandatory FBD maintenance rule. |
 
-## Resume Instructions for Next Session
-1. Run `git status` to verify clean working directory on `main`.
-2. Run `pytest tests/ -v` and `cd frontend; npm run lint` to verify environment health.
-3. Ask user whether to begin **Option A (Axisymmetric MoC Source-Term Upgrade)** in `core/rocket/moc.py` or **Option B (Calibrated Off-Design Map Import)** in `core/gas_turbine/off_design.py`.
+## Code Context
+```mermaid
+// Layered Rank Grouping pattern for Draw.io:
+subgraph BUS_LAYER["SYSTEM BOUNDARY: Central Control & State Bus"]
+    BUS["⚡ CENTRAL REST API ROUTER & STATE BUS"]
+end
+subgraph ROW_1["DOMAIN LAYER 1: Gas Turbine & Diagnostics"]
+    // Pillar 1 & Pillar 2
+end
+subgraph ROW_2["DOMAIN LAYER 2: Rocket & Aircraft Missions"]
+    // Pillar 3 & Pillar 4
+end
+BUS ==> P1_IN
+BUS ==> P2_IN
+P1_OUT ==> P3_IN
+P2_OUT ==> P4_IN
+```
+
+## Resume Instructions
+1. Open [Draw.io](https://app.diagrams.net/), select **Arrange -> Insert -> Advanced -> Mermaid**, and paste the updated Mermaid code from `functional_breakdown_diagram.md`.
+2. When adding new features or backend endpoints in future coding sessions, update `functional_breakdown_diagram.md` per the new rule in `AGENTS.md`.
+
+## Setup Required
+- Standard Python & Node environment per `AGENTS.md`.
+
+## Warnings & Caveats
+- Do not use double-nested subgraphs when writing Mermaid diagrams for Draw.io, as Draw.io's parser creates floating text tag artifacts.
