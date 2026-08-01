@@ -236,10 +236,10 @@ export default function RocketAnalysis() {
     const [altData, setAltData] = useState(null)
     const [altLoading, setAltLoading] = useState(false)
 
-    const showToast = (msg, ok = true) => {
+    const showToast = useCallback((msg, ok = true) => {
         setToast({ msg, ok })
         setTimeout(() => setToast(null), 4000)
-    }
+    }, [])
 
     const runOFSweep = useCallback(async () => {
         setSweepLoading(true)
@@ -344,7 +344,7 @@ export default function RocketAnalysis() {
             showToast('Export failed. Check backend connection.', false)
         }
         setExportLoading(null)
-    }, [result, params.propellant])
+    }, [result, params.propellant, showToast])
 
     const handleExportSTL = useCallback(async () => {
         if (!result) return
