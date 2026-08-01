@@ -263,3 +263,38 @@ class MoCNozzle:
 
         stl_lines.append(f"endsolid {solid_name}")
         return "\n".join(stl_lines)
+
+    def generate_obj_mesh(self, num_theta=36):
+        """Generate an Wavefront OBJ formatted 3D mesh of the nozzle wall."""
+        if not hasattr(self, 'wall_x'):
+            self.solve_contour()
+
+        thetas = np.linspace(0, 2*np.pi, num_theta)
+        obj_lines = [
+            f"# Wavefront OBJ Nozzle Mesh",
+            f"# Gamma={self.gamma}, Mach_Exit={self.me}, Throat_Radius={self.rt}",
+            f"o Nozzle_MoC"
+        ]
+
+        vertices = []
+        for i in range(len(self.wall_x)):
+            x = self.wall_x[i]
+            r = self.wall_y[i]
+            for t in thetas:
+                vertices.append((x, r * math.cos(t), r * math.sin(t)))
+
+        for v in vertices:
+            obj_lines.append(f"v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}")
+
+        # Generate quad faces between rings
+        num_x = len(self.wall_x)
+        for i in range(num_x - 1):
+            for j in range(num_theta - 1):
+                idx1 = i * num_theta + j + 1
+                idx2 = i * num_theta + j + 2
+                idx3 = (i + 1) * num_theta + j + 2
+                idx4 = (i + 1) * num_theta + j + 1
+                obj_lines.append(f"f {idx1} {idx2} {idx3} {idx4}")
+
+        return "\n".join(obj_lines)
+

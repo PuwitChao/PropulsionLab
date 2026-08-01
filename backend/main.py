@@ -54,6 +54,7 @@ from core.rocket.analyzer import RocketAnalyzer
 from core.rocket.moc import MoCNozzle
 from core.gas_turbine.mission import MissionAnalyzer
 from core.diagnostics import DiagnosticsAnalyzer
+from core.presets import ENGINE_PRESETS, ROCKET_PRESETS, MISSION_PRESETS, DIAGNOSTIC_PRESETS
 
 # Pydantic request models
 from backend.models import (
@@ -72,6 +73,8 @@ from backend.models import (
     SensitivityRequest,
     MultispoolRequest,
     DiagnosticsRequest,
+    RamjetRequest,
+    BreguetRequest,
     _VALID_PROPELLANTS,
 )
 
@@ -92,6 +95,7 @@ def _sanitize(obj: Any) -> Any:
         return [_sanitize(v) for v in obj]
     return obj
 
+
 # ── Security & Policy ────────────────────────────────────────────────────────
 _cors_origins_env = os.environ.get("CORS_ORIGINS", "")
 _cors_origins = (
@@ -106,10 +110,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Accept"],
 )
-
-# ════════════════════════════════════════════════════════════════════════════
-# Health
-# ════════════════════════════════════════════════════════════════════════════
 
 @app.get("/")
 def read_root():
@@ -180,6 +180,17 @@ def get_diagnostics():
     }
 
 
+@app.get("/analyze/presets")
+async def get_presets():
+    """Returns authoritative real-world engine and mission presets."""
+    return {
+        "engine_presets": ENGINE_PRESETS,
+        "rocket_presets": ROCKET_PRESETS,
+        "mission_presets": MISSION_PRESETS,
+        "diagnostic_presets": DIAGNOSTIC_PRESETS,
+    }
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # Mission Analysis
 # ════════════════════════════════════════════════════════════════════════════
@@ -204,8 +215,27 @@ async def analyze_mission(request: MissionConstraintRequest):
         raise HTTPException(status_code=500, detail="Mission analysis computation failed.")
 
 
+@app.post("/analyze/mission/breguet")
+async def calculate_breguet_range(request: BreguetRequest):
+    """Calculates Breguet payload-range equation metrics."""
+    try:
+        analyzer = MissionAnalyzer({})
+        result = analyzer.calculate_breguet_range(
+            mach=request.mach,
+            altitude_m=request.alt,
+            sfc_1_per_s=request.sfc_1_per_s,
+            l_over_d=request.l_over_d,
+            w_initial=request.w_initial,
+            w_final=request.w_final,
+        )
+        return _sanitize(result)
+    except Exception as e:
+        logger.error("Breguet range calculation error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Breguet range calculation failed.")
+
+
 # ════════════════════════════════════════════════════════════════════════════
-# Gas Turbine — On-Design (Turbojet & Turbofan)
+# Gas Turbine — On-Design (Turbojet, Turbofan & Ramjet)
 # ════════════════════════════════════════════════════════════════════════════
 
 @app.post("/analyze/cycle")
@@ -268,6 +298,24 @@ async def analyze_turbofan(request: TurbofanRequest):
         raise HTTPException(status_code=500, detail="Turbofan cycle computation failed.")
 
 
+@app.post("/analyze/cycle/ramjet")
+async def analyze_ramjet(request: RamjetRequest):
+    """Calculates high-speed ramjet thermodynamic cycle performance."""
+    try:
+        p0, t0, _ = isa_atmosphere(request.alt)
+        analyzer = CycleAnalyzer(p0_pa=p0, t0_k=t0, mach=request.mach)
+        result = analyzer.solve_ramjet(
+            t4=request.t4,
+            eta_b=request.eta_b,
+            burner_dp_frac=request.burner_dp_frac,
+            nozzle_dp_frac=request.nozzle_dp_frac,
+        )
+        return _sanitize(result)
+    except Exception as e:
+        logger.error("Ramjet cycle analysis error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ramjet computation failed: {str(e)}")
+
+
 @app.post("/analyze/cycle/sweep")
 async def analyze_cycle_sweep(request: CycleSweepRequest):
     """
@@ -296,10 +344,6 @@ async def analyze_cycle_sweep(request: CycleSweepRequest):
         logger.error("Cycle sweep error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Cycle sweep computation failed.")
 
-
-# ════════════════════════════════════════════════════════════════════════════
-# Gas Turbine — Off-Design
-# ════════════════════════════════════════════════════════════════════════════
 
 @app.post("/analyze/offdesign/map")
 async def offdesign_map(request: OffDesignMapRequest):
@@ -555,6 +599,20 @@ async def export_rocket_csv(request: MoCRequest):
     except Exception as e:
         logger.error(f"CSV export error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/analyze/rocket/export/obj", response_class=PlainTextResponse)
+async def export_moc_obj(request: MoCRequest):
+    """Exports Method of Characteristics nozzle geometry as a Wavefront OBJ mesh file."""
+    try:
+        solver = MoCNozzle(gamma=request.gamma, mach_exit=request.mach_exit, throat_radius=request.throat_radius)
+        obj_text = solver.generate_obj_mesh()
+        filename = f"nozzle_moc_m{request.mach_exit:.1f}_g{request.gamma:.2f}.obj"
+        return PlainTextResponse(content=obj_text, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+    except Exception as e:
+        logger.error("MoC OBJ export error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate OBJ mesh.")
+
 
 
 # ════════════════════════════════════════════════════════════════════════════

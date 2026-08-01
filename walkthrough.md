@@ -1,48 +1,69 @@
-# PropulsionLab — UI Review & Accessibility (a11y) Audit Walkthrough
+# Propulsion Analysis Suite - Major UI & Functional Overhaul Walkthrough
 
-A comprehensive **UI Review** (executed via `/ui_review` Anti-AI-Slop guidelines) and **WCAG 2.1 AA Accessibility Audit** was completed across the entire PropulsionLab web interface.
+## Summary of Completed Work
 
----
-
-## 🎨 UI Review & Anti-AI-Slop Audit Matrix
-
-| Anti-AI-Slop Criterion | Inspection Findings | Refactoring Action Taken | Status |
-| --- | --- | --- | --- |
-| **Typography & Fonts** | Premium Google Fonts (*Space Grotesk*, *Outfit*, *JetBrains Mono*) | Verified font hierarchy; letter-spacing `tracking-[0.2em]` enforced | **VERIFIED** |
-| **Keyboard Focus Rings** | Low-visibility default focus outlines | Added high-contrast cyan (`#00F0FF`) 2px `:focus-visible` rings in `index.css` | **PASSED** |
-| **Text & Muted Contrast** | Muted copy opacity fell below 4.5:1 WCAG contrast standards | Raised text opacity in `SliderControl`, `StatPanel`, `Settings`, and `App` sidebar | **PASSED** |
-| **Selected Navigation States** | Sidebar navigation tabs used plain text styling | Refactored active states with `nav-item-active`, `role="tab"`, `aria-selected` | **PASSED** |
-| **Range Slider Accessibility** | Input sliders lacked label association and ARIA values | Replaced `span` with `<label htmlFor>`, added `id`, `aria-valuemin/max/now` | **PASSED** |
-| **Error Feedback** | Error banners were static containers | Added `role="alert"` and `aria-live="assertive"` for immediate screen-reader feedback | **PASSED** |
-| **Tooltip Navigability** | Help tooltips required click; unhandled on keyboard focus | Added `onFocus`, `onBlur`, Escape key dismiss, `role="tooltip"`, `aria-expanded` | **PASSED** |
-| **Landmark Architecture** | Page shell lacked explicit landmark labeling | Added `aria-label="Main Navigation"` to `<nav>`, wrapped layout in `<main>` & `<header>` | **PASSED** |
-| **SVG Blueprint Diagrams** | SVG station blueprint diagrams lacked non-visual context | Added `role="img"` and descriptive `aria-label` tags for screen readers | **PASSED** |
-| **Theme Selection** | Theme buttons lacked form grouping | Wrapped theme choices in `<fieldset>`/`<legend>` with `aria-pressed` state indicators | **PASSED** |
+We have conducted a full application audit, physics solver expansion, architectural refinement, and UI/UX overhaul for the **Propulsion Analysis Suite**.
 
 ---
 
-## 💻 Refactored Files
+## 1. Core Physics & Backend Expansions
 
-1. **[index.css](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/index.css)**: High-contrast cyan `:focus-visible` outline for keyboard navigation, smooth transitions, and high contrast muted text tokens.
-2. **[SliderControl.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/components/SliderControl.jsx)**: Accessible range inputs with connected `<label htmlFor="...">`, `id`, `aria-valuemin`, `aria-valuemax`, and `aria-valuenow`.
-3. **[StatPanel.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/components/StatPanel.jsx)**: Semantic `<article>` metric cards with `aria-label` and WCAG AA compliant text contrast.
-4. **[ErrorBanner.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/components/ErrorBanner.jsx)**: ARIA alert region with `role="alert"` and `aria-live="assertive"`.
-5. **[HelpTooltip.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/components/HelpTooltip.jsx)**: Accessible engineering glossary tooltips supporting keyboard focus, Escape key dismiss, and `role="tooltip"`.
-6. **[App.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/App.jsx)**: Accessible navigation bar with `aria-label="Main Navigation"`, `role="tablist"`, `role="tab"`, and `aria-selected`.
-7. **[ParametricCycle.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/ParametricCycle.jsx)**: SVG engine blueprint with `role="img"` and screen reader description.
-8. **[Settings.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/Settings.jsx)**: Semantic `<fieldset>`/`<legend>` theme control with `aria-pressed` states.
+1. **Ramjet Engine Solver**:
+   - Added `solve_ramjet()` to `core/gas_turbine/cycle.py` implementing MIL-E-5007D supersonic shock recovery and high-altitude thermodynamic cycle calculation.
+   - Exposed endpoint `/analyze/cycle/ramjet`.
+
+2. **3D Mesh Exports**:
+   - Added `generate_obj_mesh()` to `core/rocket/moc.py` generating Wavefront OBJ 3D meshes for CAD software integration alongside binary STL format.
+   - Exposed endpoint `/analyze/rocket/export/obj`.
+
+3. **Breguet Payload-Range Estimator**:
+   - Added `calculate_breguet_range()` to `core/gas_turbine/mission.py` for cruise range (km / nmi), flight endurance (hours), and fuel burn fraction calculations.
+   - Exposed endpoint `/analyze/mission/breguet`.
+
+4. **Real-World Engine Presets Repository**:
+   - Created `core/presets.py` containing authoritative engineering presets:
+     - CFM56-7B (Boeing 737NG)
+     - GE90-115B (Boeing 777-300ER)
+     - F100-PW-229 (F-15E / F-16 Reheat Turbofan)
+     - Olympus 593 (Concorde Supersonic Turbojet)
+     - Merlin 1D, RS-25 SSME, Raptor 2 Rocket Engines
+   - Exposed endpoint `/analyze/presets`.
 
 ---
 
-## ⚡ Automated Verification Results
+## 2. Frontend UI/UX & Architecture Overhaul
 
-### Frontend Linter & Build
-```text
-> frontend@0.0.0 lint
-> eslint .
-✓ 0 errors
+1. **Interactive Thermodynamic Engine Blueprint**:
+   - Built `frontend/src/components/EngineBlueprintDiagram.jsx` featuring dynamic temperature/pressure heat map color gradients, animated streamlines, and station detail inspection modals.
 
-> frontend@0.0.0 build
-> vite build
-✓ built in 1.61s (dist/ compiled successfully)
+2. **Unit Conversion System**:
+   - Built `frontend/src/utils/unitConversion.js` offering dynamic SI (Metric) <-> Imperial formatting across temperature, pressure, thrust, SFC, velocity, and altitude.
+
+3. **Global Layout & Navigation**:
+   - Upgraded `frontend/src/App.jsx` with topbar latency badge (`ms`), SI/Imperial unit system toggle pill (`U`), Preset selector modal (`P`), and Keyboard Shortcuts overlay (`?`).
+   - Added `PresetSelectorModal.jsx` and `KeyboardShortcutsModal.jsx`.
+
+4. **3D MoC Nozzle Mesh Exports**:
+   - Added 3D STL and 3D OBJ export buttons to `RocketAnalysis.jsx` for direct download of 3D nozzle solid models.
+
+5. **Systems Engineering FBD Maintenance**:
+   - Updated `functional_breakdown_diagram.md` for zero line-crossing subsystem traceability.
+
+---
+
+## 3. Verification Results
+
+### Backend Pytest Suite
+```powershell
+pytest tests/ -v
+# 130 passed, 1 warning in 100.63s
 ```
+- All 130 unit and integration tests passed cleanly!
+
+### Frontend Code Quality & Build
+```powershell
+npm --prefix frontend run lint; npm --prefix frontend run build
+# 0 errors
+# dist/ built in 1.58s
+```
+- Clean production build with route-level code splitting.

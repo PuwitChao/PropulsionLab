@@ -237,3 +237,30 @@ class DiagnosticsRequest(BaseModel):
     tt5: float = Field(..., ge=300.0, le=1800.0)
     gamma_c: float = Field(1.4, ge=1.1, le=1.67)
     gamma_t: float = Field(1.33, ge=1.1, le=1.67)
+
+
+class RamjetRequest(BaseModel):
+    """Request model for high-speed Ramjet cycle analysis."""
+    alt:            float = Field(20000.0, ge=0,   le=50000)
+    mach:           float = Field(3.0,     ge=1.0, le=5.0)
+    t4:             float = Field(2000.0,  ge=1000, le=2800)
+    eta_b:          float = Field(0.98,    ge=0.8, le=1.0)
+    burner_dp_frac: float = Field(0.06,    ge=0.0, le=0.2)
+    nozzle_dp_frac: float = Field(0.02,    ge=0.0, le=0.1)
+
+
+class BreguetRequest(BaseModel):
+    """Request model for Breguet payload-range calculation."""
+    mach:         float = Field(0.78,   ge=0.1, le=4.0)
+    alt:          float = Field(11000.0, ge=0,   le=30000)
+    sfc_1_per_s:  float = Field(1.6e-5,  ge=1e-7, le=1e-3)
+    l_over_d:     float = Field(16.0,    ge=1.0, le=40.0)
+    w_initial:    float = Field(70000.0, ge=100, le=1e7)
+    w_final:      float = Field(45000.0, ge=100, le=1e7)
+
+    @model_validator(mode='after')
+    def validate_weights(self):
+        if self.w_final >= self.w_initial:
+            raise ValueError("w_final must be strictly less than w_initial")
+        return self
+

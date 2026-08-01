@@ -691,3 +691,95 @@ class CycleAnalyzer:
             'math_trace'      : self.math_trace,
             'stations'        : {k: {'tt': v.tt, 'pt': v.pt, 's': v.get_entropy()} for k, v in self.stations.items()},
         }
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Ramjet Cycle Solver
+    # ─────────────────────────────────────────────────────────────────────────
+    def solve_ramjet(
+        self,
+        t4: float,
+        eta_b: float = 0.98,
+        burner_dp_frac: float = 0.06,
+        nozzle_dp_frac: float = 0.02,
+        h_fuel: float = 42.8e6,
+        eta_install_nozzle: float = 1.0,
+        phi_inlet: float = 0.0,
+    ) -> dict[str, Any]:
+        """
+        Solves a high-speed Ramjet cycle using Cantera real-gas properties.
+
+        Ramjets rely on supersonic ram compression without mechanical compressors.
+        Valid for M0 >= 1.2 up to M0 ~ 5.0.
+
+        Args:
+            t4: Combustor exit / Burner total temperature [K].
+            eta_b: Combustion efficiency.
+            burner_dp_frac: Burner total pressure drop fraction.
+            nozzle_dp_frac: Nozzle total pressure drop fraction.
+            h_fuel: Lower Heating Value of fuel [J/kg].
+            eta_install_nozzle: Nozzle installation efficiency factor.
+            phi_inlet: Inlet spillage drag fraction.
+
+        Returns:
+            dict: Performance metrics (spec_thrust, tsfc, efficiencies, stations).
+        """
+        # Ram recovery (MIL-E-5007D standard supersonic inlet recovery)
+        m0 = max(1.0, self.m0)
+        if m0 <= 1.0:
+            eta_ram = 1.0
+        elif m0 <= 5.0:
+            eta_ram = 1.0 - 0.075 * ((m0 - 1.0) ** 1.35)
+        else:
+            eta_ram = 800.0 / (m0 ** 4 + 935.0)
+
+        pt2 = self.pt0 * eta_ram
+        tt2 = self.tt0
+        self.stations[2] = EngineStation(t_total=tt2, p_total=pt2)
+        g2, cp2, _ = get_gas_props(tt2, pt2)
+
+        # Combustor: Station 2 -> Station 4
+        tt4 = t4
+        pt4 = pt2 * (1.0 - burner_dp_frac)
+
+        # Fuel-to-air ratio calculation
+        _, cp4_0, _ = get_gas_props(tt4, pt4, f=0.04)
+        f = (cp4_0 * tt4 - cp2 * tt2) / (eta_b * h_fuel - cp4_0 * tt4)
+        f = max(f, 0.0)
+
+        gn, cpn, mwn = get_gas_props(tt4, pt4, f=f)
+        self.stations[4] = EngineStation(t_total=tt4, p_total=pt4)
+
+        # Nozzle: Station 4 -> Station 9
+        pt9_in = pt4 * (1.0 - nozzle_dp_frac)
+        rn = ct.gas_constant / mwn
+        v9, ps9, ts9, m9 = self._nozzle_exit(pt9_in, tt4, self.p0, gn, rn)
+        self.stations[9] = EngineStation(t_total=tt4, p_total=pt9_in, mach=m9)
+
+        v0 = self.m0 * math.sqrt(g2 * R_AIR * self.t0)
+        f_gross = (1.0 + f) * v9 + (ps9 - self.p0) * (rn * ts9 / ps9 * (1.0 + f) / max(v9, 1.0))
+        spec_thrust_installed = (f_gross * eta_install_nozzle) - v0 - (v0 * phi_inlet)
+        tsfc_installed = f / spec_thrust_installed if spec_thrust_installed > 0 else 0.0
+
+        q_in = f * h_fuel
+        v9_fe = math.sqrt(max(0.0, 2.0 * cpn * tt4 * (1.0 - (self.p0 / pt9_in) ** ((gn - 1.0) / gn))))
+        eta_thermal = (0.5 * (1.0 + f) * v9_fe**2 - 0.5 * v0**2) / q_in if q_in > 0 else 0.0
+        eta_prop = 2.0 * v0 / (v9 + v0) if (v9 + v0) > 1e-3 else 0.0
+
+        self.math_trace.append(f"Ramjet Cycle: M0={self.m0:.2f}, Ram Recovery={eta_ram:.4f}, Tt4={tt4:.1f} K, f={f:.4f}")
+
+        return {
+            'engine_type': 'ramjet',
+            'spec_thrust': spec_thrust_installed,
+            'tsfc': tsfc_installed,
+            'f_total': f,
+            'eta_thermal': eta_thermal,
+            'eta_propulsive': eta_prop,
+            'eta_overall': eta_thermal * eta_prop,
+            'tt4': tt4,
+            'pt4': pt4,
+            'v9': v9,
+            'm9': m9,
+            'math_trace': self.math_trace,
+            'stations': { k: {'tt': v.tt, 'pt': v.pt, 's': v.get_entropy()} for k, v in self.stations.items() }
+        }
+

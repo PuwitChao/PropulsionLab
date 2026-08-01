@@ -3,10 +3,11 @@ import API_BASE_URL, { fetchData } from './api'
 import { versionLabel } from './version'
 import './index.css'
 import ErrorBoundary from './components/ErrorBoundary'
+import PresetSelectorModal from './components/PresetSelectorModal'
+import KeyboardShortcutsModal from './components/KeyboardShortcutsModal'
+import { UNIT_SYSTEMS } from './utils/unitConversion'
 
-// Page bundles are loaded on demand. The analysis pages each pull in Plotly
-// (~4.9 MB), so route-level code splitting keeps it out of the initial shell
-// and only fetches it when a chart page is actually opened.
+// Page bundles are loaded on demand.
 const MissionAnalysis = lazy(() => import('./pages/MissionAnalysis'))
 const ParametricCycle = lazy(() => import('./pages/ParametricCycle'))
 const RocketAnalysis = lazy(() => import('./pages/RocketAnalysis'))
@@ -25,15 +26,17 @@ const navItems = [
   { id: 'settings', label: 'Environment', icon: 'settings', category: 'SYSTEM' },
 ]
 
-// ─────────────────────────────────────────────────────────────────────────────
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [backendStatus, setBackendStatus] = useState('CHECKING')
+  const [apiLatency, setApiLatency] = useState(null)
+  const [unitSystem, setUnitSystem] = useState(UNIT_SYSTEMS.SI)
+  const [presetsModalOpen, setPresetsModalOpen] = useState(false)
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
   const [sessionDuration, setSessionDuration] = useState('00:00:00')
   const [time, setTime] = useState(new Date().toLocaleTimeString('en-GB', { hour12: false }))
 
-  // Record session start in sessionStorage on first load (lazy useState init runs once)
   const [sessionStart] = useState(() => {
     const stored = sessionStorage.getItem('session_start')
     if (!stored) {
@@ -58,11 +61,15 @@ function App() {
 
   useEffect(() => {
     const checkHealth = async () => {
+      const start = performance.now()
       try {
         const data = await fetchData('/health')
+        const end = performance.now()
+        setApiLatency(Math.round(end - start))
         setBackendStatus(data.status === 'healthy' ? 'STABLE' : 'DEGRADED')
       } catch {
         setBackendStatus('OFFLINE')
+        setApiLatency(null)
       }
     }
     checkHealth()
@@ -70,14 +77,34 @@ function App() {
     return () => clearInterval(interval)
   }, [])
 
+  // Global Keyboard Shortcuts (U, P, ?)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      if (e.key === 'u' || e.key === 'U') {
+        setUnitSystem(prev => prev === UNIT_SYSTEMS.SI ? UNIT_SYSTEMS.IMPERIAL : UNIT_SYSTEMS.SI)
+      } else if (e.key === 'p' || e.key === 'P') {
+        setPresetsModalOpen(true)
+      } else if (e.key === '?') {
+        setShortcutsModalOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const toggleUnitSystem = () => {
+    setUnitSystem(prev => prev === UNIT_SYSTEMS.SI ? UNIT_SYSTEMS.IMPERIAL : UNIT_SYSTEMS.SI)
+  }
+
   const renderPage = () => {
     switch (activeTab) {
-      case 'on-design': return <ParametricCycle />
-      case 'off-design': return <PerformanceMap />
-      case 'mission': return <MissionAnalysis />
-      case 'rocket': return <RocketAnalysis />
-      case 'settings': return <Settings />
-      case 'diagnostics': return <Diagnostics />
+      case 'on-design': return <ParametricCycle unitSystem={unitSystem} />
+      case 'off-design': return <PerformanceMap unitSystem={unitSystem} />
+      case 'mission': return <MissionAnalysis unitSystem={unitSystem} />
+      case 'rocket': return <RocketAnalysis unitSystem={unitSystem} />
+      case 'settings': return <Settings unitSystem={unitSystem} setUnitSystem={setUnitSystem} />
+      case 'diagnostics': return <Diagnostics unitSystem={unitSystem} />
       default: return <Dashboard status={backendStatus} onNavigate={setActiveTab} />
     }
   }
@@ -139,7 +166,6 @@ function App() {
                         }`}
                         aria-current={activeTab === item.id ? 'page' : undefined}
                         >
-                        {/* Left accent bar */}
                         <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-[2px] transition-all duration-200 ${
                             activeTab === item.id
                             ? 'h-7 bg-accent-cyan opacity-90'
@@ -169,7 +195,7 @@ function App() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header className="app-header fixed top-0 right-0 left-0 lg:left-[280px] h-20 z-40 flex items-center justify-between px-6 lg:px-12 bg-surface/80 backdrop-blur-2xl border-b border-white/[0.07]" style={{boxShadow: '0 1px 0 rgba(255,255,255,0.04)'}}>
-        <div className="flex items-center gap-4 lg:gap-12">
+        <div className="flex items-center gap-4 lg:gap-8">
           <button
             onClick={() => setMobileSidebarOpen(o => !o)}
             className="lg:hidden flex items-center justify-center w-9 h-9 text-white border border-white/[0.08] hover:border-white/25 hover:bg-white/[0.04] transition-all duration-200 cursor-pointer"
@@ -185,25 +211,70 @@ function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-5 lg:gap-10">
-          <div className="flex gap-5 lg:gap-10 items-center">
-             <div className="hidden sm:flex flex-col items-end gap-1">
-                <span className="text-[9px] font-mono tracking-[0.3em] text-white/25 uppercase">System_Time</span>
-                <span className="text-[11px] font-mono text-white/60 tabular-nums">{time}</span>
-             </div>
-             <div className="hidden sm:block h-7 w-[1px] bg-white/[0.07]"></div>
-             <div className="flex flex-col items-end lg:pr-4 gap-1">
-               <span className="text-[9px] font-mono tracking-[0.3em] text-white/25 uppercase">Status</span>
-               <div className="flex items-center gap-2">
-                 <div className={`w-[6px] h-[6px] transition-all ${backendStatus === 'STABLE' ? 'bg-accent-cyan/80 status-dot-online' : backendStatus === 'CHECKING' ? 'bg-white/30 animate-pulse' : 'warning-marker animate-pulse'}`}></div>
-                 <span className={`text-[10px] font-mono tracking-[0.25em] uppercase ${backendStatus === 'OFFLINE' ? 'warning-text' : backendStatus === 'STABLE' ? 'text-accent-cyan/80' : 'text-white/65'}`}>{backendStatus}</span>
-               </div>
-             </div>
+        <div className="flex items-center gap-4 lg:gap-6">
+          {/* Unit Toggle Button */}
+          <button
+            onClick={toggleUnitSystem}
+            className="px-3 py-1.5 rounded text-xs font-mono font-bold tracking-wider border border-accent-cyan/40 bg-accent-cyan-dim text-accent-cyan hover:bg-accent-cyan/20 transition-all flex items-center gap-1.5"
+            title="Toggle Units (U)"
+          >
+            <span className="material-symbols-outlined !text-[14px]">tune</span>
+            <span>{unitSystem === UNIT_SYSTEMS.SI ? 'SI (METRIC)' : 'IMPERIAL'}</span>
+          </button>
+
+          {/* Quick Presets Button */}
+          <button
+            onClick={() => setPresetsModalOpen(true)}
+            className="hidden md:flex px-3 py-1.5 rounded text-xs font-mono font-semibold border border-white/15 bg-white/5 text-white/80 hover:text-white hover:border-white/30 transition-all items-center gap-1.5"
+            title="Open Presets (P)"
+          >
+            <span className="material-symbols-outlined !text-[14px]">model_training</span>
+            <span>PRESETS</span>
+          </button>
+
+          {/* Shortcuts Help Button */}
+          <button
+            onClick={() => setShortcutsModalOpen(true)}
+            className="p-1.5 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+            title="Keyboard Shortcuts (?)"
+          >
+            <span className="material-symbols-outlined !text-[18px]">help_outline</span>
+          </button>
+
+          <div className="hidden sm:block h-7 w-[1px] bg-white/[0.07]"></div>
+
+          <div className="flex flex-col items-end lg:pr-4 gap-0.5">
+            <div className="flex items-center gap-2">
+              <div className={`w-[6px] h-[6px] transition-all ${backendStatus === 'STABLE' ? 'bg-accent-cyan/80 status-dot-online' : backendStatus === 'CHECKING' ? 'bg-white/30 animate-pulse' : 'warning-marker animate-pulse'}`}></div>
+              <span className={`text-[10px] font-mono tracking-[0.25em] uppercase ${backendStatus === 'OFFLINE' ? 'warning-text' : backendStatus === 'STABLE' ? 'text-accent-cyan/80' : 'text-white/65'}`}>{backendStatus}</span>
+            </div>
+            {apiLatency && (
+              <span className="text-[9px] font-mono text-white/40">{apiLatency} ms</span>
+            )}
           </div>
         </div>
       </header>
 
+      {/* Preset Modal */}
+      <PresetSelectorModal
+        isOpen={presetsModalOpen}
+        onClose={() => setPresetsModalOpen(false)}
+        onSelectPreset={(preset) => {
+          if (preset.category === 'rocket') setActiveTab('rocket');
+          else if (preset.category === 'mission') setActiveTab('mission');
+          else setActiveTab('on-design');
+        }}
+        category={activeTab === 'rocket' ? 'rocket' : activeTab === 'mission' ? 'mission' : 'gas_turbine'}
+      />
+
+      {/* Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={shortcutsModalOpen}
+        onClose={() => setShortcutsModalOpen(false)}
+      />
+
       {/* ── Main Content Area ──────────────────────────────────────────── */}
+
       <main className="app-main ml-0 lg:ml-[280px] mt-20 p-6 lg:p-16 w-full lg:w-[calc(100%-280px)] h-[calc(100vh-80px)] overflow-y-auto scrollbar-hide grid-bg">
         <div className="max-w-[1400px] mx-auto">
             <ErrorBoundary key={activeTab}>

@@ -6,188 +6,13 @@ const Plot = createPlotlyComponent(Plotly)
 import { fetchData } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
+import EngineBlueprintDiagram from '../components/EngineBlueprintDiagram'
 import { useSettings } from '../context/SettingsContext'
 import usePersistentState from '../hooks/usePersistentState'
 import useJsonScenario from '../hooks/useJsonScenario'
 
-// ── Station Blueprint Diagram ─────────────────────────────────────────────────
 
-function StationDiagram({ activeEngine }) {
-  const { theme } = useSettings()
-  const isLight = theme === 'light'
-  
-  // Base stroke styling
-  const strokeColor = isLight ? '#0F172A' : '#FFFFFF'
-  const gradStop = isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.08)'
-
-  if (activeEngine === 'turbofan' || activeEngine === 'multispool_turbofan') {
-    return (
-      <div className="relative w-full h-[250px] lg:h-full flex items-center justify-center p-4 lg:p-20 lg:pt-32 animate-in">
-        <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -translate-y-1/2"></div>
-        <svg role="img" aria-label="Separate exhaust turbofan engine station schematic diagram showing LP fan, LPC booster, HPC compressor, combustor, HP turbine, LP turbine, and dual exhaust nozzles" className="w-full h-full relative z-10" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 400">
-          <defs>
-              <linearGradient id="blueprintGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" style={{stopColor: gradStop, stopOpacity:1}} />
-                  <stop offset="100%" style={{stopColor:'rgba(255,255,255,0)', stopOpacity:1}} />
-              </linearGradient>
-          </defs>
-          <g opacity="0.15">
-              <line x1="120" y1="0" x2="120" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-              <line x1="280" y1="0" x2="280" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-              <line x1="420" y1="0" x2="420" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-              <line x1="560" y1="0" x2="560" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-              <line x1="720" y1="0" x2="720" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-          </g>
-          {/* Outer Bypass Duct */}
-          <path d="M 50 120 L 120 100 L 780 100 L 780 135 L 750 140 L 120 140 M 50 280 L 120 300 L 780 300 L 780 265 L 750 260 L 120 260" fill="url(#blueprintGrad)" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="2 2" opacity="0.4" />
-          
-          {/* Fan */}
-          <path d="M 50 120 L 120 140 L 120 260 L 50 280 Z" fill="rgba(255,255,255,0.05)" stroke={strokeColor} strokeWidth="1.5" />
-          <circle cx="85" cy="200" r="10" fill={strokeColor} />
-          <text className="mono text-[10px] tracking-[0.2em] font-black" fill={strokeColor} textAnchor="middle" x="85" y="80">LP_FAN</text>
-          
-          {/* LPC Booster */}
-          <path d="M 120 160 L 220 170 L 220 230 L 120 240 Z" fill="rgba(255,255,255,0.08)" stroke={strokeColor} strokeWidth="1" />
-          <text className="mono text-[9px] tracking-[0.2em] font-bold" fill={strokeColor} textAnchor="middle" x="170" y="203">LPC_BOOSTER</text>
-
-          {/* HPC Compressor */}
-          <path d="M 220 170 L 360 180 L 360 220 L 220 230 Z" fill="rgba(255,255,255,0.12)" stroke={strokeColor} strokeWidth="1.5" />
-          <text className="mono text-[10px] tracking-[0.2em] font-black" fill={strokeColor} textAnchor="middle" x="290" y="70">HP_COMP</text>
-          
-          {/* Core Shafts */}
-          <line x1="85" y1="200" x2="660" y2="200" stroke={strokeColor} strokeWidth="3" />
-          <line x1="290" y1="200" x2="510" y2="200" stroke={strokeColor} strokeWidth="6" opacity="0.5" />
-
-          {/* Combustor */}
-          <rect x="360" y="180" width="90" height="40" fill="rgba(255,255,255,0.15)" stroke={strokeColor} strokeWidth="1" />
-          <text className="mono text-[10px] tracking-[0.2em] font-black" fill={strokeColor} textAnchor="middle" x="405" y="70">BURN_PRI</text>
-          
-          {/* HP Turbine */}
-          <path d="M 450 180 L 510 175 L 510 225 L 450 220 Z" fill="rgba(255,255,255,0.1)" stroke={strokeColor} strokeWidth="1.5" />
-          <text className="mono text-[10px] tracking-[0.2em] font-black" fill={strokeColor} textAnchor="middle" x="480" y="70">HPT</text>
-
-          {/* LP Turbine */}
-          <path d="M 510 175 L 590 165 L 590 235 L 510 225 Z" fill="rgba(255,255,255,0.1)" stroke={strokeColor} strokeWidth="1.5" />
-          <text className="mono text-[10px] tracking-[0.2em] font-black" fill={strokeColor} textAnchor="middle" x="550" y="70">LPT</text>
-
-          {/* Separate Nozzles */}
-          <path d="M 590 180 L 750 190 L 750 210 L 590 220 Z" fill="url(#blueprintGrad)" stroke={strokeColor} strokeWidth="1" />
-          <text className="mono text-[9px] font-bold" fill={strokeColor} textAnchor="middle" x="670" y="248">CORE_NOZ</text>
-          
-          <text className="mono text-[9px] font-bold" fill={strokeColor} textAnchor="middle" x="780" y="80">BYPASS_NOZ</text>
-          
-          <text className="mono text-[11px] uppercase tracking-widest font-bold" fill={strokeColor} fillOpacity="0.5" x="50" y="325">S_02</text>
-          <text className="mono text-[11px] uppercase tracking-widest font-bold" fill={strokeColor} fillOpacity="0.5" x="750" y="325" textAnchor="end">S_09</text>
-        </svg>
-      </div>
-    )
-  }
-
-  if (activeEngine === 'mixed_flow') {
-    return (
-      <div className="relative w-full h-[250px] lg:h-full flex items-center justify-center p-4 lg:p-20 lg:pt-32 animate-in">
-        <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -translate-y-1/2"></div>
-        <svg className="w-full h-full relative z-10" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 400">
-          <defs>
-              <linearGradient id="blueprintGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" style={{stopColor: gradStop, stopOpacity:1}} />
-                  <stop offset="100%" style={{stopColor:'rgba(255,255,255,0)', stopOpacity:1}} />
-              </linearGradient>
-          </defs>
-          <g opacity="0.15">
-              <line x1="120" y1="0" x2="120" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-              <line x1="280" y1="0" x2="280" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-              <line x1="420" y1="0" x2="420" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-              <line x1="560" y1="0" x2="560" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-              <line x1="720" y1="0" x2="720" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-          </g>
-          {/* Outer Bypass Duct merging in mixer */}
-          <path d="M 50 120 L 120 100 L 590 100 L 680 160 M 50 280 L 120 300 L 590 300 L 680 240" fill="none" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="2 2" opacity="0.4" />
-          
-          {/* Fan */}
-          <path d="M 50 120 L 120 140 L 120 260 L 50 280 Z" fill="rgba(255,255,255,0.05)" stroke={strokeColor} strokeWidth="1.5" />
-          <circle cx="85" cy="200" r="10" fill={strokeColor} />
-          <text className="mono text-[10px] tracking-[0.2em] font-black" fill={strokeColor} textAnchor="middle" x="85" y="80">LP_FAN</text>
-
-          {/* LPC Booster */}
-          <path d="M 120 160 L 220 170 L 220 230 L 120 240 Z" fill="rgba(255,255,255,0.08)" stroke={strokeColor} strokeWidth="1" />
-
-          {/* HPC Compressor */}
-          <path d="M 220 170 L 360 180 L 360 220 L 220 230 Z" fill="rgba(255,255,255,0.12)" stroke={strokeColor} strokeWidth="1.5" />
-          <text className="mono text-[10px] tracking-[0.2em] font-black" fill={strokeColor} textAnchor="middle" x="290" y="70">HP_COMP</text>
-          
-          {/* Core Shafts */}
-          <line x1="85" y1="200" x2="590" y2="200" stroke={strokeColor} strokeWidth="3" />
-          <line x1="290" y1="200" x2="510" y2="200" stroke={strokeColor} strokeWidth="6" opacity="0.5" />
-
-          {/* Combustor */}
-          <rect x="360" y="180" width="90" height="40" fill="rgba(255,255,255,0.15)" stroke={strokeColor} strokeWidth="1" />
-          <text className="mono text-[10px] tracking-[0.2em] font-black" fill={strokeColor} textAnchor="middle" x="405" y="70">BURN_PRI</text>
-          
-          {/* HP Turbine */}
-          <path d="M 450 180 L 510 175 L 510 225 L 450 220 Z" fill="rgba(255,255,255,0.1)" stroke={strokeColor} strokeWidth="1.5" />
-
-          {/* LP Turbine */}
-          <path d="M 510 175 L 590 165 L 590 235 L 510 225 Z" fill="rgba(255,255,255,0.1)" stroke={strokeColor} strokeWidth="1.5" />
-
-          {/* Mixer Confluence Zone */}
-          <path d="M 590 165 L 680 160 L 680 240 L 590 235 Z" fill="rgba(255,255,255,0.18)" stroke={strokeColor} strokeWidth="1.5" />
-          <text className="mono text-[9px] tracking-[0.2em] font-bold" fill={strokeColor} textAnchor="middle" x="635" y="203">MIXER_S05</text>
-
-          {/* Afterburner / Nozzle */}
-          <path d="M 680 160 L 800 160 L 950 185 L 950 215 L 800 240 L 680 240 Z" fill="url(#blueprintGrad)" stroke={strokeColor} strokeWidth="1" />
-          <text className="mono text-[10px] tracking-[0.2em] font-black" fill={strokeColor} textAnchor="middle" x="815" y="70">NOZ_CONV_DIV</text>
-          
-          <text className="mono text-[11px] uppercase tracking-widest font-bold" fill={strokeColor} fillOpacity="0.5" x="50" y="325">S_02</text>
-          <text className="mono text-[11px] uppercase tracking-widest font-bold" fill={strokeColor} fillOpacity="0.5" x="950" y="325" textAnchor="end">S_09</text>
-        </svg>
-      </div>
-    )
-  }
-
-  // Fallback to classic single-spool turbojet for "turbojet" or sensitivity background
-  return (
-    <div className="relative w-full h-[250px] lg:h-full flex items-center justify-center p-4 lg:p-20 lg:pt-32 animate-in">
-       <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -translate-y-1/2"></div>
-      <svg className="w-full h-full relative z-10" preserveAspectRatio="xMidYMid meet" viewBox="0 0 1000 400">
-        <defs>
-            <linearGradient id="blueprintGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" style={{stopColor: gradStop, stopOpacity:1}} />
-                <stop offset="100%" style={{stopColor:'rgba(255,255,255,0)', stopOpacity:1}} />
-            </linearGradient>
-        </defs>
-        <g opacity="0.15">
-            <line x1="200" y1="0" x2="200" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-            <line x1="400" y1="0" x2="400" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-            <line x1="520" y1="0" x2="520" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-            <line x1="720" y1="0" x2="720" y2="400" stroke={strokeColor} strokeWidth="0.5" strokeDasharray="4 4" />
-        </g>
-        {/* Inlet */}
-        <path d="M 50 160 L 200 150 L 200 250 L 50 240 Z" fill="url(#blueprintGrad)" stroke={strokeColor} strokeWidth="1" />
-        <text className="mono text-[12px] uppercase tracking-widest font-bold" fill={strokeColor} fillOpacity="0.5" x="50" y="280">S_00</text>
-        {/* Compressor */}
-        <path d="M 200 150 L 400 175 L 400 225 L 200 250 Z" fill="rgba(255,255,255,0.1)" stroke={strokeColor} strokeWidth="1.5" />
-        <text className="mono text-[12px] tracking-[0.3em] font-black" fill={strokeColor} textAnchor="middle" x="300" y="130">COMP_AXIAL</text>
-        <rect x="300" y="145" width="1" height="110" fill={strokeColor} opacity="0.2" />
-        {/* Combustor */}
-        <rect x="400" y="175" width="120" height="50" fill="rgba(255,255,255,0.15)" stroke={strokeColor} strokeWidth="1" />
-        <text className="mono text-[12px] tracking-[0.3em] font-black" fill={strokeColor} textAnchor="middle" x="460" y="130">BURN_PRI</text>
-        <circle cx="460" cy="200" r="15" fill="none" stroke={strokeColor} strokeWidth="0.5" opacity="0.3" />
-        {/* Turbine */}
-        <path d="M 520 175 L 720 150 L 720 250 L 520 225 Z" fill="rgba(255,255,255,0.1)" stroke={strokeColor} strokeWidth="1.5" />
-        <text className="mono text-[12px] tracking-[0.3em] font-black" fill={strokeColor} textAnchor="middle" x="620" y="130">TURB_CORE</text>
-        {/* Nozzle */}
-        <path d="M 720 150 L 950 185 L 950 215 L 720 250 Z" fill="url(#blueprintGrad)" stroke={strokeColor} strokeWidth="1" />
-        <text className="mono text-[12px] tracking-[0.3em] font-black" fill={strokeColor} textAnchor="middle" x="835" y="130">NOZ_EXIT</text>
-        <text className="mono text-[12px] uppercase tracking-widest font-bold" fill={strokeColor} fillOpacity="0.5" x="950" y="280" textAnchor="end">S_09</text>
-      </svg>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-export default function ParametricCycle() {
+export default function ParametricCycle({ unitSystem = 'si' }) {
   const { theme } = useSettings()
   const isLight = theme === 'light'
   const [activeEngine, setActiveEngine] = useState('turbojet')
@@ -256,7 +81,10 @@ export default function ParametricCycle() {
     try {
       let endpoint = '/analyze/cycle'
       let body = p
-      if (activeEngine === 'multispool_turbofan') {
+      if (activeEngine === 'ramjet') {
+        endpoint = '/analyze/cycle/ramjet'
+        body = { alt: p.alt, mach: Math.max(1.2, p.mach), t4: p.tit, eta_b: 0.98, burner_dp_frac: p.burner_dp_frac, nozzle_dp_frac: 0.02 }
+      } else if (activeEngine === 'multispool_turbofan') {
         endpoint = '/analyze/cycle/multispool'
         body = {
           alt: p.alt,
@@ -279,6 +107,7 @@ export default function ParametricCycle() {
     }
     setLoading(false)
   }, [p, activeEngine])
+
 
   // Clear results when switching engine type, then re-run (debounced)
   useEffect(() => {
@@ -605,8 +434,9 @@ export default function ParametricCycle() {
                     )}
                 </div>
 
-                <StationDiagram activeEngine={activeEngine} />
+                <EngineBlueprintDiagram stations={result?.stations} mode={activeEngine} unitSystem={unitSystem} />
             </div>
+
 
             {/* Station Table + Solver Log */}
             <div className="grid grid-cols-12 gap-12">

@@ -251,8 +251,46 @@ export default function MissionAnalysis() {
                             </p>
                         )}
                     </div>
+
+                    {/* Breguet Range Calculator Card */}
+                    <div className="technical-card p-6 border border-white/10 relative">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+                            <div className="flex items-center space-x-3">
+                                <span className="material-symbols-outlined text-accent-cyan">flight_takeoff</span>
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+                                    Breguet Payload-Range & Endurance Estimator
+                                </h3>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        const res = await fetchData('/analyze/mission/breguet', {
+                                            method: 'POST',
+                                            body: JSON.stringify({
+                                                sfc: 0.000015,
+                                                velocity: 240,
+                                                l_over_d: 16.0,
+                                                initial_mass: 75000,
+                                                final_mass: 45000
+                                            })
+                                        });
+                                        alert(`Calculated Range: ${res.range_km.toFixed(1)} km (${res.range_nmi.toFixed(1)} nmi)\nFlight Duration: ${(res.duration_hours).toFixed(2)} hours`);
+                                    } catch (e) {
+                                        console.error(e);
+                                    }
+                                }}
+                                className="px-4 py-2 bg-accent-cyan/10 border border-accent-cyan/40 text-accent-cyan text-xs font-mono font-bold uppercase hover:bg-accent-cyan/20 transition-all"
+                            >
+                                Calculate Breguet Range
+                            </button>
+                        </div>
+                        <p className="text-xs text-white/60 font-mono">
+                            Calculates cruise range (km / nmi) and fuel burn fraction using the steady level flight Breguet equation for jet aircraft.
+                        </p>
+                    </div>
                 </section>
             </div>
         </div>
     )
 }
+

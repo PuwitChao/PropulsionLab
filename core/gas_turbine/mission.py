@@ -113,3 +113,36 @@ class MissionAnalyzer:
                 results['optimum'] = None
             
         return results
+
+    def calculate_breguet_range(self, mach, altitude_m, sfc_1_per_s, l_over_d, w_initial, w_final):
+        """
+        Breguet Range Equation for jet aircraft:
+        Range = (V / SFC) * (L/D) * ln(W_initial / W_final)
+
+        Args:
+            mach: Cruise Mach number.
+            altitude_m: Cruise altitude [m].
+            sfc_1_per_s: Specific Fuel Consumption [1/s] or [kg/N/s].
+            l_over_d: Lift-to-drag ratio (L/D).
+            w_initial: Initial gross weight [N] or [kg].
+            w_final: Final empty/zero-fuel weight [N] or [kg].
+
+        Returns:
+            dict: range_km, flight_time_hours, fuel_fraction, cruise_velocity_mps.
+        """
+        _, v = self.calculate_dynamic_pressure(altitude_m, mach)
+        if sfc_1_per_s <= 0 or w_final <= 0 or w_initial <= w_final:
+            return {'range_km': 0.0, 'flight_time_hours': 0.0, 'fuel_fraction': 0.0, 'cruise_velocity_mps': v}
+
+        fuel_fraction = (w_initial - w_final) / w_initial
+        range_m = (v / sfc_1_per_s) * l_over_d * math.log(w_initial / w_final)
+        range_km = range_m / 1000.0
+        time_hours = (range_m / v) / 3600.0 if v > 0 else 0.0
+
+        return {
+            'range_km': range_km,
+            'flight_time_hours': time_hours,
+            'fuel_fraction': fuel_fraction,
+            'cruise_velocity_mps': v
+        }
+

@@ -15,7 +15,8 @@ import ErrorBanner from '../components/ErrorBanner'
 
 // ── MoC Nozzle Visualization ──────────────────────────────────────────────────
 
-function MocVisualization({ mocData, referenceMocData, loading, onExportCSV, onExportSTL, exportLoading }) {
+function MocVisualization({ mocData, referenceMocData, loading, onExportCSV, onExportSTL, onExportOBJ, exportLoading }) {
+
   const { theme } = useSettings()
   const isLight = theme === 'light'
 
@@ -167,7 +168,19 @@ function MocVisualization({ mocData, referenceMocData, loading, onExportCSV, onE
               {exportLoading === 'stl' ? 'sync' : 'draw'}
             </span>
           </button>
+          <button
+            onClick={onExportOBJ}
+            disabled={!hasData || !!exportLoading}
+            title="EXPORT 3D MESH (OBJ)"
+            className={`px-8 border border-accent-cyan/30 hover:border-accent-cyan text-[11px] font-black tracking-widest uppercase flex items-center gap-3 transition-all ${(!hasData || exportLoading) ? 'opacity-30 cursor-not-allowed' : 'text-accent-cyan hover:bg-accent-cyan/10'}`}
+          >
+            <span>{exportLoading === 'obj' ? 'EXPORTING...' : 'OBJ'}</span>
+            <span className={`material-symbols-outlined !text-[16px] ${exportLoading === 'obj' ? 'animate-spin' : ''}`}>
+              {exportLoading === 'obj' ? 'sync' : '3d_rotation'}
+            </span>
+          </button>
         </div>
+
       </div>
     </div>
   )
@@ -357,7 +370,34 @@ export default function RocketAnalysis() {
             showToast('STL export failed. Check backend connection.', false)
         }
         setExportLoading(null)
-    }, [result, params.propellant])
+    }, [result, params.propellant, showToast])
+
+    const handleExportOBJ = useCallback(async () => {
+        if (!result) return
+        setExportLoading('obj')
+        try {
+            const blob = await fetchBlob('/analyze/rocket/export/obj', {
+                method: 'POST',
+                body: JSON.stringify({
+                    gamma: result.gamma,
+                    mach_exit: result.mach_exit || 3.0,
+                    throat_radius: result.r_throat || 0.1
+                })
+            })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `nozzle_3d_${params.propellant.replace('/', '_')}.obj`
+            a.click()
+            URL.revokeObjectURL(url)
+            showToast('OBJ export complete - Wavefront 3D mesh downloaded.')
+        } catch (e) {
+            console.error('OBJ Export Error:', e)
+            showToast('OBJ export failed. Check backend connection.', false)
+        }
+        setExportLoading(null)
+    }, [result, params.propellant, showToast])
+
 
     const runAnalysis = useCallback(async () => {
         setLoading(true)
@@ -574,8 +614,10 @@ export default function RocketAnalysis() {
                         loading={loading} 
                         onExportCSV={handleExportCSV} 
                         onExportSTL={handleExportSTL} 
+                        onExportOBJ={handleExportOBJ}
                         exportLoading={exportLoading} 
                     />
+
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 grid-bg">
                         <StatPanel label="VAC. THRUST"    value={result ? (result.thrust_vac/1000).toFixed(0) : '-'} unit="kN"  sub="DESIGN_TARGET" />
