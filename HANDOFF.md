@@ -1,74 +1,87 @@
-# Handoff: Systems Engineering FBD Diagram
+# Handoff: Major UI & Functional Overhaul
 
-**Generated**: 2026-07-28 02:55
+**Generated**: 2026-08-02 00:13
 **Branch**: main
-**Status**: Completed / Ready for Review
+**Status**: Ready for Review / Merged
 
 ## Loop Telemetry
-- **Active Subtask**: Systems Engineering Functional Breakdown Diagram (FBD) Creation & Audit
-- **Current Iteration**: 4/4 (Completed)
-- **Healing Actions Taken**: Converted diagram layout to Layered Rank Grouping (`BUS_LAYER` -> `ROW_1` -> `ROW_2`), added multiline `<br/>` breaks, updated `AGENTS.md` with mandatory FBD rule, and pushed to Git.
+- **Active Subtask**: Major UI & Functional Overhaul Completion
+- **Current Iteration**: Final Handoff & Push
+- **Healing Actions Taken**: `npm --prefix frontend run lint`, `npm --prefix frontend run build`, `pytest tests/ -v`
 
 ## Goal
-Perform systems engineering functional decomposition of the Propulsion Analysis Suite using `/functional_breakdown_diagram` to generate a Draw.io-compatible FBD, Hierarchical Functional Tree, and Quantitative Breakdown Table, ensuring zero text overflow, no line crossings, and proper boundary definitions.
+Perform full application audit, major UI/UX redesign, unit system matrix implementation, 3D OBJ & STL mesh export, ramjet engine cycle solver, and engine presets layer to deliver a production-ready application.
 
 ## Completed
-- [x] Analyzed complete codebase architecture across backend FastAPI solvers (`CycleAnalyzer`, `OffDesignSolver`, `FaultDiagnosticSolver`, `RocketAnalyzer`, `MoCNozzle`, `MissionAnalyzer`) and frontend React components.
-- [x] Generated comprehensive systems engineering artifact (`functional_breakdown_diagram.md`) featuring FBD, Hierarchical Functional Tree, and Quantitative Subsystem Breakdown Table.
-- [x] Conducted full forensic audit of Draw.io rendering bugs (4-column squashing, double-nested subgraph text tag bugs, text overflow, and line crossings).
-- [x] Resolved Draw.io rendering bugs by implementing Layered Rank Grouping (`BUS_LAYER` -> `ROW_1` -> `ROW_2`), explicit multiline `<br/>` label breaks, and zero line-crossing vertical signal flows.
-- [x] Updated project `AGENTS.md` under Engineering Conventions to mandate checking and updating `functional_breakdown_diagram.md` whenever changes or features are implemented in the codebase.
-- [x] Committed and pushed all changes to `main` branch (`https://github.com/PuwitChao/PropulsionLab.git`).
+- [x] Ramjet engine cycle solver (`solve_ramjet()` in `core/gas_turbine/cycle.py`) and REST endpoint (`/analyze/cycle/ramjet`).
+- [x] Wavefront OBJ 3D mesh export solver (`generate_obj_mesh()` in `core/rocket/moc.py`) and REST endpoint (`/analyze/rocket/export/obj`).
+- [x] Real-world engine presets module (`core/presets.py`) and REST endpoint (`/analyze/presets`).
+- [x] Breguet Payload-Range calculator (`calculate_breguet_range()` in `core/gas_turbine/mission.py`) and REST endpoint (`/analyze/mission/breguet`).
+- [x] Unit Conversion utility matrix (`frontend/src/utils/unitConversion.js`) supporting dynamic SI $\leftrightarrow$ Imperial formatting across all views.
+- [x] Interactive Engine Blueprint component (`frontend/src/components/EngineBlueprintDiagram.jsx`) with dynamic station heatmap gradients, flow streamlines, and station inspector modal.
+- [x] App shell header upgrade (`frontend/src/App.jsx`) with API latency monitor badge (`ms`), SI/Imperial unit system toggle pill (`U`), Presets modal (`P`), and Keyboard Shortcuts overlay (`?`).
+- [x] Preset Selector Modal (`frontend/src/components/PresetSelectorModal.jsx`) and Keyboard Shortcuts Modal (`frontend/src/components/KeyboardShortcutsModal.jsx`).
+- [x] Systems Engineering Functional Breakdown Diagram (`functional_breakdown_diagram.md`) maintenance.
+- [x] All 130 backend pytest tests passing cleanly (`pytest tests/ -v`).
+- [x] Frontend linting and production build passing with 0 errors (`npm run lint; npm run build`).
+- [x] Git committed and pushed to `origin/main`.
 
 ## Not Yet Done
-- [ ] Future feature expansions (Turbofan Afterburner, Dynamic Transient Throttle Deck, Method of Characteristics Grid Solver, Hybrid-Electric Powertrain Slot) marked as expansion slots in diagram to be implemented in future sprints.
+- [ ] Future feature enhancement: 3D WebGL WebGPU canvas interactive viewer for MoC nozzle mesh (currently exported as STL and OBJ files).
+- [ ] Real characteristics method integration for non-bell nozzle contours.
 
 ## Failed Approaches (Don't Repeat These)
-- **Double-Nested Subgraphs (`BOUNDARY` -> `ROW` -> `PILLAR`)**: Caused Draw.io's Mermaid importer to generate floating dummy title text boxes at the top rank. Fixed by converting to single-level rank subgraphs (`BUS_LAYER` -> `ROW_1` -> `ROW_2`).
-- **Simultaneous Bus Connections to 4 Pillars**: Connecting `BUS` to all 4 pillar inputs at once forced Draw.io to place all 4 pillars on the same horizontal rank, creating an ultra-wide 4-column squashed layout. Fixed by connecting `BUS` to `ROW_1` (Pillars 1 & 2) and routing `ROW_1` outputs down to `ROW_2` (Pillars 3 & 4).
-- **Single-Line Long Labels (>35 chars)**: Caused text overflow outside Draw.io node boxes. Fixed by inserting explicit `<br/>` HTML breaks and normalizing line lengths to 15–20 characters.
+* *Tried inline bash `&&` chaining in PowerShell on Windows. Failed with syntax parser error. Switched to `;` separator or sequential execution.*
+* *Tried mutating single `ct.Solution` instance across calls. Caused state pollution in async handlers. Switched to instantiating fresh `ct.Solution('gri30.yaml')` inside property functions.*
 
 ## Key Decisions
 | Decision | Rationale |
 |---|---|
-| Enforce Layered Rank Grouping | Forces Draw.io to stack pillars in a clean, balanced 2x2 grid layout without line crossings. |
-| Add Mandatory FBD Rule to `AGENTS.md` | Ensures the Systems Engineering FBD diagram (`functional_breakdown_diagram.md`) is continuously updated as new features/modules are implemented. |
+| Decoupled React SPA + FastAPI Backend | Allows high-performance Python Cantera/NumPy thermodynamic computations while rendering rich Plotly charts and SVG blueprints in React. |
+| Per-request Stateless Analyzers | Prevents race conditions and guarantees thread-safety across concurrent API requests. |
+| SI Units Internal Contract | Ensures clear separation of concerns; backend computes strictly in SI units while frontend handles user-preference unit conversions. |
 
 ## Current State
-- **Working**: Draw.io Mermaid code renders with zero text overflow, zero header collisions, clean 2x2 grid topology, and clear boundary styling.
-- **Broken**: None.
-- **Uncommitted Changes**: None (all committed and pushed to `main`).
+- **Working**: 100% of core thermodynamic solvers, REST API endpoints, interactive engine blueprint diagram, unit conversions, presets, 3D STL/OBJ exports, and constraint synthesis.
+- **Broken**: None. 130/130 backend tests passing, 0 frontend build/lint errors.
+- **Uncommitted Changes**: None. Clean working tree.
 
 ## Files to Know
 | File | Why It Matters |
 |---|---|
-| `functional_breakdown_diagram.md` | Main Systems Engineering report containing Draw.io FBD Mermaid code, Functional Tree, and Subsystem Breakdown Table. |
-| `AGENTS.md` | Workspace guidance file updated with mandatory FBD maintenance rule. |
+| `backend/main.py` | FastAPI application entry point containing all REST route handlers. |
+| `core/gas_turbine/cycle.py` | Core gas turbine and ramjet on-design thermodynamic analyzer. |
+| `core/rocket/moc.py` | Rocket nozzle expansion contour solver and 3D STL/OBJ mesh generator. |
+| `core/presets.py` | Real-world engine, rocket, mission, and fault baseline preset database. |
+| `frontend/src/App.jsx` | App shell layout, sidebar navigation, topbar latency badge, unit toggle, and shortcuts modal. |
+| `frontend/src/components/EngineBlueprintDiagram.jsx` | Interactive SVG engine station schematic with thermodynamic heatmap and inspection modal. |
+| `frontend/src/utils/unitConversion.js` | SI $\leftrightarrow$ Imperial unit formatting utilities. |
+| `functional_breakdown_diagram.md` | Systems engineering functional breakdown diagram and subsystem matrix. |
 
 ## Code Context
-```mermaid
-// Layered Rank Grouping pattern for Draw.io:
-subgraph BUS_LAYER["SYSTEM BOUNDARY: Central Control & State Bus"]
-    BUS["⚡ CENTRAL REST API ROUTER & STATE BUS"]
-end
-subgraph ROW_1["DOMAIN LAYER 1: Gas Turbine & Diagnostics"]
-    // Pillar 1 & Pillar 2
-end
-subgraph ROW_2["DOMAIN LAYER 2: Rocket & Aircraft Missions"]
-    // Pillar 3 & Pillar 4
-end
-BUS ==> P1_IN
-BUS ==> P2_IN
-P1_OUT ==> P3_IN
-P2_OUT ==> P4_IN
+```javascript
+// Unit conversion utility signature
+export function formatTemp(tempK, system = 'si')
+export function formatPressure(pressurePa, system = 'si')
+export function formatThrust(thrustN, system = 'si')
+```
+
+```python
+# Backend preset loading endpoint
+@app.get("/analyze/presets")
+async def get_presets():
+    return ENGINE_PRESETS
 ```
 
 ## Resume Instructions
-1. Open [Draw.io](https://app.diagrams.net/), select **Arrange -> Insert -> Advanced -> Mermaid**, and paste the updated Mermaid code from `functional_breakdown_diagram.md`.
-2. When adding new features or backend endpoints in future coding sessions, update `functional_breakdown_diagram.md` per the new rule in `AGENTS.md`.
+1. Run `pytest tests/ -v` to confirm backend test suite stability.
+2. Run `npm --prefix frontend run dev` to launch the local Vite dev server.
+3. Open `http://localhost:5173` to test the UI and presets.
 
 ## Setup Required
-- Standard Python & Node environment per `AGENTS.md`.
+- Python 3.10+ with `Cantera`, `NumPy`, `pandas`, `FastAPI`, `uvicorn`.
+- Node.js 18+ for frontend Vite development server.
 
 ## Warnings & Caveats
-- Do not use double-nested subgraphs when writing Mermaid diagrams for Draw.io, as Draw.io's parser creates floating text tag artifacts.
+- All backend calculations must enforce SI units internally.
+- Do not share `ct.Solution` objects across threads or requests.
