@@ -10,6 +10,7 @@ graph TD
         API_Endpoints["REST Endpoints (/analyze/*)"]
         Preset_Manager["Preset Repository (core/presets.py)"]
         Diagnostics_Kernel["Fault Isolation Engine (core/gas_turbine/diagnostics.py)"]
+        Error_Gateway["Request ID & Safe Error Handlers (backend/errors.py)"]
     end
 
     %% Solvers Subsystem
@@ -29,14 +30,17 @@ graph TD
         Shortcut_Modal["Keyboard Shortcuts Overlay (KeyboardShortcutsModal.jsx)"]
         Unit_System["Unit Conversion Matrix (unitConversion.js)"]
         Plotly_Engine["Interactive Charting Engine (Plotly.js)"]
+        Api_Core["Timeout & Abort API Core (apiCore.js)"]
+        Error_Boundary["Render Recovery Boundary (ErrorBoundary.jsx)"]
     end
 
     %% Data Flow Connections
     App_Shell --> Unit_System
     App_Shell --> Preset_Modal
     App_Shell --> Shortcut_Modal
-    App_Shell --> API_Endpoints
+    App_Shell --> Api_Core
     API_Endpoints --> Preset_Manager
+    API_Endpoints --> Error_Gateway
     API_Endpoints --> Diagnostics_Kernel
     API_Endpoints --> Cycle_Analyzer
     API_Endpoints --> OffDesign_Solver
@@ -45,6 +49,9 @@ graph TD
     API_Endpoints --> MoC_Nozzle
     Blueprint_Diag --> Unit_System
     Plotly_Engine --> App_Shell
+    App_Shell --> Error_Boundary
+    Api_Core --> API_Endpoints
+    Error_Gateway --> Api_Core
 ```
 
 ## Quantitative Subsystem Breakdown
@@ -56,3 +63,5 @@ graph TD
 | **Rocket CEA & MoC** | `core/rocket/analyzer.py`, `moc.py` | Chemical equilibrium, Bartz heat flux, supersonic nozzle MoC | 2D mesh, STL 3D solid, OBJ 3D mesh |
 | **Mission Synthesis** | `core/gas_turbine/mission.py` | Constraint diagram synthesis (T/W vs W/S), Breguet range | Sizing corner, payload-range curve |
 | **Fault Diagnostics** | `core/gas_turbine/diagnostics.py` | EGT margin loss, compressor fouling, turbine erosion isolation | Fault signature radar, recommended maintenance |
+| **API Error Boundary** | backend/errors.py | Request IDs, validation envelope, safe 5xx responses | Correlated JSON error payloads, server-side exception logs |
+| **Frontend Recovery Core** | frontend/src/apiCore.js, ErrorBoundary.jsx | Timeout/abort normalization and module recovery | Retryable user-safe errors, resettable fallback UI |

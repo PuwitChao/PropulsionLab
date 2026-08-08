@@ -1,4 +1,33 @@
-# Task List: Major UI & Functional Overhaul
+# Task List: Modernization & Resilience Hardening (2026-08-09)
+
+- [x] 1. Tracking and acceptance criteria
+  - [x] Record scope, dependencies, rollback, and acceptance criteria in implementation_plan.md
+  - [x] Add the execution checklist and test matrix sections to durable project docs
+
+- [x] 2. Backend error hardening
+  - [x] Add a structured safe error envelope and request correlation ID
+  - [x] Centralize unexpected exception handling and remove raw exception details from 500 responses
+  - [x] Preserve HTTP 422 validation behavior and existing successful response schemas
+
+- [x] 3. Frontend failure recovery
+  - [x] Add bounded request timeout/abort behavior and normalized API errors
+  - [x] Keep retry behavior explicit and safe for health/read-only requests
+  - [x] Replace raw render-error details with a generic recovery message
+
+- [x] 4. Dependency and CI guardrails
+  - [x] Refresh only compatibility-safe dependency versions and lock entries
+  - [x] Add repeatable npm and Python audit checks with clear tool-availability reporting
+  - [x] Keep Python 3.11 / Node 20 support explicit until compatibility evidence supports a runtime change
+
+- [x] 5. Regression verification
+  - [x] Add backend tests for structured errors, exception sanitization, and correlation IDs
+  - [x] Add frontend helper tests for non-JSON errors, timeout/abort, and successful JSON/blob responses
+  - [x] Run full backend tests plus frontend lint/build
+
+- [x] 6. Traceability and handoff
+  - [x] Update functional_breakdown_diagram.md for error/recovery boundaries if needed
+  - [x] Update walkthrough.md with changed behavior and verification evidence
+  - [x] Record unresolved audit-tool limitations and final status
 
 - [x] 1. Research & Master Implementation Plan Creation
   - [x] Audit backend physics solvers (`core/`), REST endpoints (`backend/main.py`), and React frontend (`frontend/src/`)

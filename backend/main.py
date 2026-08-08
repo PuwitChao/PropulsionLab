@@ -43,8 +43,16 @@ APP_STATUS = APP_METADATA["status"]
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
+
+from backend.errors import (
+    http_exception_handler,
+    request_id_middleware,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
 
 # Local analytical modules
 from core.units import isa_atmosphere
@@ -83,6 +91,10 @@ app = FastAPI(
     description="High-fidelity aerospace solver core for gas turbines and rockets.",
     version=APP_VERSION
 )
+app.middleware("http")(request_id_middleware)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
 def _sanitize(obj: Any) -> Any:
@@ -147,7 +159,8 @@ def get_diagnostics():
         cantera_version = ct.__version__
         cantera_status = "connected"
     except Exception as e:
-        cantera_status = f"error: {e}"
+        logger.error("Cantera health probe failed: %s", e, exc_info=True)
+        cantera_status = "error"
 
     # Probe core modules
     core_modules = {
@@ -163,7 +176,8 @@ def get_diagnostics():
             importlib.import_module(module_path)
             component_status[label] = "active"
         except Exception as e:
-            component_status[label] = f"error: {e}"
+            logger.error("Core health probe failed for %s: %s", label, e, exc_info=True)
+            component_status[label] = "error"
 
     component_status["cantera_interface"] = cantera_status
 
@@ -313,7 +327,7 @@ async def analyze_ramjet(request: RamjetRequest):
         return _sanitize(result)
     except Exception as e:
         logger.error("Ramjet cycle analysis error: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ramjet computation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Ramjet computation failed.")
 
 
 @app.post("/analyze/cycle/sweep")
@@ -543,7 +557,8 @@ async def analyze_rocket_moc(request: MoCRequest):
         mesh     = designer.get_mesh_data()
         return _sanitize({"x": x, "y": y, "mesh": mesh})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("MoC computation error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="MoC computation failed.")
 
 
 @app.post("/analyze/rocket/export/stl")
@@ -557,7 +572,8 @@ async def export_rocket_stl(request: MoCRequest):
             headers={"Content-Disposition": "attachment; filename=nozzle_moc.stl"}
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("MoC STL export error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate STL mesh.")
 
 
 @app.post("/analyze/rocket/export/csv")
@@ -597,8 +613,8 @@ async def export_rocket_csv(request: MoCRequest):
             headers={"Content-Disposition": "attachment; filename=nozzle_contour.csv"}
         )
     except Exception as e:
-        logger.error(f"CSV export error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("CSV export error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to generate CSV export.")
 
 
 @app.post("/analyze/rocket/export/obj", response_class=PlainTextResponse)
@@ -725,7 +741,7 @@ async def analyze_diagnostics(request: DiagnosticsRequest):
         return _sanitize(result)
     except Exception as e:
         logger.error("Diagnostics engine failure: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Diagnostics calculations failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Diagnostics calculations failed.")
 
 
 def kill_port(port: int):

@@ -1,4 +1,98 @@
-# Implementation Plan: Major UI & Functional Overhaul
+# Implementation Plan: Modernization & Resilience Hardening (2026-08-09)
+
+## Current Workstream
+
+This workstream follows the completed UI and physics overhaul documented below. It modernizes dependency and delivery guardrails, hardens backend and frontend failure behavior, and adds regression coverage without changing SI-unit physics contracts or solver outputs.
+
+### Objectives
+
+1. Keep dependency upgrades compatibility-safe and reproducible.
+2. Return structured, non-sensitive API errors while retaining detailed server logs.
+3. Ensure frontend requests terminate cleanly on network failure or timeout.
+4. Preserve module-level recovery through the React error boundary without exposing raw runtime details.
+5. Add acceptance tests for validation, server failures, malformed responses, timeout behavior, and recovery UI.
+
+### Scope and Ownership
+
+| Area | Files | Deliverable |
+| --- | --- | --- |
+| Tracking | implementation_plan.md, task.md, test_plan.md | Durable plan, checklist, test matrix, rollback notes |
+| Backend errors | backend/main.py, backend/errors.py | Safe error envelope, centralized handlers, correlation logging |
+| Frontend errors | frontend/src/api.js, frontend/src/components/ErrorBoundary.jsx | Timeout/abort handling, normalized errors, generic fallback copy |
+| Dependencies and CI | backend/requirements.txt, frontend/package.json, frontend/package-lock.json, .github/workflows/ci.yml | Safe patch/minor refreshes, audit gate, explicit runtime checks |
+| Tests | tests/test_api.py, tests/test_error_handling.py, frontend/src/api.test.js | Positive, negative, boundary, malformed-response, and recovery coverage |
+| Traceability | functional_breakdown_diagram.md, walkthrough.md | Confirm architecture/error-boundary traceability and verification record |
+
+### Execution Order and Dependencies
+
+1. Update tracking artifacts and acceptance criteria.
+2. Add backend error primitives and handlers; update API tests.
+3. Add frontend request recovery and safe render fallback; add focused helper tests.
+4. Refresh only compatible dependency ranges/lock entries and add CI audit checks.
+5. Run focused tests, then the full backend suite and frontend lint/build.
+6. Synchronize FBD/walkthrough and record any unresolved audit-tool limitations.
+
+### Migration and Rollback
+
+- Dependency changes are limited to versions proven by the existing Python 3.11 and Node 20 CI matrix. Major upgrades are deferred unless a focused compatibility test proves them safe.
+- Backend and frontend error envelopes are additive: existing successful response schemas remain unchanged, and validation remains HTTP 422.
+- Rollback is file-scoped: restore changed dependency manifests/lockfile or revert the error-handler/request-helper changes; no data migrations or external state changes are introduced.
+
+### Acceptance Criteria
+
+- API failures expose a stable error_code, safe message, and request identifier; raw exception text is logged server-side only.
+- Frontend requests abort after a bounded timeout, normalize JSON and non-JSON failures, and always clear loading state through existing callers.
+- ErrorBoundary renders a generic recovery action without printing raw runtime details.
+- Existing backend tests remain green; new negative/boundary tests pass.
+- Frontend lint/build remain green; dependency audit has no unresolved high/critical findings and the known Plotly transitive advisory is remediated or explicitly documented.
+- functional_breakdown_diagram.md and walkthrough.md reflect the finalized error/recovery flow.
+
+## Current Workstream
+
+This workstream follows the completed UI and physics overhaul documented below. It modernizes dependency and delivery guardrails, hardens backend and frontend failure behavior, and adds regression coverage without changing SI-unit physics contracts or solver outputs.
+
+### Objectives
+
+1. Keep dependency upgrades compatibility-safe and reproducible.
+2. Return structured, non-sensitive API errors while retaining detailed server logs.
+3. Ensure frontend requests terminate cleanly on network failure or timeout.
+4. Preserve module-level recovery through the React error boundary without exposing raw runtime details.
+5. Add acceptance tests for validation, server failures, malformed responses, timeout behavior, and recovery UI.
+
+### Scope and Ownership
+
+| Area | Files | Deliverable |
+| --- | --- | --- |
+| Tracking | implementation_plan.md, task.md, test_plan.md | Durable plan, checklist, test matrix, rollback notes |
+| Backend errors | backend/main.py, backend/errors.py | Safe error envelope, centralized handlers, correlation logging |
+| Frontend errors | frontend/src/api.js, frontend/src/components/ErrorBoundary.jsx | Timeout/abort handling, normalized errors, generic fallback copy |
+| Dependencies and CI | backend/requirements.txt, frontend/package.json, frontend/package-lock.json, .github/workflows/ci.yml | Safe patch/minor refreshes, audit gate, explicit runtime checks |
+| Tests | tests/test_api.py, tests/test_error_handling.py, frontend/src/api.test.js | Positive, negative, boundary, malformed-response, and recovery coverage |
+| Traceability | functional_breakdown_diagram.md, walkthrough.md | Confirm architecture/error-boundary traceability and verification record |
+
+### Execution Order and Dependencies
+
+1. Update tracking artifacts and acceptance criteria.
+2. Add backend error primitives and handlers; update API tests.
+3. Add frontend request recovery and safe render fallback; add focused helper tests.
+4. Refresh only compatible dependency ranges/lock entries and add CI audit checks.
+5. Run focused tests, then the full backend suite and frontend lint/build.
+6. Synchronize FBD/walkthrough and record any unresolved audit-tool limitations.
+
+### Migration and Rollback
+
+- Dependency changes are limited to versions proven by the existing Python 3.11 and Node 20 CI matrix. Major upgrades are deferred unless a focused compatibility test proves them safe.
+- Backend and frontend error envelopes are additive: existing successful response schemas remain unchanged, and validation remains HTTP 422.
+- Rollback is file-scoped: restore changed dependency manifests/lockfile or revert the error-handler/request-helper changes; no data migrations or external state changes are introduced.
+
+### Acceptance Criteria
+
+- API failures expose a stable error_code, safe message, and request identifier; raw exception text is logged server-side only.
+- Frontend requests abort after a bounded timeout, normalize JSON and non-JSON failures, and always clear loading state through existing callers.
+- ErrorBoundary renders a generic recovery action without printing raw runtime details.
+- Existing backend tests remain green; new negative/boundary tests pass.
+- Frontend lint/build remain green; dependency audit has no unresolved high/critical findings and the known Plotly transitive advisory is remediated or explicitly documented.
+- functional_breakdown_diagram.md and walkthrough.md reflect the finalized error/recovery flow.
 
 Full app audit and major UI/UX and functional overhaul for the Propulsion Analysis Suite. The goal is to elevate the application to a polished, professional, state-of-the-art engineering platform ready for public deployment and rigorous use, featuring expanded physics solvers, engine presets, interactive SVG blueprint heatmaps, MoC Prandtl-Meyer nozzle characteristics, dynamic constraint envelope visualization, robust error handling, and comprehensive stability verification.
 

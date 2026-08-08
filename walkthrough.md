@@ -56,7 +56,7 @@ We have conducted a full application audit, physics solver expansion, architectu
 ### Backend Pytest Suite
 ```powershell
 pytest tests/ -v
-# 130 passed, 1 warning in 100.63s
+# 134 passed, 1 warning in 147.25s
 ```
 - All 130 unit and integration tests passed cleanly!
 
@@ -67,3 +67,26 @@ npm --prefix frontend run lint; npm --prefix frontend run build
 # dist/ built in 1.58s
 ```
 - Clean production build with route-level code splitting.
+## 4. Modernization & Resilience Hardening (2026-08-09)
+
+- Added a request-scoped X-Request-ID middleware and structured API error envelope in backend/errors.py.
+- Preserved HTTP 422 validation details while replacing raw solver/export exception text with safe 500 messages.
+- Sanitized health diagnostics to report component state publicly while retaining detailed probe failures in server logs.
+- Added frontend request timeout/abort handling and normalized JSON, non-JSON, network, and cancellation failures in frontend/src/apiCore.js.
+- Updated ErrorBoundary to show a generic resettable fallback instead of raw runtime messages.
+- Added five Node-based request recovery tests and four backend structured-error tests.
+- Refreshed compatibility-safe Python and frontend dependencies, added a protocol-buffers-schema override, and added CI audit/test gates.
+
+### Verification
+
+- pytest tests/test_error_handling.py -q: 4 passed.
+- pytest tests/test_api.py -q: 59 passed, 1 Cantera warning.
+- npm run test: 5 passed.
+- pytest tests/ -q: 134 passed, 1 Cantera warning.
+- npm run lint: passed.
+- npm run build: passed with Vite 8.2.1.
+- npm audit --omit=dev --audit-level=high: 0 production vulnerabilities.
+- Full npm audit still reports 2 high and 1 low development-only transitive findings; the production audit is clean and the Plotly protocol-buffers advisory is fixed.
+- python -m pip check: no broken requirements.
+
+The local runtime does not include pip-audit; CI now installs and runs it against backend/requirements.txt so Python audit status is explicit rather than assumed.

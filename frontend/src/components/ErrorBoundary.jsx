@@ -24,11 +24,11 @@ export default class ErrorBoundary extends React.Component {
     render() {
         if (this.state.error) {
             return (
-                <div className="warning-panel px-16 py-12 m-8 space-y-6 text-center">
+                <div role="alert" aria-live="assertive" className="warning-panel px-16 py-12 m-8 space-y-6 text-center">
                     <span className="material-symbols-outlined warning-text !text-[32px]">error</span>
                     <h2 className="mono text-[13px] font-black warning-text uppercase tracking-widest">Module Render Fault</h2>
                     <p className="mono text-[11px] text-white/50 uppercase tracking-widest">
-                        {this.state.error?.message || 'An unexpected error occurred.'}
+                        This module could not render safely. Reset it and try again.
                     </p>
                     <button
                         onClick={this.reset}

@@ -1,4 +1,35 @@
-# Test Plan - Platform Railguarding & Boundary Validation
+# Test Plan - Modernization & Resilience Hardening (2026-08-09)
+
+## Acceptance Criteria
+
+1. Unexpected backend failures return a stable safe error envelope with no raw exception text.
+2. Validation failures remain HTTP 422 with actionable field details.
+3. Every frontend request has a bounded cancellation path and produces a normalized user-safe error.
+4. Render failures show a recoverable module fallback without exposing runtime internals.
+5. Existing solver behavior remains unchanged for successful requests.
+
+## Test Matrix
+
+| ID | Component / Flow | Type | Input / Action | Expected Behavior | Pass Criteria |
+|---|---|---|---|---|---|
+| MOD-01 | API validation | Negative | Send an out-of-range cycle request | HTTP 422 with validation details | Status is 422; no 500 |
+| MOD-02 | API solver failure | Negative | Force an analyzer exception | HTTP 500 safe envelope | error_code, message, request_id; no exception text |
+| MOD-03 | API correlation | Positive | Make two failing requests | Each response carries a request ID | IDs are non-empty and distinct |
+| MOD-04 | API malformed result | Boundary | Return non-finite solver values | JSON remains serializable | No Infinity/NaN reaches client |
+| MOD-05 | Frontend non-JSON error | Negative | Mock HTML/text 502 response | Normalized status-based error | No JSON parse exception leaks |
+| MOD-06 | Frontend timeout | Boundary | Mock a request exceeding timeout | Abort error is normalized | Caller can display retryable message |
+| MOD-07 | Frontend success | Happy path | Mock JSON and blob responses | Payload is returned unchanged | Existing callers remain compatible |
+| MOD-08 | Render boundary | Negative | Throw during module render | Generic fallback with reset action | Raw error message is not rendered |
+| MOD-09 | Regression | Happy path | Run existing solver/API suite | Existing behavior remains green | 134 total tests pass
+
+## Verification Commands
+
+    pytest tests/test_error_handling.py tests/test_api.py -q
+    pytest tests/ -q
+    cd frontend && npm run lint && npm run build
+    cd frontend && npm audit --omit=dev --audit-level=high
+
+The Python audit command is attempted when pip-audit is available; otherwise the limitation is recorded rather than silently treated as a clean audit.
 
 This test plan defines the boundary verification, input constraint validation, and exception-handling checks required to ensure the Propulsion Lab suite handles edge cases robustly without crashing.
 
