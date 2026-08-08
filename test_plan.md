@@ -1,5 +1,14 @@
 # Test Plan - Modernization & Resilience Hardening (2026-08-09)
 
+## CI Audit Remediation Tests
+
+| ID | Component / Flow | Type | Input / Action | Expected Behavior | Pass Criteria |
+|---|---|---|---|---|---|
+| CI-AUD-01 | Python dependency audit | Security | Run `.venv\Scripts\python.exe -m pip_audit -r backend\requirements.txt --strict` | No vulnerable Python package resolution | No known vulnerabilities found |
+| CI-AUD-02 | Dependency consistency | Regression | Run `.venv\Scripts\python.exe -m pip check` | FastAPI, Starlette, and transitive packages are compatible | No broken requirements |
+| CI-AUD-03 | Backend CI test command | Regression | Run `.venv\Scripts\python.exe -m pytest tests\ -v --cov=core --cov-report=term-missing` | Existing API/core behavior remains green | 134 tests pass |
+| CI-AUD-04 | Frontend CI gates | Regression | Run `npm run test`, `npm run lint`, `npm run build`, and production npm audit | Frontend remains unaffected by backend dependency fix | All commands pass |
+
 ## Acceptance Criteria
 
 1. Unexpected backend failures return a stable safe error envelope with no raw exception text.

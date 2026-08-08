@@ -90,3 +90,10 @@ npm --prefix frontend run lint; npm --prefix frontend run build
 - python -m pip check: no broken requirements.
 
 The local runtime does not include pip-audit; CI now installs and runs it against backend/requirements.txt so Python audit status is explicit rather than assumed.
+## 5. CI Dependency Audit Fix (2026-08-09)
+
+- Investigated the failed GitHub Actions run for latest `main` and isolated the failure to the backend `Audit Python dependencies` step.
+- Upgraded `backend/requirements.txt` to `fastapi==0.141.1` and explicit `starlette==1.6.0`, removing the vulnerable Starlette 0.50.0 resolution.
+- Updated `backend/errors.py` to log the ASGI routed path from `request.scope` instead of using `request.url.path`.
+- Verified locally in an ignored `.venv`: `pip check` clean, `pip-audit --strict` clean, backend CI test command passed with 134 tests and 95% core coverage.
+- Re-ran frontend request tests, lint, build, and production npm audit; all passed.

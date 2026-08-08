@@ -1,5 +1,26 @@
 # Implementation Plan: Modernization & Resilience Hardening (2026-08-09)
 
+## CI Audit Remediation (2026-08-09)
+
+### Problem
+
+The latest GitHub Actions run for `ac1076c7` failed in the backend `Audit Python dependencies` step. The prior dependency set allowed `starlette==0.50.0`, which is covered by current advisories and fails `pip-audit --strict`.
+
+### Fix Plan
+
+1. Upgrade FastAPI to a version that supports patched Starlette releases.
+2. Pin Starlette explicitly so the audit gate resolves a non-vulnerable version deterministically.
+3. Remove backend logging dependence on `request.url.path` by using the routed ASGI scope path.
+4. Reproduce the failed audit gate locally, then rerun backend tests with coverage and frontend gates.
+5. Update the changelog, handoff, FBD, roadmap, task list, and test plan before commit/push.
+
+### Acceptance
+
+- `pip-audit -r backend/requirements.txt --strict` reports no known vulnerabilities.
+- The full backend suite remains green with the upgraded FastAPI/Starlette set.
+- Frontend tests, lint, build, and production npm audit remain green.
+- The pushed commit triggers a replacement GitHub Actions run on `main`.
+
 ## Current Workstream
 
 This workstream follows the completed UI and physics overhaul documented below. It modernizes dependency and delivery guardrails, hardens backend and frontend failure behavior, and adds regression coverage without changing SI-unit physics contracts or solver outputs.

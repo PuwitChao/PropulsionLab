@@ -126,7 +126,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         "Unhandled API failure request_id=%s method=%s path=%s",
         request_id,
         request.method,
-        request.url.path,
+        request.scope.get("path", ""),
     )
     return _response(
         request,

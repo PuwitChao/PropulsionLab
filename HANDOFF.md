@@ -1,3 +1,95 @@
+# Handoff: CI Audit Fix
+
+**Generated**: 2026-08-09 04:56
+**Last Verified**: 2026-08-09 04:56
+**Branch**: main
+**Upstream**: origin/main
+**Status**: Complete / Ready to commit and push
+
+## Loop Telemetry
+- **Active Subtask**: None
+- **Current Iteration**: Closeout
+- **Healing Actions Taken**: The built-in patch helper failed on Windows ACL sandboxing; used exact scoped PowerShell replacements inside this repository only.
+
+## Goal
+Fix the latest GitHub Actions failure on `main` by removing vulnerable Python dependency resolution, preserving backend error behavior, updating traceability records, then committing and pushing the repair.
+
+## Completed
+- [x] Confirmed latest remote `main` commit `ac1076c7` failed GitHub Actions run `31275945475` in the backend `Audit Python dependencies` step.
+- [x] Updated `backend/requirements.txt` from `fastapi==0.121.3` to `fastapi==0.141.1` and explicitly pinned `starlette==1.6.0`.
+- [x] Hardened `backend/errors.py` to log the ASGI routed path from `request.scope` instead of `request.url.path`.
+- [x] Created a repo-local ignored `.venv` and reproduced the backend audit/test gates with the upgraded dependency set.
+- [x] Updated `.gitignore`, `CHANGELOG.md`, `implementation_plan.md`, `task.md`, `test_plan.md`, `walkthrough.md`, `docs/ROADMAP.md`, and `functional_breakdown_diagram.md`.
+
+## Not Yet Done
+- [ ] Confirm the new GitHub Actions run is green after this commit is pushed.
+- [ ] Future feature enhancement: interactive WebGL/WebGPU viewer for exported MoC meshes.
+- [ ] Full axisymmetric MoC characteristic integration with radial source terms.
+
+## Failed Approaches (Don't Repeat These)
+- The local apply-patch helper failed on the Windows ACL sandbox; exact file-scoped PowerShell replacements were used instead.
+- `gh run list` could not read workflow status because GitHub CLI is not authenticated; public GitHub REST API calls were used for run/job status.
+- The global Python runtime lacked `pip-audit`; an ignored repo-local `.venv` was created and `pip-audit` was installed there for verification.
+
+## Key Decisions
+| Decision | Rationale |
+|---|---|
+| Pin Starlette explicitly at `1.6.0` | Prevents FastAPI's transitive dependency resolver from selecting a vulnerable Starlette release and makes the CI audit result reproducible. |
+| Upgrade FastAPI to `0.141.1` | Current FastAPI metadata supports newer Starlette releases required to clear the advisory set. |
+| Use `request.scope["path"]` for exception logging | Avoids the `request.url` reconstruction surface identified in current Starlette advisories while preserving correlated server logs. |
+| Keep dependency verification in `.venv` | Confirms the fix without mutating the user/global Python installation. |
+
+## Current State
+- **Working**: Backend dependency audit, backend tests with coverage, frontend tests, frontend lint/build, and production npm audit all pass locally.
+- **Broken**: The pre-fix GitHub Actions run `31275945475` on `ac1076c7` remains failed until this repair is pushed and CI reruns.
+- **Uncommitted Changes**: Dependency pin, backend logging hardening, and synchronized project records for this closeout.
+
+## Validation
+- `.venv\Scripts\python.exe -m pip check`: no broken requirements.
+- `.venv\Scripts\python.exe -m pip_audit -r backend\requirements.txt --strict`: no known vulnerabilities found.
+- `.venv\Scripts\python.exe -m pytest tests\test_error_handling.py -v`: 4 passed, 1 StarletteDeprecationWarning.
+- `.venv\Scripts\python.exe -m pytest tests\ -v`: 134 passed, 2 warnings.
+- `.venv\Scripts\python.exe -m pytest tests\ -v --cov=core --cov-report=term-missing`: 134 passed, 2 warnings, 95% core coverage.
+- `npm run test`: 5 passed.
+- `npm run lint`: passed.
+- `npm run build`: passed with Vite 8.2.1.
+- `npm audit --omit=dev --audit-level=high`: 0 production vulnerabilities.
+
+## Commit
+- **Hash**: Pending closeout commit
+- **Message**: Pending closeout commit
+
+## Push
+- **Destination**: `origin/main`
+- **Result**: Pending closeout push
+
+## Files to Know
+| File | Why It Matters |
+|---|---|
+| `backend/requirements.txt` | FastAPI/Starlette pins that resolve the failed Python audit gate. |
+| `backend/errors.py` | Request IDs and safe API error handlers; now avoids `request.url.path` in exception logging. |
+| `.github/workflows/ci.yml` | Backend job runs `pip-audit -r backend/requirements.txt --strict` before tests. |
+| `functional_breakdown_diagram.md` | Updated subsystem traceability for the dependency gate and error boundary. |
+| `.gitignore` | Keeps local coverage output from the CI-equivalent verification out of commits. |
+
+## Code Context
+`unhandled_exception_handler()` now logs `request.scope.get("path", "")` for the route path. The API response envelope and successful solver schemas remain unchanged.
+
+## Resume Instructions
+1. Confirm the pushed commit is visible on `origin/main`.
+2. Check GitHub Actions for the new run on `main`; the backend `Audit Python dependencies` step should pass.
+3. If CI is green, continue from `docs/ROADMAP.md`, prioritizing P2 physics fidelity or P1 frontend consistency work.
+
+## Setup Required
+- Python 3.11 in CI; local verification used Python 3.13.3 in `.venv`.
+- Node 20 in CI; local verification used the installed Node/npm runtime.
+
+## Warnings & Caveats
+- Starlette 1.6.0 emits a `StarletteDeprecationWarning` through `fastapi.testclient` advising `httpx2`; tests still pass with the existing `httpx` fixture stack.
+- Cantera still emits the known rocket sweep equilibrium temperature range warning on one test path.
+- Backend calculations retain the SI-unit internal contract and per-request Cantera solution isolation.
+---
+Historical handoff retained below.
 # Handoff: Modernization Closeout
 
 **Generated**: 2026-08-09 02:49

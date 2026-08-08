@@ -11,6 +11,7 @@ graph TD
         Preset_Manager["Preset Repository (core/presets.py)"]
         Diagnostics_Kernel["Fault Isolation Engine (core/gas_turbine/diagnostics.py)"]
         Error_Gateway["Request ID & Safe Error Handlers (backend/errors.py)"]
+        Dependency_Gate["Python Dependency Gate (FastAPI/Starlette pins & pip-audit)"]
     end
 
     %% Solvers Subsystem
@@ -41,6 +42,7 @@ graph TD
     App_Shell --> Api_Core
     API_Endpoints --> Preset_Manager
     API_Endpoints --> Error_Gateway
+    Dependency_Gate --> API_Endpoints
     API_Endpoints --> Diagnostics_Kernel
     API_Endpoints --> Cycle_Analyzer
     API_Endpoints --> OffDesign_Solver
@@ -64,4 +66,5 @@ graph TD
 | **Mission Synthesis** | `core/gas_turbine/mission.py` | Constraint diagram synthesis (T/W vs W/S), Breguet range | Sizing corner, payload-range curve |
 | **Fault Diagnostics** | `core/gas_turbine/diagnostics.py` | EGT margin loss, compressor fouling, turbine erosion isolation | Fault signature radar, recommended maintenance |
 | **API Error Boundary** | backend/errors.py | Request IDs, validation envelope, safe 5xx responses | Correlated JSON error payloads, server-side exception logs |
+| **Dependency Security Gate** | backend/requirements.txt, .github/workflows/ci.yml | FastAPI/Starlette pins and strict Python audit | Reproducible non-vulnerable backend dependency resolution |
 | **Frontend Recovery Core** | frontend/src/apiCore.js, ErrorBoundary.jsx | Timeout/abort normalization and module recovery | Retryable user-safe errors, resettable fallback UI |

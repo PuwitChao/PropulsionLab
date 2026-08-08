@@ -1,5 +1,15 @@
 # Task List: Modernization & Resilience Hardening (2026-08-09)
 
+## CI Audit Remediation (2026-08-09)
+
+- [x] Identify the failing latest GitHub Actions job and step.
+- [x] Upgrade FastAPI and explicitly pin patched Starlette.
+- [x] Remove `request.url.path` usage from unexpected-exception logging.
+- [x] Reproduce `pip-audit --strict` locally with a repo-local venv.
+- [x] Run backend tests with coverage plus frontend test/lint/build/audit checks.
+- [x] Update handoff, changelog, roadmap, FBD, walkthrough, implementation plan, and test plan.
+- [ ] Confirm the replacement GitHub Actions run is green after push.
+
 - [x] 1. Tracking and acceptance criteria
   - [x] Record scope, dependencies, rollback, and acceptance criteria in implementation_plan.md
   - [x] Add the execution checklist and test matrix sections to durable project docs

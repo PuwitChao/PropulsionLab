@@ -1,7 +1,7 @@
 # PropulsionLab Roadmap
 
-> Status: refreshed 2026-07-17 after code inspection and verification.
-> Verification baseline: `pytest tests/ -v` passed 123 tests with one Cantera range warning; `npm run lint` passed; `npm run build` passed.
+> Status: refreshed 2026-08-09 after CI dependency audit remediation.
+> Verification baseline: `.venv\Scripts\python.exe -m pytest tests\ -v --cov=core --cov-report=term-missing` passed 134 tests with 95% core coverage and two known warnings; Python `pip-audit --strict`, frontend tests, lint, build, and production npm audit passed.
 
 ## Current Product State
 
@@ -24,6 +24,7 @@ The previous Sprint 5-8 roadmap is now mostly complete or superseded. This docum
 | Deployment scaffolding | Done | `Dockerfile`, `docker-compose.yml`, `.env.example`, `frontend/.env.example`, `.github/workflows/ci.yml` |
 | CORS/API config | Done | `CORS_ORIGINS` and `VITE_API_URL` are configurable |
 | Backend dependencies | Done | `backend/requirements.txt` uses pinned versions |
+| Python dependency audit | Fixed | FastAPI `0.141.1` plus explicit Starlette `1.6.0` resolve the failed backend `pip-audit --strict` gate |
 
 ## Known Drift To Keep Clean
 

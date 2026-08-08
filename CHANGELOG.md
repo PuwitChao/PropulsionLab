@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Resolved the backend CI dependency audit failure by upgrading FastAPI to `0.141.1` and explicitly pinning patched Starlette `1.6.0`.
+- Hardened unexpected-exception logging to use the ASGI routed path instead of `request.url.path`.
+
+---
 ## [2.3.0] - 2026-07-06
 
 ### Added
