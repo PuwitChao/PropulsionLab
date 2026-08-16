@@ -7,10 +7,11 @@ graph TD
 
     %% Backend Subsystem
     subgraph Backend ["FastAPI Microservice Layer"]
-        API_Endpoints["REST Endpoints (/analyze/*)"]
+        API_Endpoints["REST Endpoints (/analyze/*, /presets, /health)"]
         Preset_Manager["Preset Repository (core/presets.py)"]
         Diagnostics_Kernel["Fault Isolation Engine (core/gas_turbine/diagnostics.py)"]
         Error_Gateway["Request ID & Safe Error Handlers (backend/errors.py)"]
+        CORS_Security["CORS & Origin Security Filter (backend/main.py)"]
         Dependency_Gate["Python Dependency Gate (FastAPI/Starlette pins & pip-audit)"]
     end
 
@@ -35,6 +36,13 @@ graph TD
         Error_Boundary["Render Recovery Boundary (ErrorBoundary.jsx)"]
     end
 
+    %% Verification & Test Automation Subsystem
+    subgraph Verification ["Automated Test & Verification Suite"]
+        Pytest_Suite["Backend Unit & Integration Suite (134 Tests / pytest)"]
+        Frontend_Unit["Frontend Core Mock Suite (5 Tests / node:test)"]
+        Playwright_E2E["Playwright E2E Suite (26 Tests / Chromium Engine)"]
+    end
+
     %% Data Flow Connections
     App_Shell --> Unit_System
     App_Shell --> Preset_Modal
@@ -42,6 +50,7 @@ graph TD
     App_Shell --> Api_Core
     API_Endpoints --> Preset_Manager
     API_Endpoints --> Error_Gateway
+    API_Endpoints --> CORS_Security
     Dependency_Gate --> API_Endpoints
     API_Endpoints --> Diagnostics_Kernel
     API_Endpoints --> Cycle_Analyzer
@@ -54,17 +63,24 @@ graph TD
     App_Shell --> Error_Boundary
     Api_Core --> API_Endpoints
     Error_Gateway --> Api_Core
+    Playwright_E2E --> App_Shell
+    Playwright_E2E --> API_Endpoints
+    Pytest_Suite --> API_Endpoints
+    Pytest_Suite --> Solvers
+    Frontend_Unit --> Api_Core
 ```
 
 ## Quantitative Subsystem Breakdown
 
-| Subsystem Module | File Location | Key Capabilities | Output Artifacts |
+| Subsystem Module | File Location | Key Capabilities | Output Artifacts / Verification Gate |
 | --- | --- | --- | --- |
-| **Gas Turbine Cycle** | `core/gas_turbine/cycle.py` | SLS/altitude design, turbofan separate/mixed, ramjet shock recovery | Temperatures, pressures, TSFC, specific thrust |
-| **Off-Design Solver** | `core/gas_turbine/off_design.py` | Compressor map matching, throttle sweeps | Operating lines, surge margin |
-| **Rocket CEA & MoC** | `core/rocket/analyzer.py`, `moc.py` | Chemical equilibrium, Bartz heat flux, supersonic nozzle MoC | 2D mesh, STL 3D solid, OBJ 3D mesh |
-| **Mission Synthesis** | `core/gas_turbine/mission.py` | Constraint diagram synthesis (T/W vs W/S), Breguet range | Sizing corner, payload-range curve |
-| **Fault Diagnostics** | `core/gas_turbine/diagnostics.py` | EGT margin loss, compressor fouling, turbine erosion isolation | Fault signature radar, recommended maintenance |
-| **API Error Boundary** | backend/errors.py | Request IDs, validation envelope, safe 5xx responses | Correlated JSON error payloads, server-side exception logs |
-| **Dependency Security Gate** | backend/requirements.txt, .github/workflows/ci.yml | FastAPI/Starlette pins and strict Python audit | Reproducible non-vulnerable backend dependency resolution |
-| **Frontend Recovery Core** | frontend/src/apiCore.js, ErrorBoundary.jsx | Timeout/abort normalization and module recovery | Retryable user-safe errors, resettable fallback UI |
+| **Gas Turbine Cycle** | `core/gas_turbine/cycle.py` | SLS/altitude design, turbofan separate/mixed, ramjet shock recovery | Temperatures, pressures, TSFC, specific thrust (100% verified) |
+| **Off-Design Solver** | `core/gas_turbine/off_design.py` | Compressor map matching, throttle sweeps | Operating lines, surge margin (100% verified) |
+| **Rocket CEA & MoC** | `core/rocket/analyzer.py`, `moc.py` | Chemical equilibrium, Bartz heat flux, supersonic nozzle MoC | 2D mesh, STL 3D solid, OBJ 3D mesh (100% verified) |
+| **Mission Synthesis** | `core/gas_turbine/mission.py` | Constraint diagram synthesis (T/W vs W/S), Breguet range | Sizing corner, payload-range curve (100% verified) |
+| **Fault Diagnostics** | `core/gas_turbine/diagnostics.py` | EGT margin loss, compressor fouling, turbine erosion isolation | Fault signature radar, recommended maintenance (100% verified) |
+| **API Error Boundary** | `backend/errors.py` | Request IDs, validation envelope, safe 5xx responses | Correlated JSON error payloads, sanitized server traces |
+| **CORS & Dev Security** | `backend/main.py` | Regex-backed origin filter, exposed Request ID headers | Zero cross-origin blocks for multi-port testing |
+| **Frontend Recovery Core** | `frontend/src/apiCore.js`, `ErrorBoundary.jsx` | Timeout/abort normalization and module recovery | Retryable user-safe errors, resettable fallback UI |
+| **Playwright E2E Suite** | `frontend/e2e/*.spec.js` | 7 domain test suites covering all user interactions & downloads | 26 / 26 End-to-End browser test passes |
+| **Pytest Physics Suite** | `tests/test_*.py` | 134 unit and integration tests for thermodynamics & APIs | 134 / 134 pytest test passes |

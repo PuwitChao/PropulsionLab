@@ -16,6 +16,9 @@ dist/
 node_modules/
 frontend/dist/
 frontend/build/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
 .eslintcache
 *.log
 .env.local

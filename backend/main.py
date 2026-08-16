@@ -111,16 +111,18 @@ def _sanitize(obj: Any) -> Any:
 # ── Security & Policy ────────────────────────────────────────────────────────
 _cors_origins_env = os.environ.get("CORS_ORIGINS", "")
 _cors_origins = (
-    [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+    [origin.strip() for origin in _cors_origins_env.split(",") if origin.strip()]
     if _cors_origins_env
-    else ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]
+    else ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5188", "http://127.0.0.1:5188", "http://localhost:3000"]
 )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Accept"],
+    allow_headers=["Content-Type", "Accept", "X-Request-ID", "x-request-id"],
+    expose_headers=["X-Request-ID", "x-request-id"],
 )
 
 @app.get("/")

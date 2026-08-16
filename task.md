@@ -1,73 +1,50 @@
-# Task List: Modernization & Resilience Hardening (2026-08-09)
+# Task List: Full Suite Audit & Playwright E2E Testing
 
-## CI Audit Remediation (2026-08-09)
+## Sprint 1: Pre-Execution Architecture, Security & Dependency Audit
+- [x] Execute Python dependency audit (`pip-audit` / vulnerability check) <!-- id: 1.1 -->
+- [x] Execute Frontend dependency audit (`npm audit`) <!-- id: 1.2 -->
+- [x] Verify Cantera solution concurrency safety and error isolation boundaries <!-- id: 1.3 -->
+- [x] Audit backend REST request/response contracts and safe error envelope <!-- id: 1.4 -->
+- [x] Conduct codebase vibe & code smells audit <!-- id: 1.5 -->
 
-- [x] Identify the failing latest GitHub Actions job and step.
-- [x] Upgrade FastAPI and explicitly pin patched Starlette.
-- [x] Remove `request.url.path` usage from unexpected-exception logging.
-- [x] Reproduce `pip-audit --strict` locally with a repo-local venv.
-- [x] Run backend tests with coverage plus frontend test/lint/build/audit checks.
-- [x] Update handoff, changelog, roadmap, FBD, walkthrough, implementation plan, and test plan.
-- [ ] Confirm the replacement GitHub Actions run is green after push.
+## Sprint 2: Gas Turbine, Off-Design & Mission Physics Audit
+- [x] Audit `core/gas_turbine/cycle.py` & `thermo.py` (Turbojet, Turbofan, Turboprop, Turboshaft, Afterburning, Ramjet, Station Enthalpy Conservation) <!-- id: 2.1 -->
+- [x] Audit Multi-Spool solver (`core/gas_turbine/cycle.py`) & bleed air extractions <!-- id: 2.2 -->
+- [x] Audit Off-Design & Compressor Map solver (`core/gas_turbine/off_design.py`) & throttle sweeps <!-- id: 2.3 -->
+- [x] Audit Aircraft Mission Constraint solver (`core/gas_turbine/mission.py`) & Breguet range equations <!-- id: 2.4 -->
+- [x] Audit Engine Diagnostics & Health engine (`core/diagnostics.py`) <!-- id: 2.5 -->
 
-- [x] 1. Tracking and acceptance criteria
-  - [x] Record scope, dependencies, rollback, and acceptance criteria in implementation_plan.md
-  - [x] Add the execution checklist and test matrix sections to durable project docs
+## Sprint 3: Rocket Propulsion & MoC Nozzle Solver Audit
+- [x] Audit Rocket Chemical Equilibrium Solver (`core/rocket/analyzer.py` Cantera Gibbs minimization, frozen vs shifting Isp) <!-- id: 3.1 -->
+- [x] Audit Propellant sweep, optimum O/F calculation, and altitude performance table with Summerfield separation <!-- id: 3.2 -->
+- [x] Audit Bartz heat flux equation and regenerative cooling jacket solver <!-- id: 3.3 -->
+- [x] Audit Method of Characteristics (MoC) 2D contour & 3D mesh generator (`core/rocket/moc.py`) <!-- id: 3.4 -->
+- [x] Audit 3D STL and Wavefront OBJ geometry exporter pipelines <!-- id: 3.5 -->
 
-- [x] 2. Backend error hardening
-  - [x] Add a structured safe error envelope and request correlation ID
-  - [x] Centralize unexpected exception handling and remove raw exception details from 500 responses
-  - [x] Preserve HTTP 422 validation behavior and existing successful response schemas
+## Sprint 4: Frontend UI/UX, Aesthetics, Themes & Accessibility Audit
+- [x] Audit `ParametricCycle.jsx` (Inputs, sliders, blueprint heat map SVG, T-s & Sankey diagrams, unit conversions, CSV/JSON/PDF exports) <!-- id: 4.1 -->
+- [x] Audit `PerformanceMap.jsx` (Compressor map Plotly traces, throttle slider, operating lines, surge margin metrics) <!-- id: 4.2 -->
+- [x] Audit `RocketAnalysis.jsx` (Propellant selector, equilibrium stats, 2D/3D MoC nozzle Plotly viewer, cooling curves, geometry download triggers) <!-- id: 4.3 -->
+- [x] Audit `MissionAnalysis.jsx` (Master constraint diagram T/W vs W/S, feasible envelope polygon, target design marker, payload-range estimator) <!-- id: 4.4 -->
+- [x] Audit `Diagnostics.jsx` (Symptom sliders, radar charts, fault distribution bar charts, remediation action cards) <!-- id: 4.5 -->
+- [x] Audit `Settings.jsx`, `App.jsx`, Modals & Shared Components (`PresetSelectorModal`, `KeyboardShortcutsModal`, `StatPanel`, `SliderControl`, `ErrorBoundary`) <!-- id: 4.6 -->
+- [x] Conduct WCAG 2.1 AA Accessibility & Anti-AI-Slop visual aesthetic review (contrast ratios, focus rings, typography, responsive breakpoints) <!-- id: 4.7 -->
 
-- [x] 3. Frontend failure recovery
-  - [x] Add bounded request timeout/abort behavior and normalized API errors
-  - [x] Keep retry behavior explicit and safe for health/read-only requests
-  - [x] Replace raw render-error details with a generic recovery message
+## Sprint 5: Playwright E2E Test Suite Setup & Implementation
+- [x] Install Playwright (`@playwright/test`) and browser binaries in `frontend/` <!-- id: 5.1 -->
+- [x] Configure `playwright.config.js` (baseURL, webServer orchestration, browser matrix, screenshot on failure) <!-- id: 5.2 -->
+- [x] Implement E2E Spec: `e2e/navigation_and_shell.spec.js` (Sidebar navigation, theme toggles, units toggling, modals `?` and `p`, API latency badge) <!-- id: 5.3 -->
+- [x] Implement E2E Spec: `e2e/parametric_cycle.spec.js` (Engine modes, preset loader, calculate trigger, SVG station modal, sweep plots, export downloads) <!-- id: 5.4 -->
+- [x] Implement E2E Spec: `e2e/performance_map.spec.js` (Map rendering, throttle sweep interaction, engine deck export) <!-- id: 5.5 -->
+- [x] Implement E2E Spec: `e2e/rocket_analysis.spec.js` (Propellant change, CEA calculation, 3D MoC plot render, cooling jacket, STL/OBJ download) <!-- id: 5.6 -->
+- [x] Implement E2E Spec: `e2e/mission_analysis.spec.js` (Constraint diagram generation, slider changes, feasible space polygon, range sensitivity) <!-- id: 5.7 -->
+- [x] Implement E2E Spec: `e2e/diagnostics.spec.js` (Fault sliders, diagnose action, radar plot check, remediation checklist) <!-- id: 5.8 -->
+- [x] Implement E2E Spec: `e2e/settings_and_errors.spec.js` (Health check status, cache clearing, API failure fallback UI) <!-- id: 5.9 -->
 
-- [x] 4. Dependency and CI guardrails
-  - [x] Refresh only compatibility-safe dependency versions and lock entries
-  - [x] Add repeatable npm and Python audit checks with clear tool-availability reporting
-  - [x] Keep Python 3.11 / Node 20 support explicit until compatibility evidence supports a runtime change
-
-- [x] 5. Regression verification
-  - [x] Add backend tests for structured errors, exception sanitization, and correlation IDs
-  - [x] Add frontend helper tests for non-JSON errors, timeout/abort, and successful JSON/blob responses
-  - [x] Run full backend tests plus frontend lint/build
-
-- [x] 6. Traceability and handoff
-  - [x] Update functional_breakdown_diagram.md for error/recovery boundaries if needed
-  - [x] Update walkthrough.md with changed behavior and verification evidence
-  - [x] Record unresolved audit-tool limitations and final status
-
-- [x] 1. Research & Master Implementation Plan Creation
-  - [x] Audit backend physics solvers (`core/`), REST endpoints (`backend/main.py`), and React frontend (`frontend/src/`)
-  - [x] Create `implementation_plan.md` and `task.md` in workspace root on D: drive
-
-- [x] 2. Core Physics & Backend Solver Expansion
-  - [x] Add Afterburner/Reheat turbofan and Ramjet cycle analysis mode to `core/gas_turbine/cycle.py`
-  - [x] Add Method of Characteristics (MoC) Prandtl-Meyer characteristic line solver, STL 3D export, and Wavefront OBJ 3D export to `core/rocket/moc.py`
-  - [x] Add real-world engine presets module `core/presets.py` and API endpoint `/analyze/presets` in `backend/main.py`
-  - [x] Extend Mission Analysis solver `core/gas_turbine/mission.py` with Breguet payload-range calculation
-
-- [x] 3. Units Conversion & Presets Layer
-  - [x] Create `frontend/src/utils/unitConversion.js` for seamless SI <-> Imperial unit formatting
-  - [x] Create `frontend/src/data/presets.js` with comprehensive turbofan, rocket, aircraft mission, and diagnostic profiles
-
-- [x] 4. App Shell & Global Layout Polish
-  - [x] Refine `frontend/src/index.css` with enhanced dark/light glassmorphic styling, interactive focus rings, and custom tabs
-  - [x] Upgrade `frontend/src/App.jsx` with real-time backend API latency badge, Units Toggle button, Quick Presets modal trigger, and Keyboard Shortcuts overlay (`?`)
-  - [x] Create `frontend/src/components/PresetSelectorModal.jsx` and `frontend/src/components/KeyboardShortcutsModal.jsx`
-
-- [x] 5. Interactive Page Overhaul & Blueprint Diagrams
-  - [x] Build `frontend/src/components/EngineBlueprintDiagram.jsx` (Interactive SVG engine schematic with real-time temperature/pressure heat map color gradients and station inspector modal)
-  - [x] Overhaul `ParametricCycle.jsx` with preset loader, afterburner/ramjet mode toggle, interactive SVG heatmap, and report export
-  - [x] Overhaul `RocketAnalysis.jsx` with 2D/3D MoC nozzle characteristics viewer, STL & Wavefront OBJ 3D geometry exports, propellant equilibrium summary, and presets
-  - [x] Overhaul `MissionAnalysis.jsx` with feasible constraint envelope polygon shading, target design point marker, and Breguet payload-range estimator
-  - [x] Overhaul `Diagnostics.jsx` with fault signature radar, telemetry gauges, and failure injection controls
-  - [x] Overhaul `Settings.jsx` with system diagnostic health check, default unit preferences, cache clear, and API endpoint config
-
-- [x] 6. Comprehensive Verification & Systems Engineering Documentation
-  - [x] Run backend unit and integration test suite (`pytest tests/ -v`) (130/130 passed!)
-  - [x] Run frontend linter and production build (`npm run lint; npm run build`) (0 errors!)
-  - [x] Maintain zero line-crossing Systems Engineering FBD diagram in `functional_breakdown_diagram.md`
-  - [x] Document audit results, features, and verification in `walkthrough.md`
+## Sprint 6: Full Regression Verification, Systems Engineering FBD & Documentation
+- [x] Execute backend unit & integration tests (`pytest tests/ -v`) <!-- id: 6.1 -->
+- [x] Execute frontend unit tests, ESLint, and production build (`npm run test; npm run lint; npm run build`) <!-- id: 6.2 -->
+- [x] Execute complete Playwright E2E test suite in headless mode (26 / 26 passed) <!-- id: 6.3 -->
+- [x] Remediate any detected bugs or regressions <!-- id: 6.4 -->
+- [x] Update Systems Engineering Functional Breakdown Diagram (`functional_breakdown_diagram.md`) <!-- id: 6.5 -->
+- [x] Update `lessons_learned.md` and `walkthrough.md` with complete audit telemetry <!-- id: 6.6 -->

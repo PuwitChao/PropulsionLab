@@ -1,222 +1,144 @@
-# Implementation Plan: Modernization & Resilience Hardening (2026-08-09)
+# Implementation Plan: Full Application Audit & Playwright End-to-End (E2E) Test Suite
 
-## CI Audit Remediation (2026-08-09)
-
-### Problem
-
-The latest GitHub Actions run for `ac1076c7` failed in the backend `Audit Python dependencies` step. The prior dependency set allowed `starlette==0.50.0`, which is covered by current advisories and fails `pip-audit --strict`.
-
-### Fix Plan
-
-1. Upgrade FastAPI to a version that supports patched Starlette releases.
-2. Pin Starlette explicitly so the audit gate resolves a non-vulnerable version deterministically.
-3. Remove backend logging dependence on `request.url.path` by using the routed ASGI scope path.
-4. Reproduce the failed audit gate locally, then rerun backend tests with coverage and frontend gates.
-5. Update the changelog, handoff, FBD, roadmap, task list, and test plan before commit/push.
-
-### Acceptance
-
-- `pip-audit -r backend/requirements.txt --strict` reports no known vulnerabilities.
-- The full backend suite remains green with the upgraded FastAPI/Starlette set.
-- Frontend tests, lint, build, and production npm audit remain green.
-- The pushed commit triggers a replacement GitHub Actions run on `main`.
-
-## Current Workstream
-
-This workstream follows the completed UI and physics overhaul documented below. It modernizes dependency and delivery guardrails, hardens backend and frontend failure behavior, and adds regression coverage without changing SI-unit physics contracts or solver outputs.
-
-### Objectives
-
-1. Keep dependency upgrades compatibility-safe and reproducible.
-2. Return structured, non-sensitive API errors while retaining detailed server logs.
-3. Ensure frontend requests terminate cleanly on network failure or timeout.
-4. Preserve module-level recovery through the React error boundary without exposing raw runtime details.
-5. Add acceptance tests for validation, server failures, malformed responses, timeout behavior, and recovery UI.
-
-### Scope and Ownership
-
-| Area | Files | Deliverable |
-| --- | --- | --- |
-| Tracking | implementation_plan.md, task.md, test_plan.md | Durable plan, checklist, test matrix, rollback notes |
-| Backend errors | backend/main.py, backend/errors.py | Safe error envelope, centralized handlers, correlation logging |
-| Frontend errors | frontend/src/api.js, frontend/src/components/ErrorBoundary.jsx | Timeout/abort handling, normalized errors, generic fallback copy |
-| Dependencies and CI | backend/requirements.txt, frontend/package.json, frontend/package-lock.json, .github/workflows/ci.yml | Safe patch/minor refreshes, audit gate, explicit runtime checks |
-| Tests | tests/test_api.py, tests/test_error_handling.py, frontend/src/api.test.js | Positive, negative, boundary, malformed-response, and recovery coverage |
-| Traceability | functional_breakdown_diagram.md, walkthrough.md | Confirm architecture/error-boundary traceability and verification record |
-
-### Execution Order and Dependencies
-
-1. Update tracking artifacts and acceptance criteria.
-2. Add backend error primitives and handlers; update API tests.
-3. Add frontend request recovery and safe render fallback; add focused helper tests.
-4. Refresh only compatible dependency ranges/lock entries and add CI audit checks.
-5. Run focused tests, then the full backend suite and frontend lint/build.
-6. Synchronize FBD/walkthrough and record any unresolved audit-tool limitations.
-
-### Migration and Rollback
-
-- Dependency changes are limited to versions proven by the existing Python 3.11 and Node 20 CI matrix. Major upgrades are deferred unless a focused compatibility test proves them safe.
-- Backend and frontend error envelopes are additive: existing successful response schemas remain unchanged, and validation remains HTTP 422.
-- Rollback is file-scoped: restore changed dependency manifests/lockfile or revert the error-handler/request-helper changes; no data migrations or external state changes are introduced.
-
-### Acceptance Criteria
-
-- API failures expose a stable error_code, safe message, and request identifier; raw exception text is logged server-side only.
-- Frontend requests abort after a bounded timeout, normalize JSON and non-JSON failures, and always clear loading state through existing callers.
-- ErrorBoundary renders a generic recovery action without printing raw runtime details.
-- Existing backend tests remain green; new negative/boundary tests pass.
-- Frontend lint/build remain green; dependency audit has no unresolved high/critical findings and the known Plotly transitive advisory is remediated or explicitly documented.
-- functional_breakdown_diagram.md and walkthrough.md reflect the finalized error/recovery flow.
-
-## Current Workstream
-
-This workstream follows the completed UI and physics overhaul documented below. It modernizes dependency and delivery guardrails, hardens backend and frontend failure behavior, and adds regression coverage without changing SI-unit physics contracts or solver outputs.
-
-### Objectives
-
-1. Keep dependency upgrades compatibility-safe and reproducible.
-2. Return structured, non-sensitive API errors while retaining detailed server logs.
-3. Ensure frontend requests terminate cleanly on network failure or timeout.
-4. Preserve module-level recovery through the React error boundary without exposing raw runtime details.
-5. Add acceptance tests for validation, server failures, malformed responses, timeout behavior, and recovery UI.
-
-### Scope and Ownership
-
-| Area | Files | Deliverable |
-| --- | --- | --- |
-| Tracking | implementation_plan.md, task.md, test_plan.md | Durable plan, checklist, test matrix, rollback notes |
-| Backend errors | backend/main.py, backend/errors.py | Safe error envelope, centralized handlers, correlation logging |
-| Frontend errors | frontend/src/api.js, frontend/src/components/ErrorBoundary.jsx | Timeout/abort handling, normalized errors, generic fallback copy |
-| Dependencies and CI | backend/requirements.txt, frontend/package.json, frontend/package-lock.json, .github/workflows/ci.yml | Safe patch/minor refreshes, audit gate, explicit runtime checks |
-| Tests | tests/test_api.py, tests/test_error_handling.py, frontend/src/api.test.js | Positive, negative, boundary, malformed-response, and recovery coverage |
-| Traceability | functional_breakdown_diagram.md, walkthrough.md | Confirm architecture/error-boundary traceability and verification record |
-
-### Execution Order and Dependencies
-
-1. Update tracking artifacts and acceptance criteria.
-2. Add backend error primitives and handlers; update API tests.
-3. Add frontend request recovery and safe render fallback; add focused helper tests.
-4. Refresh only compatible dependency ranges/lock entries and add CI audit checks.
-5. Run focused tests, then the full backend suite and frontend lint/build.
-6. Synchronize FBD/walkthrough and record any unresolved audit-tool limitations.
-
-### Migration and Rollback
-
-- Dependency changes are limited to versions proven by the existing Python 3.11 and Node 20 CI matrix. Major upgrades are deferred unless a focused compatibility test proves them safe.
-- Backend and frontend error envelopes are additive: existing successful response schemas remain unchanged, and validation remains HTTP 422.
-- Rollback is file-scoped: restore changed dependency manifests/lockfile or revert the error-handler/request-helper changes; no data migrations or external state changes are introduced.
-
-### Acceptance Criteria
-
-- API failures expose a stable error_code, safe message, and request identifier; raw exception text is logged server-side only.
-- Frontend requests abort after a bounded timeout, normalize JSON and non-JSON failures, and always clear loading state through existing callers.
-- ErrorBoundary renders a generic recovery action without printing raw runtime details.
-- Existing backend tests remain green; new negative/boundary tests pass.
-- Frontend lint/build remain green; dependency audit has no unresolved high/critical findings and the known Plotly transitive advisory is remediated or explicitly documented.
-- functional_breakdown_diagram.md and walkthrough.md reflect the finalized error/recovery flow.
-
-Full app audit and major UI/UX and functional overhaul for the Propulsion Analysis Suite. The goal is to elevate the application to a polished, professional, state-of-the-art engineering platform ready for public deployment and rigorous use, featuring expanded physics solvers, engine presets, interactive SVG blueprint heatmaps, MoC Prandtl-Meyer nozzle characteristics, dynamic constraint envelope visualization, robust error handling, and comprehensive stability verification.
+Conduct an exhaustive, end-to-end audit of all subsystems in the Propulsion Analysis Suite (Gas Turbine Parametric Cycle, Off-Design Solver, Rocket Propulsion & MoC Nozzle, Mission Constraint Synthesis, Diagnostics, UI Shell & Themes, Backend API & Security), and construct a production-grade automated E2E testing suite using Playwright.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> This overhaul includes:
-> 1. **Physics & Core Expansion**: Addition of Turbofan with Reheat/Afterburner cycle mode, Ramjet cycle mode, Method of Characteristics (MoC) Prandtl-Meyer characteristic net solver, and aircraft mission constraint synthesis with payload-range estimation.
-> 2. **Real-World Engine & Rocket Presets**: Built-in instant configuration presets for CFM56-7B, GE90-115B, F100-PW-229, Olympus 593, Merlin 1D, RS-25, Raptor 2, F-16 Falcon, and Concorde.
-> 3. **Interactive Station Heatmap & MoC Visualizations**: Dynamic SVG engine schematic with temperature/pressure heat map gradients and interactive station inspection; 3D MoC nozzle mesh and Mach characteristic lines.
-> 4. **Units System Toggle**: Seamless UI-level toggle between Standard International (SI) and Imperial units for all displays, cards, and tooltips.
-> 5. **Stability & Error Recovery**: Global error boundaries, toast notifications, offline resilience, and input range guardrails.
+> **Playwright E2E Setup**: We will install `@playwright/test` in the `frontend` directory and install the necessary browser binaries (Chromium). The test suite will be runnable via `npx playwright test` or `npm run test:e2e`.
+>
+> **Multi-Sprint Execution**: To ensure zero sections are missed and full depth is maintained, the audit and testing procedures are partitioned into 6 structured sprints:
+> - **Sprint 1**: Pre-Execution Architecture, Security & Dependency Audit
+> - **Sprint 2**: Gas Turbine, Off-Design & Mission Physics Audit
+> - **Sprint 3**: Rocket Propulsion & MoC Nozzle Solver Audit
+> - **Sprint 4**: Frontend UI/UX, Aesthetics, Themes & Accessibility Audit
+> - **Sprint 5**: Playwright E2E Test Suite Setup & Implementation
+> - **Sprint 6**: Full Regression Verification, Systems Engineering FBD & Documentation
+
+> [!NOTE]
+> All existing unit and integration tests (130+ backend pytest cases, frontend API core tests) will be preserved and executed in full as part of the regression gate.
+
+---
+
+## Open Questions
+
+None at this stage. All requirements are well-defined based on the repository architecture and the user's explicit request for an exhaustive audit and Playwright E2E suite.
+
+---
 
 ## Proposed Changes
 
-### Core Physics & Backend Solver Extensions
-
-#### [MODIFY] [cycle.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/gas_turbine/cycle.py)
-#### [MODIFY] [moc.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/rocket/moc.py)
-#### [MODIFY] [analyzer.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/rocket/analyzer.py)
-#### [MODIFY] [mission.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/gas_turbine/mission.py)
-#### [MODIFY] [main.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/backend/main.py)
-- Extend `CycleAnalyzer` to support afterburner reheat combustion and high-speed Ramjet cycle thermodynamics.
-- Extend `MoCNozzle` in `core/rocket/moc.py` to calculate Prandtl-Meyer expansion characteristic waves, exit wall turn angle, and generate STL/OBJ geometry export buffers.
-- Add preset data provider endpoint `/analyze/presets` in `backend/main.py` serving real-world turbofan, rocket, and mission specs.
-- Enhance input parameter validation and edge-case numerical fallback logic.
+### Sprint 1: Pre-Execution Architecture, Security & Dependency Audit
+- **Specialized Skills**: `orchestrate`, `security_audit`, `research_analyst`, `vibe_audit`
+- **Actions**:
+  - Perform dependency vulnerability scans using `npm audit` and check backend requirements.
+  - Verify error handling isolation boundaries: ensure unexpected exceptions return safe structured JSON envelopes with correlation IDs (`request_id`) and without raw traceback leaks.
+  - Verify Cantera `ct.Solution` instantiation safety: ensure solutions are created per-call and not cached globally across asynchronous worker threads.
+  - Conduct vibe & code smells audit across backend and frontend code to eliminate dead code, redundant console logs, or inconsistent naming.
 
 ---
 
-### Presets & Data Layer
-
-#### [NEW] [presets.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/presets.py)
-#### [NEW] [presets.js](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/data/presets.js)
-- Define authoritative preset profiles for gas turbines (CFM56-7B, GE90-115B, F100-PW-229, Olympus 593), rocket engines (Merlin 1D, RS-25, Raptor 2, RL10), aircraft missions (F-16 Falcon, Commercial Jetliner, Concorde, U-2 Recon), and fault scenarios.
-
----
-
-### App Shell, Global Controls & Units Conversion
-
-#### [MODIFY] [index.css](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/index.css)
-#### [MODIFY] [App.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/App.jsx)
-#### [NEW] [unitConversion.js](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/utils/unitConversion.js)
-#### [NEW] [KeyboardShortcutsModal.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/components/KeyboardShortcutsModal.jsx)
-#### [NEW] [PresetSelectorModal.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/components/PresetSelectorModal.jsx)
-- Implement global SI / Imperial unit display converter.
-- Add top header controls: backend ping latency badge, unit toggle pill, Quick Presets modal, keyboard shortcuts dialog (`?`).
-- Polish dark/light glassmorphic UI design tokens and animation curves.
+### Sprint 2: Gas Turbine, Off-Design & Mission Physics Audit
+- **Specialized Skills**: `debug_expert`, `refactor`, `verify`
+- **Target Files**:
+  - [cycle.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/gas_turbine/cycle.py)
+  - [thermo.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/gas_turbine/thermo.py)
+  - [off_design.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/gas_turbine/off_design.py)
+  - [mission.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/gas_turbine/mission.py)
+  - [diagnostics.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/diagnostics.py)
+  - [main.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/backend/main.py)
+- **Actions**:
+  - Audit thermodynamic station calculations ($T_0, P_0, h, s$) and energy balance across compressor, burner, turbine, afterburner, and nozzle.
+  - Audit multi-spool turbofan solver, bypass mixing conditions, bleed air extraction, and shaft power balance.
+  - Audit off-design corrected speed lines, beta-parameter interpolation, choke limits, and surge margin calculations.
+  - Audit aircraft master constraint curves ($T/W$ vs $W/S$), feasible region polygon computation, and Breguet payload-range equations.
+  - Audit fault signature matrix and fault classification logic in diagnostics engine.
 
 ---
 
-### Interactive Page Views & Visualizations
-
-#### [MODIFY] [ParametricCycle.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/ParametricCycle.jsx)
-#### [NEW] [EngineBlueprintDiagram.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/components/EngineBlueprintDiagram.jsx)
-- Build an interactive SVG Engine Blueprint Schematic featuring real-time temperature/pressure station heat-map color gradients, flow direction animation, and click-to-inspect station modal.
-- Add preset loader selector, afterburner and ramjet cycle mode toggles, and calculation report export.
-
-#### [MODIFY] [PerformanceMap.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/PerformanceMap.jsx)
-- Enhance compressor map with operating line path, surge line warning zone shading, efficiency contours, and corrected throttle deck export.
-
-#### [MODIFY] [RocketAnalysis.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/RocketAnalysis.jsx)
-- Enhance MoC nozzle view with 2D Prandtl-Meyer characteristic line mesh and 3D surface plot viewer, STL 3D model export button, propellant equilibrium summary, and rocket presets.
-
-#### [MODIFY] [MissionAnalysis.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/MissionAnalysis.jsx)
-- Render filled polygon envelope for feasible T/W vs W/S operating domain, design point target marker, payload-range estimate, and aircraft mission presets.
-
-#### [MODIFY] [Diagnostics.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/Diagnostics.jsx)
-- Radar spider chart for component fault signature visual diagnosis, telemetry gauge meters, and fault injector presets.
-
-#### [MODIFY] [Settings.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/Settings.jsx)
-- System diagnostic status panel, default units settings, cache management, and API URL config.
+### Sprint 3: Rocket Propulsion & MoC Nozzle Solver Audit
+- **Specialized Skills**: `debug_expert`, `verify`
+- **Target Files**:
+  - [analyzer.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/rocket/analyzer.py)
+  - [moc.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/core/rocket/moc.py)
+  - [main.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/backend/main.py)
+- **Actions**:
+  - Audit Cantera Gibbs free energy chemical equilibrium solver across all supported propellant pairings (LOX/RP-1, LOX/LH2, LOX/CH4, N2O4/UDMH, etc.).
+  - Audit frozen vs shifting equilibrium $I_{sp}$, characteristic velocity $c^*$, thrust coefficient $C_F$, and throat/exit area sizing.
+  - Audit Summerfield criterion for nozzle flow separation in overexpanded altitude conditions.
+  - Audit Bartz heat flux calculation and regenerative cooling jacket channel heat transfer / coolant temperature rise.
+  - Audit Method of Characteristics (MoC) contour generation, characteristic mesh wave reflections, and 3D STL & Wavefront OBJ export streams.
 
 ---
 
-### Verification, Tests & Systems Engineering Traceability
+### Sprint 4: Frontend UI/UX, Aesthetics, Themes & Accessibility Audit
+- **Specialized Skills**: `ui_review`, `accessibility`, `vibe_audit`
+- **Target Files**:
+  - [App.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/App.jsx)
+  - [ParametricCycle.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/ParametricCycle.jsx)
+  - [PerformanceMap.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/PerformanceMap.jsx)
+  - [RocketAnalysis.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/RocketAnalysis.jsx)
+  - [MissionAnalysis.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/MissionAnalysis.jsx)
+  - [Diagnostics.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/Diagnostics.jsx)
+  - [Settings.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/pages/Settings.jsx)
+  - [EngineBlueprintDiagram.jsx](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/components/EngineBlueprintDiagram.jsx)
+  - [index.css](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/frontend/src/index.css)
+- **Actions**:
+  - Verify glassmorphic dark/light UI tokens, responsive layouts, active tab indicators, and button hover states.
+  - Verify Anti-AI-Slop compliance: no excessive generic glowing effects, clean typography hierarchy, balanced padding and margins.
+  - Audit WCAG 2.1 AA accessibility standards: test color contrast ratios, keyboard accessibility (`Tab`, `Enter`, `Escape`, `U`, `P`, `?`), ARIA labels, and error boundary recovery.
+  - Verify interactive Plotly charts: responsive resizing, hover templates, SI vs Imperial unit switching behavior.
 
-#### [MODIFY] [test_api.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/tests/test_api.py)
-#### [MODIFY] [test_core.py](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/tests/test_core.py)
-#### [MODIFY] [functional_breakdown_diagram.md](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/functional_breakdown_diagram.md)
-#### [MODIFY] [walkthrough.md](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/walkthrough.md)
-- Add backend unit/integration tests for afterburner, ramjet, MoC characteristic net, presets, and error edge cases.
-- Execute full backend `pytest tests/ -v` and frontend `npm run lint; npm run build`.
-- Maintain zero line-crossing Systems Engineering FBD diagram in `functional_breakdown_diagram.md`.
+---
 
-## Recommended Skills
+### Sprint 5: Playwright E2E Test Suite Setup & Implementation
+- **Specialized Skills**: `test_engineer`, `test_generator`, `system_integrator`
+- **New Files**:
+  - `frontend/playwright.config.js`
+  - `frontend/e2e/navigation_and_shell.spec.js`
+  - `frontend/e2e/parametric_cycle.spec.js`
+  - `frontend/e2e/performance_map.spec.js`
+  - `frontend/e2e/rocket_analysis.spec.js`
+  - `frontend/e2e/mission_analysis.spec.js`
+  - `frontend/e2e/diagnostics.spec.js`
+  - `frontend/e2e/settings_and_errors.spec.js`
+- **Actions**:
+  - Install `@playwright/test` in `frontend/` and configure `playwright.config.js`.
+  - Add npm script: `"test:e2e": "playwright test"`.
+  - Write comprehensive E2E tests simulating real user workflows:
+    - **Navigation & Shell**: Sidebar navigation across all 6 tabs, theme switching, unit toggles (SI/Imperial), keyboard shortcuts modal (`?`), preset selector modal (`p`), latency badge.
+    - **Cycle Solver**: Switch engine types (turbojet, turbofan, ramjet), load preset (CFM56, F100), adjust sliders, execute calculation, inspect SVG blueprint station modal, view T-s and Sankey charts, export CSV and JSON.
+    - **Performance Map**: Trigger off-design calculation, manipulate throttle slider, verify operating lines and surge margin display, download engine deck CSV.
+    - **Rocket Analysis**: Select propellants (LOX/RP-1, LOX/LH2), run equilibrium analysis, view Isp vs O/F sweep, render 3D MoC nozzle mesh, inspect cooling jacket profile, test 3D STL and OBJ export triggers.
+    - **Mission Synthesis**: Adjust takeoff, climb, cruise, and turn sliders, render constraint diagram, verify feasible region shading, inspect target design point, test Breguet range calculator.
+    - **Diagnostics**: Adjust fault symptoms, trigger diagnosis, inspect radar chart and fault ranking table, verify remediation checklist items.
+    - **Settings & Resilience**: Run system diagnostic check, toggle font sizing, clear local cache, test fallback error banners on backend disconnection.
 
-- **`orchestrate`**: Task decomposition and tracking.
-- **`refactor`**: Internal code structure, cleanliness, and readability.
-- **`system_integrator`**: REST API endpoints, Pydantic schemas, React hooks, unit conversion layer.
-- **`ui_review`**: Anti-AI-Slop visual aesthetics, glassmorphic layout, font hierarchy, active state indicators.
-- **`error_handling`**: Toast alerts, boundary fallbacks, numerical solver recovery.
-- **`verify`**: Automated test suite and build verification.
+---
+
+### Sprint 6: Full Regression Verification, Systems Engineering FBD & Documentation
+- **Specialized Skills**: `verify`, `functional_breakdown_diagram`, `documentation`, `handoff`
+- **Target Files**:
+  - [functional_breakdown_diagram.md](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/functional_breakdown_diagram.md)
+  - [lessons_learned.md](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/lessons_learned.md)
+  - [walkthrough.md](file:///d:/Documents/Personal_Project/Google_AG/Propulsion_Analysis_Site/walkthrough.md)
+- **Actions**:
+  - Run full backend test suite (`pytest tests/ -v`).
+  - Run frontend linting, unit test, and production build (`npm run test; npm run lint; npm run build`).
+  - Run complete Playwright E2E suite (`npx playwright test`).
+  - Update `functional_breakdown_diagram.md` maintaining zero line-crossing Mermaid FBD standards.
+  - Document all audit findings, bugfixes, and E2E testing logs in `walkthrough.md` and `lessons_learned.md`.
+
+---
 
 ## Verification Plan
 
 ### Automated Tests
-- Backend pytest suite: `pytest tests/ -v`
-- Frontend linter: `cd frontend && npm run lint`
-- Frontend production bundle build: `cd frontend && npm run build`
+1. **Backend Tests**: `pytest tests/ -v` (verify all unit and integration tests pass).
+2. **Frontend Static Checks**: `cd frontend; npm run test; npm run lint; npm run build`.
+3. **Playwright E2E Tests**: `cd frontend; npx playwright test`.
 
 ### Manual Verification
-- Test interactive SVG station blueprint diagram hover & station modal.
-- Test SI <-> Imperial unit toggle across all page metrics and Plotly charts.
-- Test loading presets (CFM56-7B, Merlin 1D, F-16, etc.) on each analysis page.
-- Test STL 3D export for MoC rocket nozzle geometry.
-- Test keyboard shortcuts (`?` key overlay).
+- Verify browser interaction and UI responsiveness in light and dark themes.
+- Confirm seamless unit switching between SI and Imperial across all pages and blueprint components.
+- Confirm 3D STL/OBJ downloads and CSV/JSON report exports download valid files.
