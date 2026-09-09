@@ -14,11 +14,14 @@ Verification:
 - Reference evidence: 9 PASS and 1 INCOMPATIBLE cryogenic CEA case.
 - No backend/core calculation source changed during dependency remediation.
 
-Closeout: 146 scoped files are staged and locally verified. No commit or push occurred.
-Automatic approval review rejected the combined commit and push to main because the broad default-branch publication requires explicit user approval.
-Resume only after approval for this exact commit/push operation. Do not bypass the rejection with another branch or indirect command.
+Closeout: the user approved the exact sprint commit and push.
+Commit becce7feb82014f8b7390b7987f31d5a1fed8c95 was pushed successfully to origin/main.
+Message: Complete engineering assurance sprints and remove vulnerable map runtime.
+CI was in progress at the last check: https://github.com/PuwitChao/PropulsionLab/actions/runs/34364615305.
+The user explicitly approved this documentation follow-up for commit and push.
+No remote CI pass is claimed.
 Remote CI must pass for the immutable revision before the software release gate can pass.
-GitHub CLI lacks authentication. Git transport is available; public CI API access remains to be checked.
+GitHub CLI lacks authentication. Git push and read-only public CI API access both succeeded.
 
 Resume:
 

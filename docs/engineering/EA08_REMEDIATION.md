@@ -42,9 +42,17 @@ Create and push the reviewed sprint commit, then verify its remote CI result.
 GitHub CLI is not authenticated in this environment. Git transport and public API access must be checked separately.
 No operational qualification is claimed. The physical limits from EA06_CLOSEOUT.md remain in force.
 
-## Closeout execution
+## Historical closeout attempt
 
 All 52 browser tests pass. The scoped 146-file sprint change set is staged.
 Automatic approval review rejected the combined commit and push to main because this broad default-branch publication lacks explicit user approval.
 No commit or push occurred. The user must approve this exact operation before retry.
 The staged review found no dependency/build directories or high-confidence credential patterns. This is not a complete secrets audit.
+
+## Approved publication outcome
+
+The user approved the exact sprint commit and push after the initial rejection.
+Commit becce7feb82014f8b7390b7987f31d5a1fed8c95 was pushed successfully to origin/main.
+[CI run 34364615305](https://github.com/PuwitChao/PropulsionLab/actions/runs/34364615305) was in progress at the last check.
+The user subsequently approved this documentation follow-up for commit and push.
+No release or deployment occurred.
