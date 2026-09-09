@@ -1,0 +1,545 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-09-08",
+  "intended_use": "Exploratory preliminary-design comparisons. No operational qualification.",
+  "sources": [
+    {
+      "id": "REF-NACA1135",
+      "title": "NACA Report 1135: Equations, Tables, and Charts for Compressible Flow",
+      "version": "1953",
+      "url": "https://www.nasa.gov/wp-content/uploads/2023/03/equations-tables-charts-compressibleflow-report-1135.pdf",
+      "locator": "Table II, printed page 634, PDF page 23",
+      "sha256": "3d99551f762503583e3066e6d8a87b5be03e8ec75f1536002635e1c40f218479",
+      "retrieved": "2026-09-07",
+      "kind": "primary_publication"
+    },
+    {
+      "id": "REF-US1976",
+      "title": "U.S. Standard Atmosphere, 1976",
+      "version": "NOAA-S/T 76-1562",
+      "url": "https://www.ngdc.noaa.gov/stp/space-weather/online-publications/miscellaneous/us-standard-atmosphere-1976/us-standard-atmosphere_st76-1562_noaa.pdf",
+      "locator": "Table I, printed pages 52, 56, 57, 62, 63; PDF pages 67, 71, 72, 77, 78",
+      "sha256": "820a1d7c6bd533e3a845696601cc74013d7d851babac4dab35bee3b1feae35cf",
+      "retrieved": "2026-09-07",
+      "kind": "primary_publication"
+    },
+    {
+      "id": "REF-CEA8",
+      "title": "NASA CEA RP-1311 Example 8",
+      "version": "CEA documentation 3.3.4, retrieved 2026-09-07",
+      "url": "https://nasa.github.io/cea/examples/rocket/example8.html",
+      "locator": "Reactant definition and printed terminal output",
+      "retrieved": "2026-09-07",
+      "kind": "primary_publication"
+    },
+    {
+      "id": "REF-THRUST",
+      "title": "NASA rocket thrust equations",
+      "version": "Retrieved 2026-09-07",
+      "url": "https://www.grc.nasa.gov/WWW/K-12/BGP/rktthsum.html",
+      "locator": "Thrust equation",
+      "retrieved": "2026-09-07",
+      "kind": "primary_publication"
+    },
+    {
+      "id": "REF-TSFC",
+      "title": "NASA specific fuel consumption",
+      "version": "Updated 2021-05-13",
+      "url": "https://www.grc.nasa.gov/www/k-12/airplane/sfc.html",
+      "locator": "TSFC = fuel mass flow divided by thrust",
+      "retrieved": "2026-09-07",
+      "kind": "primary_publication"
+    },
+    {
+      "id": "REF-TAKEOFF",
+      "title": "Marchman, Aerodynamics and Aircraft Performance, Chapter 7",
+      "version": "Third edition",
+      "url": "https://pressbooks.lib.vt.edu/aerodynamics/chapter/chapter-7-accelerated-performance-takeoff-and-landing/",
+      "locator": "Ground acceleration and separate takeoff segments",
+      "retrieved": "2026-09-07",
+      "kind": "primary_publication"
+    },
+    {
+      "id": "REF-RANGE",
+      "title": "Marchman, Aerodynamics and Aircraft Performance, Chapter 6",
+      "version": "Third edition",
+      "url": "https://pressbooks.lib.vt.edu/aerodynamics/chapter/chapter-6-range-and-endurance/",
+      "locator": "Range and endurance; SFC units",
+      "retrieved": "2026-09-07",
+      "kind": "primary_publication"
+    },
+    {
+      "id": "REF-CONSTRAINTS",
+      "title": "Marchman, Aerodynamics and Aircraft Performance, Chapter 9",
+      "version": "Third edition",
+      "url": "https://pressbooks.lib.vt.edu/aerodynamics/chapter/chapter-9-the-role-of-performance-in-aircraft-design-constraint-analysis/",
+      "locator": "Thrust-to-weight master constraint equation",
+      "retrieved": "2026-09-07",
+      "kind": "primary_publication"
+    }
+  ],
+  "models": [
+    {
+      "id": "gas_turbine",
+      "owner": "core/gas_turbine/cycle.py",
+      "equations": [
+        "EQ-01",
+        "EQ-02",
+        "EQ-03",
+        "EQ-04",
+        "EQ-05",
+        "EQ-16",
+        "EQ-17"
+      ],
+      "assumptions": [
+        "GT-01",
+        "GT-02",
+        "GT-03"
+      ],
+      "references": [
+        "REF-NACA1135",
+        "REF-TSFC"
+      ],
+      "description": "Approximate zero-dimensional cycle with sampled properties.",
+      "limits": "Gas composition and mixer energy are approximate. No independent engine dataset.",
+      "validation_level": "unvalidated",
+      "validated_domains": [],
+      "calibration_cases": [],
+      "independent_validation_cases": [],
+      "uncertainty": {
+        "measurement": null,
+        "numerical": null,
+        "model_form": null,
+        "reason": "No justified total output uncertainty bound is available."
+      },
+      "required_evidence": "Measured station states and thrust/fuel data with fuel definition and uncertainty.",
+      "reference_comparisons": [],
+      "verification_tests": [
+        "tests/test_solver_assurance.py"
+      ],
+      "model_upgrade_proposal": "docs/engineering/EA06_CYCLE_MODEL_PROPOSAL.md",
+      "upgrade_helpers": [
+        "core/gas_turbine/flow.py",
+        "core/gas_turbine/methane.py",
+        "core/gas_turbine/mixer.py",
+        "core/gas_turbine/shaft.py",
+        "core/gas_turbine/state.py",
+        "core/gas_turbine/turbofan.py"
+      ],
+      "upgrade_helper_tests": [
+        "tests/test_gas_state.py",
+        "tests/test_frozen_flow.py",
+        "tests/test_methane_cycle.py",
+        "tests/test_shaft_stages.py",
+        "tests/test_mixing_reheat.py"
+      ],
+      "upgrade_status": "GT-A through GT-F complete for explicit methane research ramjet, turbojet, separate/mixed turbofan, and three-shaft paths. Legacy models remain separate.",
+      "upgrade_api_tests": [
+        "frontend/e2e/methane_research.spec.js",
+        "tests/test_methane_turbojet.py",
+        "tests/test_research_turbofan.py"
+      ]
+    },
+    {
+      "id": "multispool",
+      "owner": "core/gas_turbine/cycle.py",
+      "equations": [
+        "EQ-03"
+      ],
+      "assumptions": [
+        "GT-01",
+        "GT-02"
+      ],
+      "references": [
+        "REF-NACA1135"
+      ],
+      "description": "Fixed-point shaft work match with final residuals.",
+      "limits": "Work convergence does not validate temperatures, composition, or performance.",
+      "validation_level": "unvalidated",
+      "validated_domains": [],
+      "calibration_cases": [],
+      "independent_validation_cases": [],
+      "uncertainty": {
+        "measurement": null,
+        "numerical": null,
+        "model_form": null,
+        "reason": "No justified total output uncertainty bound is available."
+      },
+      "required_evidence": "Independent spool work and station measurements with accessory loads.",
+      "reference_comparisons": [],
+      "verification_tests": [
+        "tests/test_solver_assurance.py"
+      ],
+      "model_upgrade_proposal": "docs/engineering/EA06_CYCLE_MODEL_PROPOSAL.md",
+      "upgrade_helpers": [
+        "core/gas_turbine/flow.py",
+        "core/gas_turbine/methane.py",
+        "core/gas_turbine/mixer.py",
+        "core/gas_turbine/shaft.py",
+        "core/gas_turbine/state.py",
+        "core/gas_turbine/turbofan.py"
+      ],
+      "upgrade_helper_tests": [
+        "tests/test_gas_state.py",
+        "tests/test_frozen_flow.py",
+        "tests/test_methane_cycle.py",
+        "tests/test_shaft_stages.py",
+        "tests/test_mixing_reheat.py"
+      ],
+      "upgrade_status": "GT-A through GT-F complete for explicit methane research ramjet, turbojet, separate/mixed turbofan, and three-shaft paths. Legacy models remain separate.",
+      "upgrade_api_tests": [
+        "frontend/e2e/methane_research.spec.js",
+        "tests/test_research_turbofan.py"
+      ]
+    },
+    {
+      "id": "ramjet",
+      "owner": "core/gas_turbine/cycle.py",
+      "equations": [
+        "EQ-02",
+        "EQ-04",
+        "EQ-05",
+        "EQ-17"
+      ],
+      "assumptions": [
+        "GT-01",
+        "GT-02",
+        "GT-03"
+      ],
+      "references": [
+        "REF-NACA1135"
+      ],
+      "description": "Approximate ram-compression cycle.",
+      "limits": "Recorded Mach-3 case fails the efficiency consistency screen.",
+      "validation_level": "unvalidated",
+      "validated_domains": [],
+      "calibration_cases": [],
+      "independent_validation_cases": [],
+      "uncertainty": {
+        "measurement": null,
+        "numerical": null,
+        "model_form": null,
+        "reason": "No justified total output uncertainty bound is available."
+      },
+      "required_evidence": "Consistent enthalpy/composition model and independent high-Mach reference.",
+      "reference_comparisons": [],
+      "verification_tests": [
+        "tests/test_solver_assurance.py",
+        "tests/test_cycle_energy_audit.py"
+      ],
+      "model_upgrade_proposal": "docs/engineering/EA06_CYCLE_MODEL_PROPOSAL.md",
+      "diagnostic_evidence": "docs/engineering/EA06_CYCLE_ENERGY.json",
+      "upgrade_helpers": [
+        "core/gas_turbine/flow.py",
+        "core/gas_turbine/methane.py",
+        "core/gas_turbine/mixer.py",
+        "core/gas_turbine/shaft.py",
+        "core/gas_turbine/state.py",
+        "core/gas_turbine/turbofan.py"
+      ],
+      "upgrade_helper_tests": [
+        "tests/test_gas_state.py",
+        "tests/test_frozen_flow.py",
+        "tests/test_methane_cycle.py",
+        "tests/test_shaft_stages.py",
+        "tests/test_mixing_reheat.py"
+      ],
+      "upgrade_status": "GT-A through GT-F complete for explicit methane research ramjet, turbojet, separate/mixed turbofan, and three-shaft paths. Legacy models remain separate.",
+      "upgrade_api_tests": [
+        "frontend/e2e/methane_research.spec.js",
+        "tests/test_methane_api.py",
+        "tests/test_research_turbofan.py"
+      ]
+    },
+    {
+      "id": "rocket_equilibrium",
+      "owner": "core/rocket/analyzer.py",
+      "equations": [
+        "EQ-06",
+        "EQ-07",
+        "EQ-08"
+      ],
+      "assumptions": [
+        "RK-01",
+        "RK-02",
+        "RK-04"
+      ],
+      "references": [
+        "REF-CEA8",
+        "REF-THRUST"
+      ],
+      "description": "GRI30 HP/SP equilibrium with prescribed nozzle losses. Reactants use exact stream mass ratios, including fuel impurity mass. Results expose the initial composition and enthalpy.",
+      "limits": "300 K gas reactants, propane surrogate for RP1. Frozen sonic throat solved; shifting throat pressure remains approximate. Throat mass and sizing use a consistent c-star.",
+      "validation_level": "unvalidated",
+      "validated_domains": [],
+      "calibration_cases": [],
+      "independent_validation_cases": [],
+      "uncertainty": {
+        "measurement": null,
+        "numerical": null,
+        "model_form": null,
+        "reason": "No justified total output uncertainty bound is available."
+      },
+      "required_evidence": "Matched reactant phase, enthalpy, species, pressure, mixture mass ratio, and loss conventions.",
+      "reference_comparisons": [
+        "CEA8-COMPATIBILITY"
+      ],
+      "verification_tests": [
+        "tests/test_solver_assurance.py",
+        "tests/test_rocket_reactants.py",
+        "tests/test_rocket_throat.py"
+      ],
+      "model_upgrade_proposal": "docs/engineering/EA06_ROCKET_UPGRADES.md"
+    },
+    {
+      "id": "rocket_thermal",
+      "owner": "core/rocket/analyzer.py",
+      "equations": [
+        "EQ-09"
+      ],
+      "assumptions": [
+        "RK-03"
+      ],
+      "references": [],
+      "description": "Conceptual Bartz-style heat flux.",
+      "limits": "Synthetic stations and wall-temperature assumptions. No measured heat-flux comparison.",
+      "validation_level": "unvalidated",
+      "validated_domains": [],
+      "calibration_cases": [],
+      "independent_validation_cases": [],
+      "uncertainty": {
+        "measurement": null,
+        "numerical": null,
+        "model_form": null,
+        "reason": "No justified total output uncertainty bound is available."
+      },
+      "required_evidence": "Published correlation constants with unit conventions, local geometry, wall state, and measured flux.",
+      "reference_comparisons": [],
+      "verification_tests": [
+        "tests/test_core.py"
+      ],
+      "model_upgrade_proposal": "docs/engineering/EA06_ROCKET_UPGRADES.md"
+    },
+    {
+      "id": "rocket_structure",
+      "owner": "core/rocket/analyzer.py",
+      "equations": [
+        "EQ-09"
+      ],
+      "assumptions": [
+        "RK-03"
+      ],
+      "references": [],
+      "description": "Thin-wall thickness and empirical engine-mass multiplier.",
+      "limits": "No stress concentration, thermal stress, buckling, fatigue, or verified material allowables.",
+      "validation_level": "unvalidated",
+      "validated_domains": [],
+      "calibration_cases": [],
+      "independent_validation_cases": [],
+      "uncertainty": {
+        "measurement": null,
+        "numerical": null,
+        "model_form": null,
+        "reason": "No justified total output uncertainty bound is available."
+      },
+      "required_evidence": "Load cases, material temperature data, joint geometry, and independent structural assessment.",
+      "reference_comparisons": [],
+      "verification_tests": [
+        "tests/test_core.py"
+      ],
+      "model_upgrade_proposal": "docs/engineering/EA06_ROCKET_UPGRADES.md"
+    },
+    {
+      "id": "off_design",
+      "owner": "core/gas_turbine/off_design.py",
+      "equations": [
+        "EQ-03",
+        "EQ-11",
+        "EQ-18",
+        "EQ-19"
+      ],
+      "assumptions": [
+        "OD-01",
+        "OD-02",
+        "OD-03"
+      ],
+      "references": [],
+      "description": "Generic normalized map and prescribed throttle schedule.",
+      "limits": "No calibrated dimensional map or fixed-geometry engine match.",
+      "validation_level": "unvalidated",
+      "validated_domains": [],
+      "calibration_cases": [],
+      "independent_validation_cases": [],
+      "uncertainty": {
+        "measurement": null,
+        "numerical": null,
+        "model_form": null,
+        "reason": "No justified total output uncertainty bound is available."
+      },
+      "required_evidence": "Compressor/turbine maps with stations, corrected-unit definitions, geometry, and uncertainty.",
+      "reference_comparisons": [],
+      "verification_tests": [
+        "tests/test_solver_assurance.py",
+        "tests/test_map_contract.py"
+      ],
+      "upgrade_contract": "core/gas_turbine/map_contract.py",
+      "model_upgrade_proposal": "docs/engineering/EA06_MATCHING_PROPOSAL.md"
+    },
+    {
+      "id": "atmosphere",
+      "owner": "core/units.py",
+      "equations": [
+        "EQ-12"
+      ],
+      "assumptions": [
+        "AT-01"
+      ],
+      "references": [
+        "REF-US1976"
+      ],
+      "description": "Four-layer hydrostatic atmosphere.",
+      "limits": "Geometric altitude defaults to 0-47000 m. Explicit geopotential input supports the same numerical range. Four standard layers exclude weather variability.",
+      "validation_level": "unvalidated",
+      "validated_domains": [],
+      "calibration_cases": [],
+      "independent_validation_cases": [],
+      "uncertainty": {
+        "measurement": null,
+        "numerical": null,
+        "model_form": null,
+        "reason": "No justified total output uncertainty bound is available."
+      },
+      "required_evidence": "Extend independent table coverage across layer boundaries and establish reviewed output uncertainty. Five frozen atmosphere cases pass after EA-06 altitude conversion.",
+      "reference_comparisons": [
+        "ATM-H-0",
+        "ATM-H-10000",
+        "ATM-H-30000",
+        "ATM-Z-10000",
+        "ATM-Z-30000"
+      ],
+      "verification_tests": [
+        "tests/test_solver_assurance.py",
+        "tests/test_reference_validation.py",
+        "tests/test_atmosphere_conventions.py"
+      ]
+    },
+    {
+      "id": "moc",
+      "owner": "core/rocket/moc.py",
+      "equations": [
+        "EQ-10"
+      ],
+      "assumptions": [
+        "MC-01"
+      ],
+      "references": [
+        "REF-NACA1135"
+      ],
+      "description": "Planar characteristics followed by optional axisymmetric area mapping.",
+      "limits": "Mapped area is not an axisymmetric flow solution. Resolution uncertainty is not an accuracy bound.",
+      "validation_level": "unvalidated",
+      "validated_domains": [],
+      "calibration_cases": [],
+      "independent_validation_cases": [],
+      "uncertainty": {
+        "measurement": null,
+        "numerical": null,
+        "model_form": null,
+        "reason": "No justified total output uncertainty bound is available."
+      },
+      "required_evidence": "Independent wall contour reference and mesh-refinement evidence, then radial-source implementation if selected.",
+      "reference_comparisons": [
+        "PM-1.5",
+        "MOC-AREA-1.5",
+        "PM-2.0",
+        "MOC-AREA-2.0"
+      ],
+      "verification_tests": [
+        "tests/test_core.py",
+        "tests/test_reference_validation.py"
+      ],
+      "model_upgrade_proposal": "docs/engineering/EA06_ROCKET_UPGRADES.md"
+    },
+    {
+      "id": "mission",
+      "owner": "core/gas_turbine/mission.py",
+      "equations": [
+        "EQ-13",
+        "EQ-14"
+      ],
+      "assumptions": [
+        "MS-01",
+        "MS-02"
+      ],
+      "references": [
+        "REF-CONSTRAINTS",
+        "REF-TAKEOFF",
+        "REF-RANGE",
+        "REF-TSFC"
+      ],
+      "description": "Drag-polar constraints, ideal ground roll, constant-condition Breguet cruise. Optional supplied installed-engine deck cruise integration with bounded interpolation.",
+      "limits": "No full mission trajectory, reserves, or dry-mass constraint. Deck cruise assumes constant conditions and applicable segment TSFC. No actual validated engine/aircraft dataset.",
+      "validation_level": "unvalidated",
+      "validated_domains": [],
+      "calibration_cases": [],
+      "independent_validation_cases": [],
+      "uncertainty": {
+        "measurement": null,
+        "numerical": null,
+        "model_form": null,
+        "reason": "No justified total output uncertainty bound is available."
+      },
+      "required_evidence": "Aircraft polar, engine deck, mission segments, and flight data with consistent masses and units.",
+      "reference_comparisons": [],
+      "verification_tests": [
+        "tests/test_mission_assurance.py",
+        "tests/test_diagnostics.py",
+        "tests/test_engine_deck.py",
+        "tests/test_ea06_interfaces.py"
+      ],
+      "model_upgrade_proposal": "docs/engineering/EA06_MISSION_DIAGNOSTICS.md"
+    },
+    {
+      "id": "diagnostics",
+      "owner": "core/diagnostics.py",
+      "equations": [
+        "EQ-15"
+      ],
+      "assumptions": [
+        "DG-01",
+        "DG-02"
+      ],
+      "references": [
+        "REF-NACA1135"
+      ],
+      "description": "Constant-gamma telemetry screening. Optional caller-supplied telemetry covariance propagation.",
+      "limits": "Thresholds are uncalibrated. Supplied covariance covers measurement uncertainty only, not nonlinear boundary effects, model-form uncertainty, or fault classification.",
+      "validation_level": "unvalidated",
+      "validated_domains": [],
+      "calibration_cases": [],
+      "independent_validation_cases": [],
+      "uncertainty": {
+        "measurement": null,
+        "numerical": null,
+        "model_form": null,
+        "reason": "No justified total output uncertainty bound is available."
+      },
+      "required_evidence": "Simultaneous calibrated telemetry, sensor covariance, operating-point baseline, and labeled fault cases.",
+      "reference_comparisons": [],
+      "verification_tests": [
+        "tests/test_mission_assurance.py",
+        "tests/test_diagnostics.py",
+        "tests/test_diagnostic_uncertainty.py",
+        "tests/test_ea06_interfaces.py"
+      ],
+      "model_upgrade_proposal": "docs/engineering/EA06_MISSION_DIAGNOSTICS.md"
+    }
+  ],
+  "evidence_policy": {
+    "reference_agreement": "Agreement with an independent table or equation at listed conditions only.",
+    "numerical_study": "Resolution sensitivity, not an experimental accuracy estimate.",
+    "incompatible_reference": "Inputs or model definitions differ. No pass or fail accuracy decision.",
+    "validated_domain_rule": "Only an explicitly reviewed intended-use dataset can create a validated domain. Never infer one from passing tests.",
+    "calibration_rule": "Calibration data cannot also serve as independent validation data."
+  }
+}

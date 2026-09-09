@@ -2,7 +2,7 @@
 Rocket Propulsion Analysis Core (v2.0.1-STABLE)
 
 Systematic solver for rocket combustion equilibrium and nozzle expansion.
-Models high-fidelity thermochemistry using Cantera and standard aerospace correlations.
+Uses Cantera thermochemistry and declared engineering approximations.
 
 Key Capabilities:
 - Equilibrium Composition: Shifting or Frozen flow models.
@@ -15,11 +15,15 @@ import math
 from typing import Any, Optional
 import cantera as ct
 from ..units import G
+from ..gas_turbine.state import _snapshot
+from ..gas_turbine.flow import convergent_nozzle
+from ..errors import InputValidationError, DependencyError, UnsupportedModelError, ModelDomainError, PhysicalInfeasibilityError, SolverError, ThermochemistryError
+from ..solver_result import rocket_result, assurance, failed_point
 
 
 class RocketAnalyzer:
     """
-    High-fidelity rocket combustion and nozzle analyzer.
+    Cantera equilibrium and approximate nozzle analyzer.
     
     Equations are based on the NASA Chemical Equilibrium with Applications (CEA) 
     methodology, adapted for real-time design iterations.
@@ -32,7 +36,10 @@ class RocketAnalyzer:
 
     def _new_gas(self) -> ct.Solution:
         """Returns a fresh, isolated Cantera GRI30 solution object for thread safety."""
-        return ct.Solution('gri30.yaml', transport_model='mixture-averaged')
+        try:
+            return ct.Solution('gri30.yaml', transport_model='mixture-averaged')
+        except ct.CanteraError as exc:
+            raise DependencyError('The GRI30 thermochemistry mechanism is unavailable.') from exc
 
     def __init__(self, chamber_p_pa: float) -> None:
         """
@@ -45,26 +52,26 @@ class RocketAnalyzer:
         self.pc   = chamber_p_pa
         self.propellants = {
             # Rocket Standard Liquid Propellants
-            'H2/O2'       : {'fuel': 'H2',      'ox': 'O2',     'stoich': 7.94},
-            'CH4/O2'      : {'fuel': 'CH4',     'ox': 'O2',     'stoich': 4.00},
-            'RP1/O2'      : {'fuel': 'C3H8',    'ox': 'O2',     'stoich': 3.63},  # Surrogate (Propane)
-            'Propane/O2'  : {'fuel': 'C3H8',    'ox': 'O2',     'stoich': 3.63},
-            'Ethanol/O2'  : {'fuel': 'C2H5OH',  'ox': 'O2',     'stoich': 2.09},  # Ethanol (actual species)
-            'Methanol/O2' : {'fuel': 'CH3OH',   'ox': 'O2',     'stoich': 1.50},
-            'Ammonia/O2'  : {'fuel': 'NH3',     'ox': 'O2',     'stoich': 1.41},
+            'H2/O2'       : {'fuel': 'H2',      'ox': 'O2'},
+            'CH4/O2'      : {'fuel': 'CH4',     'ox': 'O2'},
+            'RP1/O2'      : {'fuel': 'C3H8',    'ox': 'O2'},  # Surrogate (Propane)
+            'Propane/O2'  : {'fuel': 'C3H8',    'ox': 'O2'},
+            'Ethanol/O2'  : {'fuel': 'C2H5OH',  'ox': 'O2'},  # Ethanol (actual species)
+            'Methanol/O2' : {'fuel': 'CH3OH',   'ox': 'O2'},
+            'Ammonia/O2'  : {'fuel': 'NH3',     'ox': 'O2'},
             
             # High Energy / Tactical
-            'C2H2/O2'     : {'fuel': 'C2H2',    'ox': 'O2',     'stoich': 3.07},
-            'C2H4/O2'     : {'fuel': 'C2H4',    'ox': 'O2',     'stoich': 3.42},
-            'C2H6/O2'      : {'fuel': 'C2H6',    'ox': 'O2',     'stoich': 3.72},
+            'C2H2/O2'     : {'fuel': 'C2H2',    'ox': 'O2'},
+            'C2H4/O2'     : {'fuel': 'C2H4',    'ox': 'O2'},
+            'C2H6/O2'      : {'fuel': 'C2H6',    'ox': 'O2'},
             
             # Nitrous Oxide based (Hybrid/Small)
-            'CH4/N2O'     : {'fuel': 'CH4',     'ox': 'N2O',    'stoich': 11.0},
-            'C3H8/N2O'    : {'fuel': 'C3H8',    'ox': 'N2O',    'stoich': 9.98},
+            'CH4/N2O'     : {'fuel': 'CH4',     'ox': 'N2O'},
+            'C3H8/N2O'    : {'fuel': 'C3H8',    'ox': 'N2O'},
             
             # Hypergolic (Storable)
-            'UDMH/N2O4'    : {'fuel': 'C2H8N2',  'ox': 'N2O4',   'stoich': 2.61},
-            'MMH/N2O4'     : {'fuel': 'CH6N2',   'ox': 'N2O4',   'stoich': 1.64},
+            'UDMH/N2O4'    : {'fuel': 'C2H8N2',  'ox': 'N2O4'},
+            'MMH/N2O4'     : {'fuel': 'CH6N2',   'ox': 'N2O4'},
         }
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -171,6 +178,7 @@ class RocketAnalyzer:
         }
 
     # ─────────────────────────────────────────────────────────────────────────
+    @rocket_result
     def solve_equilibrium(
         self,
         propellant_name: str,
@@ -182,6 +190,7 @@ class RocketAnalyzer:
         compute_heat_transfer: bool = True,
         impurity_species: Optional[str] = None,
         impurity_mass_frac: float = 0.0,
+        p_ambient_pa: float = 101325.0,
     ) -> dict[str, Any]:
         """
         Solves chamber equilibrium and nozzle expansion.
@@ -189,7 +198,8 @@ class RocketAnalyzer:
         Args:
             propellant_name: Key from self.propellants (e.g., 'H2/O2').
             of_ratio: Oxidizer-to-fuel mass ratio.
-            p_exit_pa: Ambient exit pressure [Pa]. Defaults to 101325.
+            p_exit_pa: Nozzle design exit static pressure [Pa].
+            p_ambient_pa: Ambient pressure [Pa], independent of exit pressure.
             mode: 'shifting' or 'frozen' equilibrium. Defaults to 'shifting'.
             exit_half_angle_deg: Nozzle exit half-angle. Defaults to 15.0.
             thrust_target_N: Optional vacuum thrust target for engine sizing [N].
@@ -200,41 +210,68 @@ class RocketAnalyzer:
         Returns:
             dict: Comprehensive results including Isp, thrust, dimensions, and composition.
         """
+        if not all(math.isfinite(v) for v in (self.pc, p_exit_pa, p_ambient_pa, of_ratio, exit_half_angle_deg, impurity_mass_frac)):
+            raise InputValidationError('Rocket inputs must be finite.')
+        if not 0 < p_exit_pa < self.pc or p_ambient_pa < 0:
+            raise InputValidationError('Require 0 < Pe < Pc and Pa >= 0.', pc=self.pc, pe=p_exit_pa, pa=p_ambient_pa)
+        if p_ambient_pa >= self.pc:
+            raise PhysicalInfeasibilityError('Chamber pressure must exceed ambient pressure.', pc=self.pc, pa=p_ambient_pa)
+        if mode not in {'shifting', 'frozen'}:
+            raise InputValidationError('Mode must be shifting or frozen.')
+        if not 0 <= exit_half_angle_deg < 90 or not 0 <= impurity_mass_frac < 1:
+            raise InputValidationError('Invalid nozzle angle or impurity fraction.')
+        if thrust_target_N is not None and (not math.isfinite(thrust_target_N) or thrust_target_N <= 0):
+            raise InputValidationError('Vacuum thrust target must be finite and positive.')
         if propellant_name not in self.propellants:
-            raise ValueError(
+            raise InputValidationError(
                 f"Unknown propellant '{propellant_name}'. "
                 f"Valid keys: {sorted(self.propellants)}"
             )
         if of_ratio <= 0:
-            raise ValueError(f"O/F ratio must be positive, got {of_ratio}")
+            raise InputValidationError(f"O/F ratio must be positive, got {of_ratio}")
 
         gas = self._new_gas()
 
         if impurity_species:
             if not (0.0 <= impurity_mass_frac < 1.0):
-                raise ValueError(
+                raise InputValidationError(
                     f"Impurity mass fraction must be in range [0.0, 1.0), got {impurity_mass_frac}"
                 )
             if impurity_species not in gas.species_names:
-                raise ValueError(
+                raise InputValidationError(
                     f"Impurity species '{impurity_species}' not found in the Cantera mechanism."
                 )
 
 
         math_trace = []
         prop = self.propellants[propellant_name]
-        phi  = prop['stoich'] / of_ratio
-        math_trace.append(f"Propellants: {propellant_name} (Stoich O/F: {prop['stoich']})")
-        math_trace.append(f"Equivalence Ratio φ = {phi:.4f}")
-
-        gas.TP = 300.0, self.pc
-        if impurity_species and impurity_mass_frac > 0:
-            # Handle impurity in fuel
-            # Y_fuel = 1 - impurity_mass_frac, Y_impurity = impurity_mass_frac
-            fuel_mix = {prop['fuel']: (1.0 - impurity_mass_frac), impurity_species: impurity_mass_frac}
-            gas.set_equivalence_ratio(phi, fuel_mix, prop['ox'])
-        else:
-            gas.set_equivalence_ratio(phi, prop['fuel'], prop['ox'])
+        missing = [prop[key] for key in ('fuel', 'ox') if prop[key] not in gas.species_names]
+        if missing:
+            raise UnsupportedModelError('The mechanism lacks species: ' + ', '.join(missing), propellant=propellant_name)
+        if impurity_mass_frac > 0 and not impurity_species:
+            raise InputValidationError('A positive impurity fraction requires an impurity species.')
+        # O/F uses total fuel-stream mass, including any impurity.
+        fuel_mix = {prop['fuel']: 1.0 - impurity_mass_frac}
+        if impurity_mass_frac > 0:
+            fuel_mix[impurity_species] = fuel_mix.get(impurity_species, 0.0) + impurity_mass_frac
+        reactant_mass = dict(fuel_mix)
+        reactant_mass[prop['ox']] = reactant_mass.get(prop['ox'], 0.0) + of_ratio
+        gas.TPY = 300.0, self.pc, reactant_mass
+        phi = float(gas.equivalence_ratio(fuel_mix, prop['ox'], basis='mass'))
+        reactants = {
+            'temperature_k': float(gas.T),
+            'pressure_pa': float(gas.P),
+            'phase': 'ideal-gas',
+            'mechanism': 'gri30.yaml',
+            'of_ratio': of_ratio,
+            'of_basis': 'oxidizer_stream_mass / total_fuel_stream_mass',
+            'fuel_stream_mass_fractions': fuel_mix,
+            'oxidizer_species': prop['ox'],
+            'mass_fractions': {name: float(y) for name, y in zip(gas.species_names, gas.Y) if y > 0},
+            'specific_enthalpy_j_per_kg': float(gas.enthalpy_mass),
+        }
+        math_trace.append(f"Propellants: {propellant_name}; oxidizer/total fuel-stream mass = {of_ratio}")
+        math_trace.append(f"Equivalence Ratio φ = {phi:.6f} (mechanism-derived, mass basis)")
 
         # ── Chamber ──────────────────────────────────────────────────────
         gas.equilibrate('HP')
@@ -251,16 +288,21 @@ class RocketAnalyzer:
         r_spec_chamber = ct.gas_constant / mw_chamber
 
         frozen_X = gas.X.copy() if mode == 'frozen' else None
+        frozen_throat = convergent_nozzle(_snapshot(gas), self.pc*.1) if mode == 'frozen' else None
 
+        critical_pe = self.pc * (2 / (gamma_chamber + 1)) ** (gamma_chamber / (gamma_chamber - 1))
+        if frozen_throat is not None:
+            critical_pe = frozen_throat.critical_pressure_pa
+        if p_exit_pa >= critical_pe:
+            raise ModelDomainError('The divergent nozzle requires a choked throat and lower exit pressure.', critical_pe=critical_pe)
+        warnings = []
         # ── Nozzle exit ───────────────────────────────────────────────────
         if mode == 'shifting':
             gas.SP = s_chamber, p_exit_pa
             try:
                 gas.equilibrate('SP')
-            except Exception as exc:
-                raise ValueError(
-                    f"Nozzle exit equilibration failed (SP at {p_exit_pa:.0f} Pa): {exc}"
-                ) from exc
+            except ct.CanteraError as exc:
+                raise ThermochemistryError('Nozzle exit equilibrium failed.', pe=p_exit_pa) from exc
         else:
             gas.X = frozen_X
             gas.SP = s_chamber, p_exit_pa
@@ -271,7 +313,11 @@ class RocketAnalyzer:
         visc_exit = gas.viscosity
         cond_exit = gas.thermal_conductivity
 
-        v_exit_ideal = math.sqrt(max(0.0, 2.0 * (h_chamber - h_exit)))
+        exit_cp, exit_mw = gas.cp, gas.mean_molecular_weight
+        exit_composition = gas.mole_fraction_dict()
+        if h_chamber <= h_exit:
+            raise PhysicalInfeasibilityError('No positive enthalpy drop is available at the nozzle exit.')
+        v_exit_ideal = math.sqrt(2.0 * (h_chamber - h_exit))
 
         # ── Loss factors ──────────────────────────────────────────────────
         alpha_rad    = math.radians(exit_half_angle_deg)
@@ -294,29 +340,35 @@ class RocketAnalyzer:
             gas.SP = s_chamber, gas.P
             try:
                 gas.equilibrate('SP')
-            except Exception as exc:
-                raise ValueError(f"Throat equilibration failed: {exc}") from exc
+            except ct.CanteraError as exc:
+                raise ThermochemistryError('Throat equilibrium failed.') from exc
         else:
             gas.X = frozen_X
-            gas.SP = s_chamber, self.pc * (2 / (g + 1)) ** (g / (g - 1))
+            gas.SP = s_chamber, critical_pe
 
         rho_star = gas.density
-        v_star   = math.sqrt(max(0.0, 2.0 * (h_chamber - gas.h)))
+        if h_chamber <= gas.h:
+            raise PhysicalInfeasibilityError('No positive enthalpy drop is available at the throat.')
+        v_star = math.sqrt(2.0 * (h_chamber - gas.h))
+        c_star_constant_gamma = c_star
+        c_star = self.pc / (rho_star * v_star)
+        math_trace.append(f'Consistent c*: Pc/(rho_throat*V_throat) = {c_star:.3f} m/s')
         epsilon  = (rho_star * v_star) / (rho_exit * v_exit_ideal) if v_exit_ideal > 0 else 0.0
 
         # ── Specific impulse ──────────────────────────────────────────────
-        isp_delivered = v_exit_delivered / G
+        pressure_velocity = (p_exit_pa - p_ambient_pa) * epsilon * c_star / self.pc
+        isp_delivered = (v_exit_delivered + pressure_velocity) / G
         isp_ideal     = v_exit_ideal / G
         isp_vac       = (v_exit_delivered + (p_exit_pa * epsilon * c_star / self.pc)) / G if self.pc > 0 else 0.0
         isp_sl        = (v_exit_delivered + (p_exit_pa - 101325.0) * epsilon * c_star / self.pc) / G if self.pc > 0 else 0.0
 
         cf_ideal     = v_exit_ideal / c_star
-        cf_delivered = v_exit_delivered / c_star
+        cf_delivered = v_exit_delivered / c_star + (p_exit_pa - p_ambient_pa) * epsilon / self.pc
 
         import math as _math
         for _name, _val in [('isp_delivered', isp_delivered), ('isp_vac', isp_vac), ('c_star', c_star)]:
             if not _math.isfinite(_val):
-                raise ValueError(f"Solver produced non-finite {_name}={_val}; check inputs.")
+                raise InputValidationError(f"Solver produced non-finite {_name}={_val}; check inputs.")
 
         pr_chamber = visc_chamber * cp_chamber / cond_chamber if cond_chamber > 0 else 0.0
 
@@ -326,7 +378,7 @@ class RocketAnalyzer:
         # Solve At given thrust target
         if thrust_target_N is not None and thrust_target_N > 0 and c_star > 0:
             # Vacuum thrust: F_vac ≈ Cf_vac * Pc * At
-            cf_vac = cf_delivered + p_exit_pa * epsilon / self.pc  # approx Cf in vacuum
+            cf_vac = v_exit_delivered / c_star + p_exit_pa * epsilon / self.pc  # approx Cf in vacuum
             A_throat = thrust_target_N / (cf_vac * self.pc) if cf_vac * self.pc > 0 else 0.001
             A_exit   = A_throat * epsilon
             r_throat = math.sqrt(A_throat / math.pi)
@@ -377,21 +429,16 @@ class RocketAnalyzer:
                     cond_chamber=cond_chamber,
                     c_star=c_star,
                 )
-            except Exception:
+            except (ArithmeticError, ValueError):
                 heat_transfer = None
+                warnings.append('The optional heat-transfer estimate failed.')
 
         # ── Flow regime ───────────────────────────────────────────────────
-        regime = 'Ideally Expanded'
-        if p_exit_pa > 101325.0 * 1.05:
-            regime = 'Underexpanded'
-        elif p_exit_pa < 101325.0 * 0.95:
-            regime = 'Overexpanded'
-            if p_exit_pa < 0.35 * 101325.0:
-                regime = 'Separation Warning'
+        regime = self.flow_regime(p_exit_pa, p_ambient_pa)
 
         # Sonic velocity at exit
-        cpn_exit = gas.cp
-        mwn_exit = gas.mean_molecular_weight
+        cpn_exit = exit_cp
+        mwn_exit = exit_mw
         gn_exit  = cpn_exit / (cpn_exit - ct.gas_constant / mwn_exit)
         rn_exit = ct.gas_constant / mwn_exit
         a_exit  = math.sqrt(max(0.1, gn_exit * rn_exit * t_exit))
@@ -399,6 +446,9 @@ class RocketAnalyzer:
 
         return {
             # ── Thermochemistry ──────────────────────────────────────────
+            '_warnings': warnings,
+            'pc': self.pc, 'pe': p_exit_pa, 'pa': p_ambient_pa,
+            'thrust_ambient': mdot * isp_delivered * G,
             't_chamber'    : t_chamber,
             'h_chamber'    : h_chamber,
             's_chamber'    : s_chamber,
@@ -411,6 +461,7 @@ class RocketAnalyzer:
             'gamma'        : g,
             'mach_exit'    : mach_exit,
             'phi'          : phi,
+            'reactants'    : reactants,
             # ── Nozzle conditions ────────────────────────────────────────
             't_exit'       : t_exit,
             'h_exit'       : h_exit,
@@ -425,6 +476,11 @@ class RocketAnalyzer:
             'isp_vac'         : isp_vac,
             'isp_sl'          : isp_sl,
             'c_star'          : c_star,
+            'c_star_constant_gamma': c_star_constant_gamma,
+            'throat': {'pressure_pa': float(gas.P), 'temperature_k': float(gas.T),
+                       'density_kg_m3': float(rho_star), 'velocity_m_per_s': float(v_star),
+                       'method': 'frozen_sonic_root' if frozen_throat else 'chamber_gamma_pressure_equilibrium_state',
+                       'sonic_residual_j_per_kg': frozen_throat.sonic_residual_j_per_kg if frozen_throat else None},
             'cf_ideal'        : cf_ideal,
             'cf_delivered'    : cf_delivered,
             'lambda_div'      : lambda_div,
@@ -451,49 +507,47 @@ class RocketAnalyzer:
             'thrust_vac'        : mdot * isp_vac * G,
             'thrust_sl'         : mdot * isp_sl * G,
             # ── Exit species ─────────────────────────────────────────────
-            'composition_exit'  : gas.mole_fraction_dict(),
+            'composition_exit'  : exit_composition,
             'math_trace'        : math_trace,
         }
 
     # ─────────────────────────────────────────────────────────────────────────
-    def altitude_performance(
-        self,
-        propellant_name: str,
-        of_ratio: float,
-        altitudes_m: list[float],
-        mode: str = 'shifting',
-    ) -> list[dict[str, Any]]:
-        """
-        Calculates delivered Isp and Cf at various altitudes.
+    @staticmethod
+    def flow_regime(pe, pa):
+        if pa == 0 or pe > pa * 1.05:
+            return 'Underexpanded'
+        if pe < pa * 0.35:
+            return 'Separation Warning'
+        if pe < pa * 0.95:
+            return 'Overexpanded'
+        return 'Ideally Expanded'
 
-        Useful for launch vehicle staging and trajectory analysis.
-
-        Args:
-            propellant_name: Name of the propellant combination.
-            of_ratio: Mixture ratio (O/F).
-            altitudes_m: List of altitudes to evaluate [m].
-            mode: Equilibrium mode ('shifting' or 'frozen'). Defaults to 'shifting'.
-
-        Returns:
-            list: List of dictionaries containing performance metrics at each altitude.
-        """
+    def altitude_performance(self, propellant_name, of_ratio, altitudes_m,
+                             mode='shifting', p_exit_pa=101325.0, exit_half_angle_deg=15.0):
+        """Hold the nozzle design fixed and vary ambient pressure within the atmosphere domain."""
         from ..units import isa_atmosphere
+        design = self.solve_equilibrium(propellant_name, of_ratio, p_exit_pa, mode,
+                                        exit_half_angle_deg, compute_heat_transfer=False, p_ambient_pa=0)
         results = []
         for alt in altitudes_m:
-            p_amb, _, _ = isa_atmosphere(alt)
             try:
-                res = self.solve_equilibrium(
-                    propellant_name, of_ratio, p_exit_pa=p_amb, mode=mode,
-                    compute_heat_transfer=False,
-                )
-                results.append({
-                    'altitude_m'   : alt,
-                    'p_amb_pa'     : round(p_amb, 2),
-                    'isp_s'        : round(res['isp_delivered'], 2),
-                    'isp_vac'      : round(res['isp_vac'], 2),
-                    'cf_delivered' : round(res['cf_delivered'], 4),
-                    'regime'       : res['regime'],
-                })
-            except Exception as e:
-                results.append({'altitude_m': alt, 'error': str(e)})
+                pa, _, _ = isa_atmosphere(alt)
+                regime = self.flow_regime(p_exit_pa, pa)
+                meta = assurance('rocket_altitude', {'altitude_m': alt, 'pc': self.pc, 'pe': p_exit_pa, 'pa': pa},
+                                 assumptions=design['assurance']['assumptions'])
+                isp = design['isp_vac'] - pa * design['A_exit'] / (design['mdot_total'] * G)
+                if regime == 'Separation Warning':
+                    meta['status'] = 'OUTSIDE_MODEL_DOMAIN'
+                    meta['applicability']['within_model_domain'] = False
+                    meta['warnings'] = ['Separation screening limit exceeded. Attached-flow performance is unavailable.']
+                valid = meta['status'] != 'OUTSIDE_MODEL_DOMAIN'
+                results.append({'altitude_m': alt, 'p_amb_pa': pa, 'pe': p_exit_pa,
+                                'isp_s': isp if valid else None, 'isp_vac': design['isp_vac'],
+                                'cf_delivered': isp * G / design['c_star'] if valid else None,
+                                'epsilon': design['epsilon'], 'A_throat': design['A_throat'],
+                                'A_exit': design['A_exit'], 'mdot_total': design['mdot_total'],
+                                'regime': regime, 'status': meta['status'], 'assurance': meta,
+                                'error': not valid})
+            except SolverError as exc:
+                results.append(failed_point(exc, {'altitude_m': alt}, ('isp_s', 'isp_vac', 'cf_delivered')))
         return results

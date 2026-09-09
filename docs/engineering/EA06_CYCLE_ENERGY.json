@@ -1,0 +1,190 @@
+{
+  "schema_version": "1.0",
+  "cantera_version": "3.2.0",
+  "purpose": "Diagnostic approximation audit, not independent engine validation.",
+  "residual_convention": "Energy entering minus energy leaving. Frozen proxy composition is held constant for each enthalpy difference.",
+  "source_sha256": {
+    "core/gas_turbine/cycle.py": "9c655aa48db496c51dd1760c7225e98f8d80bf32c545d85121dd765267d37768",
+    "core/gas_turbine/thermo.py": "e35d1496fc0634f356732aeb353a00a84cab213cd7faa948a4dca1c846c4aaf0",
+    "core/units.py": "9fee82534489fb45d9db83ad09379b1b8ceeb5fbbe3744023368c97b0580b22f",
+    "core/solver_result.py": "8696fd588f9e2df8b0308e4fb713402fec08d39cb6b33e14fe651249af156484",
+    "tools/audit_cycle_energy.py": "b6543c2d6d73181c66ae6d683ee9e9bff9d9c0e8c3e3c7d544ccf9b60a66af9f"
+  },
+  "cases": [
+    {
+      "inputs": {
+        "altitude_m": 0,
+        "mach": 1.5,
+        "t4_k": 2200.0
+      },
+      "solver_status": "OUTSIDE_VALIDATED_DOMAIN",
+      "reported_efficiencies": {
+        "eta_thermal": 0.18116775025142604,
+        "eta_propulsive": 0.6875367571102242,
+        "eta_overall": 0.12455948750082046
+      },
+      "diagnostic_outputs": {},
+      "requested_fuel_air_ratio": 0.07089911993812077,
+      "property_proxy_fuel_air_ratio": 0.06090039023634061,
+      "proxy_ratio_relative_difference": -0.14102755733085026,
+      "freestream_energy_residual_j_per_kg_air": 961.860745196158,
+      "freestream_kinetic_energy_j_per_kg_air": 130781.90038750142,
+      "ambient_property_velocity_m_per_s": 511.4330853347316,
+      "legacy_thrust_velocity_m_per_s": 508.8592105114886,
+      "frozen_proxy_nozzle_energy_residual_j_per_kg_gas": -2858.3874434121535,
+      "exit_velocity_m_per_s": 856.4599269588816,
+      "pressure_force_n_per_kg_per_s_air": 334.4631596124567,
+      "jet_power_j_per_kg_air": 549750.3375110016,
+      "useful_power_j_per_kg_air": 377973.5642725653,
+      "jet_minus_useful_power_j_per_kg_air": 171776.77323843632
+    },
+    {
+      "inputs": {
+        "altitude_m": 0,
+        "mach": 2,
+        "t4_k": 2200.0
+      },
+      "solver_status": "OUTSIDE_VALIDATED_DOMAIN",
+      "reported_efficiencies": {
+        "eta_thermal": 0.21410257933709342,
+        "eta_propulsive": 0.8422128711451214,
+        "eta_overall": 0.1803199480630696
+      },
+      "diagnostic_outputs": {},
+      "requested_fuel_air_ratio": 0.06801328136375302,
+      "property_proxy_fuel_air_ratio": 0.0584215344269671,
+      "proxy_ratio_relative_difference": -0.14102755733085015,
+      "freestream_energy_residual_j_per_kg_air": 3348.5532366185507,
+      "freestream_kinetic_energy_j_per_kg_air": 232501.15624444696,
+      "ambient_property_velocity_m_per_s": 681.9107804463088,
+      "legacy_thrust_velocity_m_per_s": 676.3816519626315,
+      "frozen_proxy_nozzle_energy_residual_j_per_kg_gas": -2845.2886085020727,
+      "exit_velocity_m_per_s": 855.9938691090285,
+      "pressure_force_n_per_kg_per_s_air": 538.2183835123934,
+      "jet_power_j_per_kg_air": 623245.8518800046,
+      "useful_power_j_per_kg_air": 524905.6783411459,
+      "jet_minus_useful_power_j_per_kg_air": 98340.17353885877
+    },
+    {
+      "inputs": {
+        "altitude_m": 0,
+        "mach": 3,
+        "t4_k": 2200.0
+      },
+      "solver_status": "NUMERICAL_FAILURE",
+      "reported_efficiencies": {
+        "eta_thermal": null,
+        "eta_propulsive": null,
+        "eta_overall": null
+      },
+      "diagnostic_outputs": {
+        "spec_thrust": 582.7199716378992,
+        "tsfc": 0.00010108775605737521,
+        "eta_thermal": 0.18459315848658783,
+        "eta_propulsive": 1.2561281868425804,
+        "eta_overall": 0.23187266947330265
+      },
+      "requested_fuel_air_ratio": 0.058905854342692555,
+      "property_proxy_fuel_air_ratio": 0.05059850559225577,
+      "proxy_ratio_relative_difference": -0.14102755733085026,
+      "freestream_energy_residual_j_per_kg_air": 21641.13697746588,
+      "freestream_kinetic_energy_j_per_kg_air": 523127.60155000567,
+      "ambient_property_velocity_m_per_s": 1022.8661706694631,
+      "legacy_thrust_velocity_m_per_s": 1003.2100798982354,
+      "frozen_proxy_nozzle_energy_residual_j_per_kg_gas": -2800.4145077641006,
+      "exit_velocity_m_per_s": 854.5288030878851,
+      "pressure_force_n_per_kg_per_s_air": 681.0644992419195,
+      "jet_power_j_per_kg_air": 465390.8378368523,
+      "useful_power_j_per_kg_air": 584590.5493051544,
+      "jet_minus_useful_power_j_per_kg_air": -119199.71146830206
+    },
+    {
+      "inputs": {
+        "altitude_m": 11000,
+        "mach": 1.5,
+        "t4_k": 2200.0
+      },
+      "solver_status": "OUTSIDE_VALIDATED_DOMAIN",
+      "reported_efficiencies": {
+        "eta_thermal": 0.18553488121132783,
+        "eta_propulsive": 0.6159764971659408,
+        "eta_overall": 0.11428512623065265
+      },
+      "diagnostic_outputs": {},
+      "requested_fuel_air_ratio": 0.07371444000428634,
+      "property_proxy_fuel_air_ratio": 0.06331867259047032,
+      "proxy_ratio_relative_difference": -0.14102755733085037,
+      "freestream_energy_residual_j_per_kg_air": 460.40673646485084,
+      "freestream_kinetic_energy_j_per_kg_air": 98654.43207665929,
+      "ambient_property_velocity_m_per_s": 444.19462418327237,
+      "legacy_thrust_velocity_m_per_s": 442.46275610385817,
+      "frozen_proxy_nozzle_energy_residual_j_per_kg_gas": -2870.687739106186,
+      "exit_velocity_m_per_s": 856.9152643674802,
+      "pressure_force_n_per_kg_per_s_air": 337.28987094750227,
+      "jet_power_j_per_kg_air": 585358.4744255063,
+      "useful_power_j_per_kg_air": 360567.06266302225,
+      "jet_minus_useful_power_j_per_kg_air": 224791.41176248406
+    },
+    {
+      "inputs": {
+        "altitude_m": 11000,
+        "mach": 2,
+        "t4_k": 2200.0
+      },
+      "solver_status": "OUTSIDE_VALIDATED_DOMAIN",
+      "reported_efficiencies": {
+        "eta_thermal": 0.22310736013083046,
+        "eta_propulsive": 0.7499159424546504,
+        "eta_overall": 0.16731176624108082
+      },
+      "diagnostic_outputs": {},
+      "requested_fuel_air_ratio": 0.07162232501971684,
+      "property_proxy_fuel_air_ratio": 0.061521603471829944,
+      "proxy_ratio_relative_difference": -0.14102755733085004,
+      "freestream_energy_residual_j_per_kg_air": 1543.5161594532256,
+      "freestream_kinetic_energy_j_per_kg_air": 175385.65702517206,
+      "ambient_property_velocity_m_per_s": 592.2594989110298,
+      "legacy_thrust_velocity_m_per_s": 588.8857359873663,
+      "frozen_proxy_nozzle_energy_residual_j_per_kg_gas": -2861.59138474107,
+      "exit_velocity_m_per_s": 856.576835861349,
+      "pressure_force_n_per_kg_per_s_air": 541.8976643411187,
+      "jet_power_j_per_kg_air": 683921.224475682,
+      "useful_power_j_per_kg_air": 512883.4296174196,
+      "jet_minus_useful_power_j_per_kg_air": 171037.7948582624
+    },
+    {
+      "inputs": {
+        "altitude_m": 11000,
+        "mach": 3,
+        "t4_k": 2200.0
+      },
+      "solver_status": "NUMERICAL_FAILURE",
+      "reported_efficiencies": {
+        "eta_thermal": null,
+        "eta_propulsive": null,
+        "eta_overall": null
+      },
+      "diagnostic_outputs": {
+        "spec_thrust": 721.5351455946575,
+        "tsfc": 9.043367088639876e-05,
+        "eta_thermal": 0.21240613941077388,
+        "eta_propulsive": 1.0668069424734163,
+        "eta_overall": 0.2265963441473899
+      },
+      "requested_fuel_air_ratio": 0.06525107188967706,
+      "property_proxy_fuel_air_ratio": 0.056048872607856196,
+      "proxy_ratio_relative_difference": -0.14102755733085026,
+      "freestream_energy_residual_j_per_kg_air": 9578.128418205655,
+      "freestream_kinetic_energy_j_per_kg_air": 394617.72830663715,
+      "ambient_property_velocity_m_per_s": 888.3892483665447,
+      "legacy_thrust_velocity_m_per_s": 877.0549982173698,
+      "frozen_proxy_nozzle_energy_residual_j_per_kg_gas": -2832.2637773113674,
+      "exit_velocity_m_per_s": 855.5485234957279,
+      "pressure_force_n_per_kg_per_s_air": 687.2161621045726,
+      "jet_power_j_per_kg_air": 593196.3700630503,
+      "useful_power_j_per_kg_air": 632826.0058332919,
+      "jet_minus_useful_power_j_per_kg_air": -39629.63577024161
+    }
+  ],
+  "validated_domain": null
+}

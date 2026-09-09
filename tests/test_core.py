@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.units import isa_atmosphere
 from core.gas_turbine.cycle import CycleAnalyzer
+from core.errors import ModelDomainError, InputValidationError
 from core.gas_turbine.off_design import OffDesignSolver
 from core.gas_turbine.mission import MissionAnalyzer
 from core.rocket.analyzer import RocketAnalyzer
@@ -271,7 +272,7 @@ def test_turbojet_high_altitude():
 
 
 def test_isa_altitude_boundary():
-    """ISA should handle altitude=0 and altitude=50000 without crashing."""
+    """ISA returns finite values at every supported layer boundary."""
     for alt in [0, 11000, 20000, 32000, 47000]:
         p, t, rho = isa_atmosphere(float(alt))
         assert p > 0 and t > 0 and rho > 0, f"Invalid ISA result at alt={alt}"
@@ -385,21 +386,18 @@ def test_turbojet_prc_sweep_aggregation():
 # Sprint 6 — Numerical safety & coverage
 # ══════════════════════════════════════════════════════════════════════════════
 
-def test_mission_zero_mach_does_not_raise():
-    """Mission constraints at Mach=0 must return inf (not divide-by-zero)."""
-    import math
+def test_mission_zero_mach_rejected():
+    from core.errors import InputValidationError
     analyzer = MissionAnalyzer({"k": 0.1, "cd0": 0.02})
-    tw = analyzer.tw_level_flight(ws=3000.0, altitude_m=5000.0, mach=0.0)
-    assert math.isinf(tw), f"Expected inf at Mach=0, got {tw}"
+    with pytest.raises(InputValidationError):
+        analyzer.tw_level_flight(ws=3000.0, altitude_m=5000.0, mach=0.0)
 
 
-def test_mission_extreme_altitude_does_not_raise():
-    """Mission constraints at 47 km (near-zero q) must return inf, not raise."""
-    import math
+def test_mission_low_dynamic_pressure_rejected():
+    from core.errors import ModelDomainError
     analyzer = MissionAnalyzer({"k": 0.08, "cd0": 0.015})
-    tw = analyzer.tw_ps(ws=4000.0, altitude_m=47000.0, mach=0.001, ps=50.0)
-    assert tw == float('inf') or math.isfinite(tw), \
-        f"Unexpected value at extreme altitude: {tw}"
+    with pytest.raises(ModelDomainError):
+        analyzer.tw_ps(ws=4000.0, altitude_m=47000.0, mach=0.001, ps=50.0)
 
 
 def test_mission_optimum_with_inf_constraints():
@@ -533,12 +531,12 @@ def test_stl_export_has_metadata_solid_name():
 def test_isa_exact_layer_boundaries():
     """ISA layer boundary values must match ICAO Doc 7488 to within tight tolerances."""
     # Troposphere top: 11000 m → T = 216.65 K, P = 22632 Pa (ICAO ref)
-    p11, t11, _ = isa_atmosphere(11000.0)
+    p11, t11, _ = isa_atmosphere(11000.0, altitude_kind="geopotential")
     assert abs(t11 - 216.65) < 0.02, f"11km T={t11:.3f} K (expect 216.65)"
     assert abs(p11 - 22632.0) < 20,   f"11km P={p11:.0f} Pa (expect 22632)"
 
     # Lower stratosphere bottom: 20000 m → T = 216.65 K (isothermal), P ≈ 5474.9 Pa
-    p20, t20, _ = isa_atmosphere(20000.0)
+    p20, t20, _ = isa_atmosphere(20000.0, altitude_kind="geopotential")
     assert abs(t20 - 216.65) < 0.05, f"20km T={t20:.3f} K (expect 216.65)"
     assert abs(p20 - 5474.9) < 10,   f"20km P={p20:.1f} Pa (expect 5474.9)"
 
@@ -618,15 +616,10 @@ def test_multispool_energy_closure():
     assert tt5  > 400,  f"LPT exit ({tt5:.0f} K) unrealistically cold"
 
 
-def test_isa_beyond_47km_warning(caplog):
-    """ISA above 47 km should log a warning and still return valid (clamped) values."""
-    import logging
-    with caplog.at_level(logging.WARNING, logger="core.units"):
-        p, t, rho = isa_atmosphere(55000.0)
-    assert p > 0 and t > 0 and rho > 0
-    assert any("47" in rec.message or "clamp" in rec.message.lower() for rec in caplog.records), (
-        "Expected altitude clamp warning not found in log"
-    )
+def test_isa_beyond_47km_rejected():
+    """Out-of-domain altitude must not return a clamped atmosphere."""
+    with pytest.raises(ModelDomainError):
+        isa_atmosphere(55000.0)
 
 
 def test_offdesign_turbine_pr_from_work_balance():
@@ -646,12 +639,12 @@ def test_offdesign_turbine_pr_from_work_balance():
         assert 'turb_pr' in r, "Result must expose work-balanced turbine PR"
         # Must be physically meaningful (above choke for hot gas γ=1.33 ⇒ PR_crit≈1.85)
         assert r['turb_pr'] > 1.5, f"Unphysically low turbine PR: {r['turb_pr']}"
-        # Must not be the trivial 25 % heuristic — i.e., turb_pr != 0.25 * pr
-        ratio = r['turb_pr'] / max(r['pr'], 1.0)
-        assert abs(ratio - 0.25) > 0.05, (
-            f"Turbine PR looks like the old 25 % placeholder: turb_pr={r['turb_pr']}, "
-            f"compressor pr={r['pr']}, ratio={ratio:.3f}"
-        )
+        # Verify the work identity instead of excluding an arbitrary PR ratio band.
+        g = 1.333
+        tt2 = CycleAnalyzer(p0, t0, 0.0).tt0
+        demand = 1005.0 * tt2 * (r['pr'] ** (0.4 / 1.4) - 1) / r['eta_c']
+        supply = (1 + solver.dp_f) * .99 * r['eta_t'] * 1244.0 * r['tt4'] * (1 - r['turb_pr'] ** (-(g - 1) / g))
+        assert supply == pytest.approx(demand, rel=1e-10)
     # Sweep must vary across throttle settings (not a flat number)
     pr_values = sorted({r['turb_pr'] for r in valid})
     assert len(pr_values) >= 3, f"Turbine PR is too flat across throttle: {pr_values}"
@@ -665,9 +658,8 @@ def test_offdesign_sweep_throttle_invalid_points():
     solver = OffDesignSolver(dp)
 
     for n in (0, -5):
-        results = solver.sweep_throttle(p0, t0, 0.0, 42.8e6, n_points=n)
-        assert isinstance(results, list)
-        assert len(results) == 0
+        with pytest.raises(InputValidationError):
+            solver.sweep_throttle(p0, t0, 0.0, 42.8e6, n_points=n)
 
 
 def test_rocket_extreme_impurity():

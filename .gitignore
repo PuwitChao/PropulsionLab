@@ -42,3 +42,6 @@ to-be-deleted/
 *.swp
 *.swo
 .DS_Store
+
+# Repository-local npm cache
+frontend/.npm-cache/

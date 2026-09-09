@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import Plotly from 'plotly.js-dist-min'
-import _createPlotlyComponent from 'react-plotly.js/factory'
-const createPlotlyComponent = _createPlotlyComponent.default || _createPlotlyComponent
-const Plot = createPlotlyComponent(Plotly)
+import ScenarioSource from '../components/ScenarioSource'
+import { PAGE_DEFAULTS } from '../data/pageDefaults'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import Plot from '../components/EngineeringPlot'
 import { fetchData, fetchBlob } from '../api'
+import SolverStatus from '../components/SolverStatus'
+import SweepStatus from '../components/SweepStatus'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
 import { useSettings } from '../context/SettingsContext'
@@ -28,13 +29,13 @@ function MocVisualization({ mocData, referenceMocData, loading, onExportCSV, onE
   if (hasData) {
     traces.push({
       x: mocData.x, y: mocData.y,
-      name: 'NOZZLE_WALL', type: 'scatter', mode: 'lines',
+      name: 'NOZZLE_WALL', connectgaps: false, type: 'scatter', mode: 'lines',
       line: { color: '#00f0ff', width: 3 },
       hovertemplate: 'WALL_NODE<br>X: %{x:.4f}m<br>R: %{y:.4f}m<extra></extra>'
     })
     traces.push({
       x: mocData.x, y: mocData.y.map(v => -v),
-      name: 'WALL_LOWER', type: 'scatter', mode: 'lines',
+      name: 'WALL_LOWER', connectgaps: false, type: 'scatter', mode: 'lines',
       line: { color: 'rgba(0, 240, 255, 0.20)', width: 1, dash: 'dash' },
       showlegend: false, hoverinfo: 'skip'
     })
@@ -45,14 +46,14 @@ function MocVisualization({ mocData, referenceMocData, loading, onExportCSV, onE
             x: wave.x, y: wave.y,
             name: i === 0 ? 'WAVE_REFLECTIONS' : '',
             legendgroup: 'waves', showlegend: i === 0,
-            type: 'scatter', mode: 'lines',
+            connectgaps: false, type: 'scatter', mode: 'lines',
             line: { color: wave.type === 'C+' ? 'rgba(0, 240, 255, 0.12)' : 'rgba(0, 240, 255, 0.22)', width: 0.8 },
             hovertemplate: `${wave.type}_WAVE<br>MACH: ${wave.mach || 'N/A'}<extra></extra>`
           })
           traces.push({
             x: wave.x, y: wave.y.map(v => -v),
             legendgroup: 'waves', showlegend: false,
-            type: 'scatter', mode: 'lines',
+            connectgaps: false, type: 'scatter', mode: 'lines',
             line: { color: 'rgba(0, 240, 255, 0.05)', width: 0.5 },
             hoverinfo: 'skip'
           })
@@ -70,13 +71,13 @@ function MocVisualization({ mocData, referenceMocData, loading, onExportCSV, onE
   if (hasRefData) {
     traces.push({
       x: referenceMocData.x, y: referenceMocData.y,
-      name: 'REF_NOZZLE_WALL', type: 'scatter', mode: 'lines',
+      name: 'REF_NOZZLE_WALL', connectgaps: false, type: 'scatter', mode: 'lines',
       line: { color: '#ffaa00', width: 2.5, dash: 'dash' },
       hovertemplate: 'REF_WALL_NODE<br>X: %{x:.4f}m<br>R: %{y:.4f}m<extra></extra>'
     })
     traces.push({
       x: referenceMocData.x, y: referenceMocData.y.map(v => -v),
-      name: 'REF_WALL_LOWER', type: 'scatter', mode: 'lines',
+      name: 'REF_WALL_LOWER', connectgaps: false, type: 'scatter', mode: 'lines',
       line: { color: 'rgba(255, 170, 0, 0.15)', width: 1, dash: 'dashdot' },
       showlegend: false, hoverinfo: 'skip'
     })
@@ -192,17 +193,19 @@ export default function RocketAnalysis() {
     const { theme } = useSettings()
     const [activeView, setActiveView] = useState('design') // 'design' | 'of_sweep' | 'altitude'
     const [loading, setLoading] = useState(false)
+    const requestSequence = useRef(0)
+    const sweepSequence = useRef(0)
+    const altitudeSequence = useRef(0)
     const [result, setResult] = useState(null)
     const [error, setError] = useState(null)
-    const [params, setParams] = usePersistentState('rocket_params', {
-        pc: 7.5e6, of_ratio: 6.0, pe: 101325.0,
-        propellant: 'H2/O2', mode: 'shifting',
-        thrust_target_N: 500000
-    })
-    const { exportScenario, importScenario } = useJsonScenario({
+    const [params, setParams] = usePersistentState('rocket_params', PAGE_DEFAULTS.rocket)
+    const { exportScenario, importScenario, scenarioError, scenarioSource } = useJsonScenario({
         filename: 'rocket_scenario.json',
         data: { params },
-        onImport: (d) => { if (d.params) setParams(prev => ({ ...prev, ...d.params })) },
+        model: 'rocket', template: { params: PAGE_DEFAULTS.rocket },
+        validate: d => { if (!['H2/O2', 'CH4/O2', 'RP1/O2'].includes(d.params.propellant) || !['frozen', 'shifting'].includes(d.params.mode)) throw new Error('Unsupported rocket model selection.') },
+        onInvalidate: () => { requestSequence.current += 1; sweepSequence.current += 1; altitudeSequence.current += 1; setResult(null); setMocData(null); setSweepData(null); setAltData(null); setLoading(false); setSweepLoading(false); setAltLoading(false); clearReference() },
+        onImport: d => setParams(d.params),
     })
     const [mocData, setMocData] = useState(null)
     const [referenceResult, setReferenceResult] = useState(null)
@@ -242,6 +245,7 @@ export default function RocketAnalysis() {
     }, [])
 
     const runOFSweep = useCallback(async () => {
+        const sequence = ++sweepSequence.current
         setSweepLoading(true)
         setSweepData(null)
         try {
@@ -249,11 +253,14 @@ export default function RocketAnalysis() {
                 method: 'POST',
                 body: JSON.stringify(params)
             })
+            if (sequence !== sweepSequence.current) return
             setSweepData(data)
         } catch (e) {
+            if (sequence !== sweepSequence.current) return
             console.error('OF sweep error:', e)
+            setError(e.message)
         }
-        setSweepLoading(false)
+        if (sequence === sweepSequence.current) setSweepLoading(false)
 
         if (referenceParams && !referenceSweepData) {
             try {
@@ -261,7 +268,7 @@ export default function RocketAnalysis() {
                     method: 'POST',
                     body: JSON.stringify(referenceParams)
                 });
-                setReferenceSweepData(data);
+                if (sequence === sweepSequence.current) setReferenceSweepData(data);
             } catch (e) {
                 console.error('Reference OF sweep error:', e);
             }
@@ -269,6 +276,7 @@ export default function RocketAnalysis() {
     }, [params, referenceParams, referenceSweepData])
 
     const runAltitudeTable = useCallback(async () => {
+        const sequence = ++altitudeSequence.current
         setAltLoading(true)
         setAltData(null)
         try {
@@ -279,15 +287,20 @@ export default function RocketAnalysis() {
                     of_ratio: params.of_ratio,
                     propellant: params.propellant,
                     mode: params.mode,
-                    alt_max_km: 100.0,
+                    alt_max_km: 47.0,
+                    pe: params.pe,
+                    exit_half_angle_deg: params.exit_half_angle_deg ?? 15,
                     n_points: 20,
                 })
             })
+            if (sequence !== altitudeSequence.current) return
             setAltData(data)
         } catch (e) {
+            if (sequence !== altitudeSequence.current) return
             console.error('Altitude table error:', e)
+            setError(e.message)
         }
-        setAltLoading(false)
+        if (sequence === altitudeSequence.current) setAltLoading(false)
 
         if (referenceParams && !referenceAltData) {
             try {
@@ -298,11 +311,13 @@ export default function RocketAnalysis() {
                         of_ratio: referenceParams.of_ratio,
                         propellant: referenceParams.propellant,
                         mode: referenceParams.mode,
-                        alt_max_km: 100.0,
+                        alt_max_km: 47.0,
+                        pe: referenceParams.pe,
+                        exit_half_angle_deg: referenceParams.exit_half_angle_deg ?? 15,
                         n_points: 20,
                     })
                 });
-                setReferenceAltData(data);
+                if (sequence === altitudeSequence.current) setReferenceAltData(data);
             } catch (e) {
                 console.error('Reference altitude table error:', e);
             }
@@ -311,12 +326,14 @@ export default function RocketAnalysis() {
 
     useEffect(() => {
         if (activeView === 'of_sweep') {
-            const t = setTimeout(runOFSweep, 500)
-            return () => clearTimeout(t)
+            const scheduled = sweepSequence.current
+        const t = setTimeout(() => { if (scheduled === sweepSequence.current) runOFSweep() }, 500)
+            return () => { clearTimeout(t); sweepSequence.current += 1 }
         }
         if (activeView === 'altitude') {
-            const t = setTimeout(runAltitudeTable, 500)
-            return () => clearTimeout(t)
+            const scheduled = altitudeSequence.current
+        const t = setTimeout(() => { if (scheduled === altitudeSequence.current) runAltitudeTable() }, 500)
+            return () => { clearTimeout(t); altitudeSequence.current += 1 }
         }
     }, [activeView, params, runOFSweep, runAltitudeTable])
 
@@ -400,12 +417,14 @@ export default function RocketAnalysis() {
 
 
     const runAnalysis = useCallback(async () => {
+        const sequence = ++requestSequence.current
         setLoading(true)
         setResult(null)
         setMocData(null)
         setError(null)
         try {
             const main = await fetchData('/analyze/rocket', { method: 'POST', body: JSON.stringify(params) })
+            if (sequence !== requestSequence.current) return
             setResult(main)
             // Second pass: MoC once we have gamma from equilibrium
             if (main && main.gamma && main.r_throat) {
@@ -418,6 +437,7 @@ export default function RocketAnalysis() {
                             throat_radius: main.r_throat || 0.1
                         })
                     })
+                    if (sequence !== requestSequence.current) return
                     setMocData(moc)
                 } catch (mocErr) {
                     console.error('MoC computation failed (non-fatal):', mocErr)
@@ -426,14 +446,24 @@ export default function RocketAnalysis() {
             }
         } catch (e) {
             console.error(e)
+            if (sequence !== requestSequence.current) return
             setError(`Combustion solver failed: ${e.message || 'Backend unreachable'}`)
         }
-        setLoading(false)
+        if (sequence === requestSequence.current) setLoading(false)
     }, [params])
 
     useEffect(() => {
-        const t = setTimeout(runAnalysis, 700)
-        return () => clearTimeout(t)
+        requestSequence.current += 1
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setResult(null)
+        setMocData(null)
+        setSweepData(null)
+        setAltData(null)
+        sweepSequence.current += 1
+        altitudeSequence.current += 1
+        const scheduled = requestSequence.current
+        const t = setTimeout(() => { if (scheduled === requestSequence.current) runAnalysis() }, 700)
+        return () => { clearTimeout(t); requestSequence.current += 1 }
     }, [params, runAnalysis])
 
     // Build "Engineering Review" section dynamically from result
@@ -447,11 +477,11 @@ export default function RocketAnalysis() {
         const ispOk = isp > 250
 
         return {
-            code: thermalOk && ispOk ? 'NOMINAL // VERIFIED' : 'WARN // REVIEW_NEEDED',
+            code: result.status || 'UNVALIDATED',
             statusOk: thermalOk && ispOk,
             message: thermalOk
-                ? `Chamber temperature ${chamberTempK.toFixed(0)} K within structural tolerance. Peak heat flux ${heatFlux.toFixed(2)} MW/m^2.`
-                : `CAUTION: Chamber temperature ${chamberTempK.toFixed(0)} K exceeds 4000 K threshold - regenerative cooling mandatory.`,
+                ? `Chamber temperature ${chamberTempK.toFixed(0)} K is a gas temperature, not a structural limit. Peak heat flux ${heatFlux.toFixed(2)} MW/m^2.`
+                : `CAUTION: Chamber temperature ${chamberTempK.toFixed(0)} K exceeds the display screening threshold. Cooling requires a separate engineering assessment.`,
         }
     }
 
@@ -460,6 +490,12 @@ export default function RocketAnalysis() {
 
     return (
         <div className="space-y-16 animate-in pb-20">
+      {scenarioError && <p role="alert">Scenario import/export: {scenarioError}</p>}
+      <ScenarioSource source={scenarioSource} />
+            <SolverStatus result={result} />
+            <SweepStatus rows={sweepData} />
+            <SweepStatus rows={altData} />
+            <p>Altitude analysis holds nozzle geometry fixed. The atmosphere model supports 0-47 km.</p>
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between border-b border-white/10 pb-6">
                 <span className="uppercase tracking-[0.4em] text-[13px] font-black text-white font-headline">
                   ROCKET PROPULSION DESIGN SUITE
@@ -498,9 +534,11 @@ export default function RocketAnalysis() {
                 <section className="col-span-12 lg:col-span-3 space-y-4">
                    <div className="bg-surface-container-low border border-white/10 p-12 space-y-4">
                         <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-2">COMBUSTION DESIGN</h2>
+                        <label className="block">Exit design pressure Pe [Pa]<input aria-label="Exit design pressure Pe" className="w-full min-w-0 border border-white/20 bg-transparent p-2" type="number" min="1" value={params.pe} onChange={e => setParams({...params, pe: Number(e.target.value)})} /></label>
+                        <label className="block">Ambient pressure Pa [Pa]<input aria-label="Ambient pressure Pa" className="w-full min-w-0 border border-white/20 bg-transparent p-2" type="number" min="0" value={params.pa ?? 101325} onChange={e => setParams({...params, pa: Number(e.target.value)})} /></label>
                         <SliderControl
                             label="Chamber Pressure" value={(params.pc/1e6).toFixed(2)} unit="MPa"
-                            min={1} max={25} step={0.1}
+                            min={0.1} max={50} step={0.01}
                             onChange={v => setParams({...params, pc: v*1e6})}
                         />
                         <SliderControl
@@ -703,31 +741,31 @@ export default function RocketAnalysis() {
                                 data={[
                                     {
                                         x: sweepData.map(d => d.of_ratio),
-                                        y: sweepData.map(d => d.isp ?? 0),
+                                        y: sweepData.map(d => d.isp ?? null),
                                         name: 'Active Isp',
-                                        type: 'scatter', mode: 'lines',
+                                        connectgaps: false, type: 'scatter', mode: 'lines',
                                         line: { color: '#00f0ff', width: 2.5 },
                                     },
                                     {
                                         x: sweepData.map(d => d.of_ratio),
-                                        y: sweepData.map(d => d.isp_vac ?? 0),
+                                        y: sweepData.map(d => d.isp_vac ?? null),
                                         name: 'Active Isp Vac',
-                                        type: 'scatter', mode: 'lines',
+                                        connectgaps: false, type: 'scatter', mode: 'lines',
                                         line: { color: 'rgba(0,240,255,0.4)', width: 1, dash: 'dash' },
                                     },
                                     ...(referenceSweepData && referenceSweepData.length > 0 ? [
                                         {
                                             x: referenceSweepData.map(d => d.of_ratio),
-                                            y: referenceSweepData.map(d => d.isp ?? 0),
+                                            y: referenceSweepData.map(d => d.isp ?? null),
                                             name: `Ref Isp (${referenceParams?.propellant})`,
-                                            type: 'scatter', mode: 'lines',
+                                            connectgaps: false, type: 'scatter', mode: 'lines',
                                             line: { color: '#ffaa00', width: 2, dash: 'dot' },
                                         },
                                         {
                                             x: referenceSweepData.map(d => d.of_ratio),
-                                            y: referenceSweepData.map(d => d.isp_vac ?? 0),
+                                            y: referenceSweepData.map(d => d.isp_vac ?? null),
                                             name: `Ref Isp Vac (${referenceParams?.propellant})`,
-                                            type: 'scatter', mode: 'lines',
+                                            connectgaps: false, type: 'scatter', mode: 'lines',
                                             line: { color: 'rgba(255,170,0,0.4)', width: 1, dash: 'dashdot' },
                                         }
                                     ] : [])
@@ -764,34 +802,34 @@ export default function RocketAnalysis() {
                             <Plot
                                 data={[
                                     {
-                                        x: altData.filter(d => !d.error).map(d => d.altitude_m / 1000),
-                                        y: altData.filter(d => !d.error).map(d => d.isp_s),
+                                        x: altData.map(d => d.altitude_m / 1000),
+                                        y: altData.map(d => d.isp_s),
                                         name: 'Active Isp',
-                                        type: 'scatter', mode: 'lines+markers',
+                                        connectgaps: false, type: 'scatter', mode: 'lines+markers',
                                         line: { color: '#00f0ff', width: 2 },
                                         marker: { size: 4, color: '#00f0ff' },
                                     },
                                     {
-                                        x: altData.filter(d => !d.error).map(d => d.altitude_m / 1000),
-                                        y: altData.filter(d => !d.error).map(d => d.isp_vac),
+                                        x: altData.map(d => d.altitude_m / 1000),
+                                        y: altData.map(d => d.isp_vac),
                                         name: 'Active Isp Vac',
-                                        type: 'scatter', mode: 'lines',
+                                        connectgaps: false, type: 'scatter', mode: 'lines',
                                         line: { color: 'rgba(0,240,255,0.4)', width: 1, dash: 'dash' },
                                     },
                                     ...(referenceAltData && referenceAltData.length > 0 ? [
                                         {
-                                            x: referenceAltData.filter(d => !d.error).map(d => d.altitude_m / 1000),
-                                            y: referenceAltData.filter(d => !d.error).map(d => d.isp_s),
+                                            x: referenceAltData.map(d => d.altitude_m / 1000),
+                                            y: referenceAltData.map(d => d.isp_s),
                                             name: `Ref Isp (${referenceParams?.propellant})`,
-                                            type: 'scatter', mode: 'lines+markers',
+                                            connectgaps: false, type: 'scatter', mode: 'lines+markers',
                                             line: { color: '#ffaa00', width: 2, dash: 'dot' },
                                             marker: { size: 4, color: '#ffaa00' },
                                         },
                                         {
-                                            x: referenceAltData.filter(d => !d.error).map(d => d.altitude_m / 1000),
-                                            y: referenceAltData.filter(d => !d.error).map(d => d.isp_vac),
+                                            x: referenceAltData.map(d => d.altitude_m / 1000),
+                                            y: referenceAltData.map(d => d.isp_vac),
                                             name: `Ref Isp Vac (${referenceParams?.propellant})`,
-                                            type: 'scatter', mode: 'lines',
+                                            connectgaps: false, type: 'scatter', mode: 'lines',
                                             line: { color: 'rgba(255,170,0,0.4)', width: 1, dash: 'dashdot' },
                                         }
                                     ] : [])

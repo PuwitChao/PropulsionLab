@@ -31,13 +31,13 @@ def test_diagnostics_nominal():
     r = client.post("/analyze/diagnostics", json=payload)
     assert r.status_code == 200
     data = r.json()
-    assert data["status"] == "NOMINAL"
+    assert data["diagnostic_status"] == "WITHIN_THRESHOLDS"
     assert data["eta_c"] >= 0.84
     assert data["eta_t"] >= 0.86
     assert data["dp_b"] <= 6.0
     assert len(data["alerts"]) == 0
     assert len(data["messages"]) == 1
-    assert "operating within safe" in data["messages"][0]
+    assert "not a safety" in data["messages"][0]
 
 
 def test_diagnostics_faults():
@@ -57,10 +57,10 @@ def test_diagnostics_faults():
     r = client.post("/analyze/diagnostics", json=payload)
     assert r.status_code == 200
     data = r.json()
-    assert data["status"] == "FAULT_DETECTED"
-    assert "F01: COMPRESSOR_FOULING" in data["alerts"]
-    assert "F02: TURBINE_EROSION" in data["alerts"]
-    assert "F03: COMBUSTOR_RESTRICTION" in data["alerts"]
+    assert data["diagnostic_status"] == "THRESHOLD_EXCEEDED"
+    assert "F01: LOW_COMPRESSOR_EFFICIENCY" in data["alerts"]
+    assert "F02: LOW_TURBINE_EFFICIENCY" in data["alerts"]
+    assert "F03: HIGH_COMBUSTOR_PRESSURE_LOSS" in data["alerts"]
     assert len(data["alerts"]) == 3
     assert len(data["messages"]) == 3
 
@@ -99,10 +99,9 @@ def test_diagnostics_divide_by_zero_safety():
         "gamma_t": 1.33,
     }
     r = client.post("/analyze/diagnostics", json=payload)
-    assert r.status_code == 200
-    data = r.json()
-    assert data["eta_c"] == 0.0
-    assert data["eta_t"] == 0.0
+    assert r.status_code == 422
+    assert r.json()["status"] == "INFEASIBLE"
+    assert "alerts" not in r.json()
 
 
 def test_diagnostics_unphysical_sensor_readings():
@@ -112,7 +111,7 @@ def test_diagnostics_unphysical_sensor_readings():
         "pt2": 101325.0,
         "tt2": 300.0,
         "pt3": 2026500.0,
-        "tt3": 280.0,  # tt3 < tt2 -> must result in eta_c = 0.0
+        "tt3": 280.0,  # tt3 < tt2 -> must be rejected
         "pt4": 1945440.0,
         "tt4": 1600.0,
         "pt5": 291816.0,
@@ -121,8 +120,8 @@ def test_diagnostics_unphysical_sensor_readings():
         "gamma_t": 1.33,
     }
     r = client.post("/analyze/diagnostics", json=payload)
-    assert r.status_code == 200
-    assert r.json()["eta_c"] == 0.0
+    assert r.status_code == 422
+    assert r.json()["status"] == "INFEASIBLE"
 
     # 2. Turbine temperature rise: tt5 > tt4 (unphysical heating)
     payload = {
@@ -133,13 +132,13 @@ def test_diagnostics_unphysical_sensor_readings():
         "pt4": 1945440.0,
         "tt4": 1600.0,
         "pt5": 291816.0,
-        "tt5": 1700.0,  # tt5 > tt4 -> must result in eta_t = 0.0
+        "tt5": 1700.0,  # tt5 > tt4 -> must be rejected
         "gamma_c": 1.4,
         "gamma_t": 1.33,
     }
     r = client.post("/analyze/diagnostics", json=payload)
-    assert r.status_code == 200
-    assert r.json()["eta_t"] == 0.0
+    assert r.status_code == 422
+    assert r.json()["status"] == "INFEASIBLE"
 
     # 3. Burner pressure rise: pt4 > pt3 (unphysical pressure gain)
     payload = {
@@ -147,7 +146,7 @@ def test_diagnostics_unphysical_sensor_readings():
         "tt2": 288.15,
         "pt3": 2026500.0,
         "tt3": 680.0,
-        "pt4": 2500000.0,  # pt4 > pt3 -> must not crash, results in negative dp_b
+        "pt4": 2500000.0,  # pt4 > pt3 -> must be rejected
         "tt4": 1600.0,
         "pt5": 291816.0,
         "tt5": 1047.57,
@@ -155,6 +154,6 @@ def test_diagnostics_unphysical_sensor_readings():
         "gamma_t": 1.33,
     }
     r = client.post("/analyze/diagnostics", json=payload)
-    assert r.status_code == 200
-    assert r.json()["dp_b"] < 0.0
+    assert r.status_code == 422
+    assert r.json()["status"] == "INFEASIBLE"
 

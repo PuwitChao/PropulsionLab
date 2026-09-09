@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import Plotly from 'plotly.js-dist-min'
-import _createPlotlyComponent from 'react-plotly.js/factory'
-const createPlotlyComponent = _createPlotlyComponent.default || _createPlotlyComponent
-const Plot = createPlotlyComponent(Plotly)
+import ScenarioSource from '../components/ScenarioSource'
+import { PAGE_DEFAULTS } from '../data/pageDefaults'
+import SolverStatus from '../components/SolverStatus'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import Plot from '../components/EngineeringPlot'
 import { fetchData } from '../api'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
@@ -17,17 +17,25 @@ import ErrorBanner from '../components/ErrorBanner'
 export default function MissionAnalysis() {
     const { theme } = useSettings()
     const isLight = theme === 'light'
+    const requestSequence = useRef(0)
+    const rangeSequence = useRef(0)
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState(null)
     const [error, setError] = useState(null)
-    const [aircraftData, setAircraftData] = usePersistentState('mission_aircraft_data', { k: 0.1, cd0: 0.02, cl_max: 2.0 })
-    const { exportScenario, importScenario } = useJsonScenario({
+    const [rangeResult, setRangeResult] = useState(null)
+    const [rangeError, setRangeError] = useState(null)
+    const [aircraftData, setAircraftData] = usePersistentState('mission_aircraft_data', PAGE_DEFAULTS.mission)
+    const { exportScenario, importScenario, scenarioError, scenarioSource } = useJsonScenario({
         filename: 'mission_scenario.json',
         data: { aircraftData },
-        onImport: (d) => { if (d.aircraftData) setAircraftData(prev => ({ ...prev, ...d.aircraftData })) },
+        model: 'mission_constraints', template: { aircraftData: PAGE_DEFAULTS.mission },
+        onInvalidate: () => { requestSequence.current += 1; rangeSequence.current += 1; setData(null); setRangeResult(null); setLoading(false) },
+        onImport: d => setAircraftData(d.aircraftData),
     })
 
     const runAnalysis = useCallback(async () => {
+        const sequence = ++requestSequence.current
+        setData(null)
         setLoading(true)
         setError(null)
         try {
@@ -39,29 +47,30 @@ export default function MissionAnalysis() {
                         { type: 'level',   label: 'Cruise (M0.8 @ 10km)',   alt: 10000, mach: 0.8 },
                         { type: 'ps',      label: 'Ps=50 (M0.9 @ 5km)',     alt: 5000,  mach: 0.9, ps: 50 },
                         { type: 'turn',    label: '3G Turn (M0.7 @ 3km)',   alt: 3000,  mach: 0.7, n: 3 },
-                        { type: 'takeoff', label: 'Takeoff (1200m)',         sto: 1200,  cl_max: 2.0 },
+                        { type: 'takeoff', label: 'Ideal ground roll (1200m)', sto: 1200, cl_max: aircraftData.cl_max },
                         { type: 'ceiling', label: 'Service Ceiling (15km)', alt: 15000, mach: 0.8 }
                     ],
                     ws_min: 1000, ws_max: 8000, ws_steps: 60
                 })
             })
-            setData(result)
+            if (sequence === requestSequence.current) setData(result)
         } catch (e) {
             console.error(e)
-            setError('Mission solver failed. Check backend connection.')
+            if (sequence === requestSequence.current) setError(e.message)
         }
-        setLoading(false)
+        if (sequence === requestSequence.current) setLoading(false)
     }, [aircraftData])
 
     useEffect(() => {
-        const t = setTimeout(runAnalysis, 300)
-        return () => clearTimeout(t)
+        const scheduled = requestSequence.current
+        const t = setTimeout(() => { if (scheduled === requestSequence.current) runAnalysis() }, 300)
+        return () => { clearTimeout(t); requestSequence.current += 1 }
     }, [aircraftData, runAnalysis])
 
     // Compute envelope compliance: fraction of W/S range where all constraints are met below T/W=1.0
-    const feasibleTW = data ? data.ws.map((_, i) => Math.max(...data.series.map(s => s.values[i]))) : []
+    const feasibleTW = data?.feasible_boundary || []
     const envelopeCompliance = data
-        ? Math.round((feasibleTW.filter(v => v <= 1.0).length / feasibleTW.length) * 100)
+        ? Math.round((feasibleTW.filter(v => v != null && v <= 1.0).length / feasibleTW.length) * 100)
         : null
 
     // Derive constraint priority description from actual results
@@ -70,7 +79,7 @@ export default function MissionAnalysis() {
         // Find the binding (highest T/W at optimum ws) constraint
         const optIdx = data.ws.findIndex(ws => Math.abs(ws - (data.optimum?.ws || 0)) < 50)
         if (optIdx < 0) return null
-        const vals = data.series.map(s => ({ label: s.label, tw: s.values[optIdx] || 0 }))
+        const vals = data.series.map(s => ({ label: s.label, tw: s.values[optIdx] }))
         vals.sort((a, b) => b.tw - a.tw)
         const binding = vals[0]
         const margin = data.optimum?.tw != null ? (1.0 - data.optimum.tw) : null
@@ -117,6 +126,8 @@ export default function MissionAnalysis() {
 
     return (
         <div className="space-y-16 animate-in pb-20">
+      {scenarioError && <p role="alert">Scenario import/export: {scenarioError}</p>}
+      <ScenarioSource source={scenarioSource} />
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between border-b border-white/10 pb-6">
                 <span className="uppercase tracking-[0.4em] text-[13px] font-black text-white font-headline">
                   MISSION CONSTRAINT ARCHITECTURE
@@ -129,6 +140,7 @@ export default function MissionAnalysis() {
             {/* Error Banner */}
             {!loading && <ErrorBanner error={error} onRetry={runAnalysis} />}
 
+            <SolverStatus result={data} />
             <div className="grid grid-cols-12 gap-12">
                 {/* Aircraft Configuration */}
                 <section className="col-span-12 lg:col-span-3 space-y-4">
@@ -218,9 +230,9 @@ export default function MissionAnalysis() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 grid-bg">
-                        <StatPanel label="DESIGN WING LOADING" value={data?.optimum?.ws != null ? fmt(data.optimum.ws) : '-'} unit="Pa" sub="MIN_AIRCRAFT_SIZE" />
+                        <StatPanel label="DESIGN WING LOADING" value={data?.optimum?.ws != null ? fmt(data.optimum.ws) : '-'} unit="Pa" sub="SAMPLED_MINIMUM_TW" />
                         <StatPanel label="MINIMUM T/W"         value={data?.optimum?.tw  != null ? data.optimum.tw.toFixed(3) : '-'} unit="" sub="FEASIBLE_BOUND" />
-                        <StatPanel label="ENVELOPE COMPLIANCE" value={envelopeCompliance != null ? `${envelopeCompliance}` : '-'} unit="%" sub="REGION_OPTIMIZED" />
+                        <StatPanel label="ENVELOPE COMPLIANCE" value={envelopeCompliance != null ? `${envelopeCompliance}` : '-'} unit="%" sub="SELECTED_TW_LIMIT_1" />
                     </div>
 
                     {/* Operational Summary - Dynamic */}
@@ -241,7 +253,7 @@ export default function MissionAnalysis() {
                                 <div className="space-y-5">
                                     <p className="text-[12px] font-black text-white tracking-[0.2em] uppercase">Envelope_Status</p>
                                     <p className="text-[13px] mono text-white/50 leading-[1.8] uppercase border-l-2 border-white/20 pl-8">
-                                        {summary.compliance}% of the W/S range satisfies all constraints within T/W {'<='} 1.0. Optimum corner at T/W {data?.optimum?.tw?.toFixed(3) || '-'}, leaving {summary.margin}% margin.
+                                        {summary.compliance}% of the W/S range satisfies all constraints within T/W {'<='} 1.0. Optimum corner at T/W {data?.optimum?.tw?.toFixed(3) || '-'}, leaving {summary.margin}% below the selected T/W limit. This is a numerical comparison, not operational compliance.
                                     </p>
                                 </div>
                             </div>
@@ -263,20 +275,23 @@ export default function MissionAnalysis() {
                             </div>
                             <button
                                 onClick={async () => {
+                                    const request = ++rangeSequence.current
+                                    setRangeResult(null)
+                                    setRangeError(null)
                                     try {
                                         const res = await fetchData('/analyze/mission/breguet', {
                                             method: 'POST',
                                             body: JSON.stringify({
-                                                sfc: 0.000015,
-                                                velocity: 240,
+                                                tsfc_kg_per_n_s: 0.000015,
+                                                mach: 0.78, alt: 11000,
                                                 l_over_d: 16.0,
-                                                initial_mass: 75000,
-                                                final_mass: 45000
+                                                w_initial: 75000 * 9.80665,
+                                                w_final: 45000 * 9.80665
                                             })
                                         });
-                                        alert(`Calculated Range: ${res.range_km.toFixed(1)} km (${res.range_nmi.toFixed(1)} nmi)\nFlight Duration: ${(res.duration_hours).toFixed(2)} hours`);
+                                        if (request === rangeSequence.current) setRangeResult(res)
                                     } catch (e) {
-                                        console.error(e);
+                                        if (request === rangeSequence.current) setRangeError(e.message)
                                     }
                                 }}
                                 className="px-4 py-2 bg-accent-cyan/10 border border-accent-cyan/40 text-accent-cyan text-xs font-mono font-bold uppercase hover:bg-accent-cyan/20 transition-all"
@@ -284,6 +299,13 @@ export default function MissionAnalysis() {
                                 Calculate Breguet Range
                             </button>
                         </div>
+                        <ErrorBanner error={rangeError} />
+                        {rangeResult && <div role="status" aria-label="Breguet result">
+                            Range: {rangeResult.range_km.toFixed(1)} km ({(rangeResult.range_km / 1.852).toFixed(1)} nmi).
+                            Flight duration: {rangeResult.flight_time_hours.toFixed(2)} hours.
+                            <SolverStatus result={rangeResult} />
+                        </div>}
+                        <p className="text-xs text-white/60 font-mono">Example: Mach 0.78 at 11 km, TSFC 15 mg/(N s), L/D 16, mass 75,000 to 45,000 kg.</p>
                         <p className="text-xs text-white/60 font-mono">
                             Calculates cruise range (km / nmi) and fuel burn fraction using the steady level flight Breguet equation for jet aircraft.
                         </p>

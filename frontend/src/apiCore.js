@@ -1,13 +1,15 @@
 export const DEFAULT_REQUEST_TIMEOUT_MS = 60000
 
 export class ApiError extends Error {
-  constructor(message, { status = 0, code = 'request_failed', requestId = null, retryable = false, cause } = {}) {
+  constructor(message, { status = 0, code = 'request_failed', requestId = null, retryable = false, solverStatus = null, detail = null, cause } = {}) {
     super(message, cause ? { cause } : undefined)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.requestId = requestId
     this.retryable = retryable
+    this.solverStatus = solverStatus
+    this.detail = detail
   }
 }
 
@@ -30,6 +32,8 @@ const errorFromResponse = async (response) => {
 
   return new ApiError(message, {
     status: response.status,
+    solverStatus: payload?.status,
+    detail: payload?.detail,
     code: payload?.error_code || 'http_error',
     requestId: payload?.request_id || responseRequestId(response),
     retryable: response.status === 408 || response.status === 429 || response.status >= 500,

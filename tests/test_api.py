@@ -497,7 +497,7 @@ def test_rocket_sweep_invalid_propellant():
 
 
 def test_rocket_altitude_basic():
-    payload = {"pc": 10e6, "of_ratio": 6.0, "propellant": "H2/O2", "alt_max_km": 50.0, "n_points": 8}
+    payload = {"pc": 10e6, "of_ratio": 6.0, "propellant": "H2/O2", "alt_max_km": 47.0, "n_points": 8}
     r = client.post("/analyze/rocket/altitude", json=payload)
     assert r.status_code == 200
     data = r.json()
@@ -506,14 +506,14 @@ def test_rocket_altitude_basic():
 
 
 def test_rocket_altitude_invalid_propellant():
-    payload = {"pc": 10e6, "of_ratio": 6.0, "propellant": "INVALID", "alt_max_km": 50.0, "n_points": 5}
+    payload = {"pc": 10e6, "of_ratio": 6.0, "propellant": "INVALID", "alt_max_km": 47.0, "n_points": 5}
     r = client.post("/analyze/rocket/altitude", json=payload)
     assert r.status_code == 422
 
 
 def test_rocket_altitude_invalid_mode():
     payload = {"pc": 10e6, "of_ratio": 6.0, "propellant": "H2/O2",
-               "mode": "supercritical", "alt_max_km": 50.0, "n_points": 5}
+               "mode": "supercritical", "alt_max_km": 47.0, "n_points": 5}
     r = client.post("/analyze/rocket/altitude", json=payload)
     assert r.status_code == 422
 
@@ -596,12 +596,11 @@ def test_cycle_at_zero_mach():
 
 
 def test_rocket_low_chamber_pressure():
-    """Minimum allowed pc (1 bar) must not crash."""
+    """Reject chamber pressure below ambient pressure."""
     payload = {"pc": 1e5, "of_ratio": 6.0, "propellant": "H2/O2", "pe": 1000.0}
     r = client.post("/analyze/rocket", json=payload)
-    assert r.status_code in (200, 500)
-    if r.status_code == 200:
-        _no_inf_nan(r.json())
+    assert r.status_code == 422
+    assert r.json()["status"] == "INFEASIBLE"
 
 
 def test_rocket_of_at_extremes():

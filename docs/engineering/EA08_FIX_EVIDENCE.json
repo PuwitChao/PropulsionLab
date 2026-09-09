@@ -1,0 +1,31 @@
+{
+  "strategy": "official GL3D 3.7.0 alias; no geographic trace modules",
+  "bundle": "plotly-BOmuW6lM.js",
+  "bytes": 1644106,
+  "sha256": "1f22dab9a51eef50a75593e0131a16545d62a5e353d8d76736979f57266144a9",
+  "maplibre_class_names": "only in one shared CSS string",
+  "maplibre_runtime_identifiers_outside_css": false,
+  "audit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "checks": {
+    "lint": "passed",
+    "unit_tests_passed": 13,
+    "build": "passed",
+    "chromium_passed": 52,
+    "chromium_minutes_rounded": 2.7,
+    "full_npm_audit_vulnerabilities": 0
+  },
+  "source_sha256": {
+    "frontend/package.json": "cd523a100abb9f158f1c8b32ba1fe0f916b461df09b2a6842f9a6ed0cbf56d23",
+    "frontend/package-lock.json": "3357c81669cc07d5aba9879d1eb20efa8915f9b929a3c01416c353f778414382",
+    "frontend/src/utils/chartRuntime.js": "57ac785a867abec56ecffa938137341ec712a7b93f2baa9f55c0052d30ee1eb0",
+    "frontend/src/components/EngineeringPlot.jsx": "6c5e1e2fbb5bfcb0b342b8b27169e18bd1bff3df2313dbfdecdb0c52b29f26e5",
+    "frontend/e2e/chart_bundle.spec.js": "7ce3a0aeceb71b9272129966c1031011b004b9f80a2c936b7df4d705cb50bd57"
+  }
+}

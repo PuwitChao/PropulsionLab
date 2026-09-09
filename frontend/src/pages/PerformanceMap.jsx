@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import Plotly from 'plotly.js-dist-min'
-import _createPlotlyComponent from 'react-plotly.js/factory'
-const createPlotlyComponent = _createPlotlyComponent.default || _createPlotlyComponent
-const Plot = createPlotlyComponent(Plotly)
+import ScenarioSource from '../components/ScenarioSource'
+import { PAGE_DEFAULTS } from '../data/pageDefaults'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import Plot from '../components/EngineeringPlot'
 import { fetchData } from '../api'
+import SolverStatus from '../components/SolverStatus'
+import SweepStatus from '../components/SweepStatus'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
 import { useSettings } from '../context/SettingsContext'
@@ -17,39 +18,34 @@ import ChartPlaceholder from '../components/ChartPlaceholder'
 export default function PerformanceMap() {
     const { theme } = useSettings()
     const isLight = theme === 'light'
+    const requestSequence = useRef(0)
     const [loading, setLoading] = useState(false)
     const [mapData, setMapData] = useState(null)
     const [throttleData, setThrottleData] = useState(null)
+    const [deckInputs, setDeckInputs] = useState(null)
     const [error, setError] = useState(null)
     const [activeView, setActiveView] = useState('compressor')
 
-    const [dpParams, setDpParams] = usePersistentState('perf_map_params', {
-        alt: 0,
-        mach: 0.0,
-        prc: 20,
-        tit: 1550,
-    })
+    const [dpParams, setDpParams] = usePersistentState('perf_map_params', PAGE_DEFAULTS.map)
 
-    const { exportScenario, importScenario } = useJsonScenario({
+    const { exportScenario, importScenario, scenarioError, scenarioSource } = useJsonScenario({
         filename: 'perf_map_scenario.json',
         data: { params: dpParams },
-        onImport: (d) => { if (d.params) setDpParams(prev => ({ ...prev, ...d.params })) },
+        model: 'generic_map', template: { params: PAGE_DEFAULTS.map },
+        onInvalidate: () => { requestSequence.current += 1; setMapData(null); setThrottleData(null); setLoading(false) },
+        onImport: d => setDpParams(d.params),
     })
 
-    // Compute surge margin from the lowest-throttle operating point vs design point
     const surgeMargin = React.useMemo(() => {
-        if (!throttleData || throttleData.length === 0) return null
-        const dp = throttleData.find(r => r.throttle_pct === 100) || throttleData[throttleData.length - 1]
-        const low = throttleData[0]
-        if (!dp || !low || !dp.pr || !low.pr) return null
-        return (((dp.pr - low.pr) / dp.pr) * 100).toFixed(1)
+        const margins = (throttleData || []).filter(row => !row.error && row.surge_margin_pct != null).map(row => row.surge_margin_pct)
+        return margins.length ? Math.min(...margins).toFixed(1) : null
     }, [throttleData])
 
     const handleExportDeck = React.useCallback(() => {
         if (!throttleData || throttleData.length === 0) return
-        const header = 'Throttle_%,Spec_Thrust_Nsk,TSFC_mgNs,PR,Surge\n'
+        const header = '# Inputs SI: ' + JSON.stringify(deckInputs) + '\n# Generic map schedule; unvalidated; flow and speed normalized to design\nThrottle_%,Spec_Thrust_Nsk,TSFC_kg_N_s,PR,Surge,Status,Surge_Margin_pct\n'
         const rows = throttleData.map(r =>
-            `${r.throttle_pct},${r.spec_thrust?.toFixed(3)},${r.tsfc?.toFixed(4)},${r.pr?.toFixed(4)},${r.surge ? 'YES' : 'NO'}`
+            `${r.throttle_pct},${r.spec_thrust?.toFixed(3) ?? ''},${r.tsfc ?? ''},${r.pr?.toFixed(4) ?? ''},${r.surge == null ? '' : r.surge ? 'YES' : 'NO'},${r.status},${r.surge_margin_pct ?? ''}`
         ).join('\n')
         const blob = new Blob([header + rows], { type: 'text/csv' })
         const url = URL.createObjectURL(blob)
@@ -58,9 +54,10 @@ export default function PerformanceMap() {
         a.download = 'engine_deck.csv'
         a.click()
         URL.revokeObjectURL(url)
-    }, [throttleData])
+    }, [throttleData, deckInputs])
 
     const runAnalysis = useCallback(async () => {
+        const sequence = ++requestSequence.current
         setLoading(true)
         setMapData(null)
         setThrottleData(null)
@@ -72,18 +69,23 @@ export default function PerformanceMap() {
                 fetchData('/analyze/offdesign/throttle',
                     { method: 'POST', body: JSON.stringify({...dpParams, n_points: 15}) })
             ])
+            if (sequence !== requestSequence.current) return
             setMapData(m)
             setThrottleData(t)
+            setDeckInputs({ ...dpParams })
         } catch (e) {
             console.error(e)
-            setError('Off-design solver failed. Check backend connection and design parameters.')
+            if (sequence !== requestSequence.current) return
+            setError(`${e.solverStatus || e.code}: ${e.message}`)
         }
-        setLoading(false)
+        if (sequence === requestSequence.current) setLoading(false)
     }, [dpParams])
 
     useEffect(() => {
-        const t = setTimeout(runAnalysis, 300)
-        return () => clearTimeout(t)
+        requestSequence.current += 1
+        const scheduled = requestSequence.current
+        const t = setTimeout(() => { if (scheduled === requestSequence.current) runAnalysis() }, 300)
+        return () => { clearTimeout(t); requestSequence.current += 1 }
     }, [dpParams, runAnalysis])
 
     const buildMapTraces = () => {
@@ -110,7 +112,8 @@ export default function PerformanceMap() {
         if (throttleData && throttleData.length > 0) {
             traces.push({
                 x: throttleData.map(r => r.mdot_corr_norm),
-                y: throttleData.map(r => r.pr),
+                connectgaps: false,
+                y: throttleData.map(r => r.error ? null : r.pr),
                 name: 'OPERATING_LINE',
                 mode: 'lines+markers',
                 marker: { size: 4, color: '#00f0ff' },
@@ -137,6 +140,8 @@ export default function PerformanceMap() {
 
     return (
         <div className="space-y-16 animate-in pb-20">
+      {scenarioError && <p role="alert">Scenario import/export: {scenarioError}</p>}
+      <ScenarioSource source={scenarioSource} />
             <div className="flex items-center justify-between border-b border-white/10 pb-6">
                 <div className="flex gap-12 items-center">
                     {['compressor', 'throttle', 'surge_profile'].map(view => (
@@ -155,6 +160,9 @@ export default function PerformanceMap() {
 
             {/* Error Banner */}
             {!loading && <ErrorBanner error={error} onRetry={runAnalysis} />}
+            <SolverStatus result={mapData} />
+            <SweepStatus rows={throttleData} />
+            {throttleData && <p role="status">{throttleData.filter(row => row.error).length} failed throttle points. Surge margin uses the same corrected speed. This generic map is not calibrated.</p>}
 
             <div className="grid grid-cols-12 gap-12">
                 {/* Parameters Sidebar */}
@@ -206,7 +214,7 @@ export default function PerformanceMap() {
                                             plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
                                             autosize: true, margin: { t: 80, b: 80, l: 100, r: 80 },
                                             xaxis: {
-                                                title: { text: 'Corrected Mass Flow [kg/s]', font: { family: 'JetBrains Mono', size: 12, color: isLight ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.5)' }, standoff: 30 },
+                                                title: { text: 'Normalized Corrected Flow [-]', font: { family: 'JetBrains Mono', size: 12, color: isLight ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.5)' }, standoff: 30 },
                                                 gridcolor: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)',
                                                 tickfont: { family: 'JetBrains Mono', size: 12, color: isLight ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.3)' },
                                                 showline: true, linecolor: isLight ? 'rgba(15,23,42,0.15)' : 'rgba(255,255,255,0.1)'
@@ -237,7 +245,7 @@ export default function PerformanceMap() {
                                     value={mapData?.speed_lines?.[0]?.eta?.[0]
                                         ? (mapData.speed_lines[0].eta[0] * 100).toFixed(1)
                                         : '-'}
-                                    unit="%" sub="POLYTROPIC_PEAK"
+                                    unit="%" sub="ISENTROPIC_MAP"
                                 />
                                 <StatPanel
                                     label="NORM. FLOW"
@@ -246,9 +254,9 @@ export default function PerformanceMap() {
                                 />
                                 <StatPanel
                                     label="THROTTLE STATUS"
-                                    value={loading ? '-' : (throttleData?.some(r => r.surge) ? 'SURGE' : throttleData ? 'PASS' : '-')}
+                                    value={loading ? '-' : (throttleData?.some(r => r.surge) ? 'SURGE' : throttleData?.some(r => r.error) ? 'FAILURES' : throttleData ? 'UNVALIDATED' : '-')}
                                     unit=""
-                                    sub={loading ? 'EXECUTING_ENGINE_DECK' : 'SENSORS_STABLE'}
+                                    sub={loading ? 'EXECUTING_ENGINE_DECK' : 'GENERIC_MAP_SCHEDULE'}
                                     alert={!loading && throttleData?.some(r => r.surge)}
                                 />
                             </div>
@@ -276,7 +284,7 @@ export default function PerformanceMap() {
                                         <Plot
                                             data={[{
                                                 x: throttleData.map(r => r.spec_thrust),
-                                                y: throttleData.map(r => r.tsfc),
+                                                y: throttleData.map(r => r.tsfc == null ? null : r.tsfc * 1e6),
                                                 mode: 'lines+markers', name: 'FISHHOOK',
                                                 line: { color: isLight ? '#0f172a' : '#fff', width: 2, shape: 'spline' },
                                                 marker: { size: 6, color: isLight ? '#0f172a' : '#fff', opacity: 0.6 },
@@ -312,8 +320,8 @@ export default function PerformanceMap() {
                                                     <tr key={i} className={`group hover:bg-white/5 ${r.surge ? 'bg-white/[0.06]' : ''}`}>
                                                         <td className="py-4 font-black text-white">{r.throttle_pct}%</td>
                                                         <td className="py-4 text-white/40 group-hover:text-white/80">{r.spec_thrust?.toFixed(1)}</td>
-                                                        <td className="py-4 text-white/40 group-hover:text-white/80">{r.tsfc?.toFixed(3)}</td>
-                                                        <td className={`py-4 font-black ${r.surge ? 'warning-text' : 'text-white/20'}`}>{r.surge ? 'CRIT' : 'SAFE'}</td>
+                                                        <td className="py-4 text-white/40 group-hover:text-white/80">{r.tsfc == null ? '-' : (r.tsfc * 1e6).toFixed(3)}</td>
+                                                        <td className={`py-4 font-black ${r.surge ? 'warning-text' : 'text-white/20'}`}>{r.error ? r.status : r.surge ? 'SURGE' : 'UNVALIDATED'}</td>
                                                     </tr>
                                                 )) ?? (
                                                     <tr><td colSpan={4} className="py-10 text-center text-white/20 text-[11px] uppercase tracking-widest">

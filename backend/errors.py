@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import logging
+import math
+from contextvars import ContextVar
+from core.errors import SolverError
+
+current_request_id = ContextVar("request_id", default=None)
 import re
 from typing import Any
 from uuid import uuid4
@@ -32,7 +37,11 @@ def request_id_for(request: Request) -> str:
 async def request_id_middleware(request: Request, call_next):
     """Attach a bounded correlation ID to every response."""
     request_id_for(request)
-    response = await call_next(request)
+    token = current_request_id.set(request.state.request_id)
+    try:
+        response = await call_next(request)
+    finally:
+        current_request_id.reset(token)
     response.headers[REQUEST_ID_HEADER] = request.state.request_id
     return response
 
@@ -114,7 +123,7 @@ async def validation_exception_handler(
             error_code="validation_error",
             message="Request validation failed.",
             request_id=request_id_for(request),
-            detail=exc.errors(),
+            detail=_safe_detail(exc.errors()),
         ),
     )
 
@@ -137,3 +146,23 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
             request_id=request_id,
         ),
     )
+
+
+def _safe_detail(value):
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _safe_detail(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_safe_detail(item) for item in value]
+    if isinstance(value, Exception):
+        return str(value)
+    return value
+
+
+async def solver_exception_handler(request: Request, exc: SolverError) -> JSONResponse:
+    """Expose expected solver failures with their status and measured diagnostics."""
+    payload = _payload(error_code=exc.code, message=str(exc),
+                       request_id=request_id_for(request), detail=_safe_detail(exc.details))
+    payload['status'] = exc.status
+    return _response(request, exc.http_status, payload)

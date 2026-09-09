@@ -12,7 +12,7 @@ test.describe('Performance Map & Off-Design E2E', () => {
     await expect(page.locator('.js-plotly-plot').first()).toBeVisible({ timeout: 20000 });
 
     // Verify stats are displayed
-    await expect(page.locator('text=SURGE MARGIN')).toBeVisible();
+    await expect(page.getByText('SURGE MARGIN', { exact: true })).toBeVisible();
     await expect(page.locator('text=PEAK EFFICIENCY')).toBeVisible();
     await expect(page.locator('text=THROTTLE STATUS')).toBeVisible();
   });
@@ -30,7 +30,7 @@ test.describe('Performance Map & Off-Design E2E', () => {
   });
 
   test('exports engine deck CSV dataset', async ({ page }) => {
-    await expect(page.locator('text=SURGE MARGIN')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('SURGE MARGIN', { exact: true })).toBeVisible({ timeout: 20000 });
 
     // Switch to throttle view to find export button
     const throttleTab = page.getByRole('button', { name: /throttle/i }).first();

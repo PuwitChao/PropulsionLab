@@ -4,7 +4,11 @@ Computes component isentropic efficiencies and combustor pressure loss
 from engine station sensor telemetry to isolate mechanical/aerodynamic faults.
 """
 
-from typing import Any, List, Dict
+import math
+from typing import Any, Dict
+from .errors import InputValidationError, PhysicalInfeasibilityError
+from .solver_result import assurance
+from .diagnostic_uncertainty import propagate_telemetry_covariance
 
 
 class DiagnosticsAnalyzer:
@@ -26,6 +30,7 @@ class DiagnosticsAnalyzer:
         tt5: float,
         gamma_c: float = 1.4,
         gamma_t: float = 1.33,
+        input_covariance: list | None = None,
     ) -> Dict[str, Any]:
         """
         Runs the reverse cycle diagnostic analysis.
@@ -45,6 +50,19 @@ class DiagnosticsAnalyzer:
         Returns:
             dict: Diagnostic analysis results containing efficiencies, status, alerts, and messages.
         """
+        inputs = dict(pt2=pt2, tt2=tt2, pt3=pt3, tt3=tt3, pt4=pt4, tt4=tt4,
+                      pt5=pt5, tt5=tt5, gamma_c=gamma_c, gamma_t=gamma_t)
+        for field, value in inputs.items():
+            if not math.isfinite(value) or value <= 0:
+                raise InputValidationError('Telemetry must be finite and positive.', field=field)
+        if gamma_c <= 1 or gamma_t <= 1:
+            raise InputValidationError('Specific heat ratios must exceed one.')
+        if not (pt3 > pt2 and tt3 > tt2):
+            raise PhysicalInfeasibilityError('Compressor pressure and temperature must rise.')
+        if pt4 > pt3 or tt4 <= tt3:
+            raise PhysicalInfeasibilityError('The combustor must heat the flow without a pressure gain.')
+        if not (pt5 < pt4 and tt5 < tt4):
+            raise PhysicalInfeasibilityError('Turbine pressure and temperature must fall.')
         math_trace = []
         alerts = []
         messages = []
@@ -58,7 +76,7 @@ class DiagnosticsAnalyzer:
         # 1. Compressor Isentropic Efficiency
         exp_c = (gamma_c - 1.0) / gamma_c
         tt3_ideal = tt2 * (pt3 / pt2) ** exp_c
-        eta_c = (tt3_ideal - tt2) / (tt3 - tt2) if (tt3 > tt2) else 0.0
+        eta_c = (tt3_ideal - tt2) / (tt3 - tt2)
         math_trace.append(f"Compressor Isentropic Efficiency: {eta_c*100:.2f}% (ideal Tt3={tt3_ideal:.1f} K)")
 
         # 2. Combustor Pressure Loss
@@ -68,36 +86,48 @@ class DiagnosticsAnalyzer:
         # 3. Turbine Isentropic Efficiency
         exp_t = (gamma_t - 1.0) / gamma_t
         tt5_ideal = tt4 * (pt5 / pt4) ** exp_t
-        eta_t = (tt4 - tt5) / (tt4 - tt5_ideal) if (tt4 > tt5_ideal and tt4 > tt5) else 0.0
+        eta_t = (tt4 - tt5) / (tt4 - tt5_ideal)
         math_trace.append(f"Turbine Isentropic Efficiency: {eta_t*100:.2f}% (ideal Tt5={tt5_ideal:.1f} K)")
 
-        # Nominal boundaries:
+        if not (0 < eta_c <= 1 + 1e-9 and 0 < eta_t <= 1 + 1e-9):
+            raise PhysicalInfeasibilityError('Telemetry implies an efficiency outside (0, 1].', eta_c=eta_c, eta_t=eta_t)
+
+        # Screening boundaries:
         # eta_c >= 84%
         # eta_t >= 86%
         # dp_b <= 6.0%
 
         if eta_c < 0.84:
-            alerts.append("F01: COMPRESSOR_FOULING")
-            messages.append("Compressor efficiency has degraded below nominal 84% threshold, indicating stator/rotor fouling, blade surface roughness increase, or tip clearance distress.")
+            alerts.append("F01: LOW_COMPRESSOR_EFFICIENCY")
+            messages.append("Compressor efficiency is below the 84% screening threshold. Check sensors and operating conditions before assessment of component damage.")
 
         if eta_t < 0.86:
-            alerts.append("F02: TURBINE_EROSION")
-            messages.append("Turbine expansion work efficiency shows a loss below nominal 86%, indicating high-pressure turbine blade erosion, thermal coating degradation, or excessive tip clearance.")
+            alerts.append("F02: LOW_TURBINE_EFFICIENCY")
+            messages.append("Turbine efficiency is below the 86% screening threshold. This observation does not identify a mechanical cause.")
 
         if dp_b > 6.0:
-            alerts.append("F03: COMBUSTOR_RESTRICTION")
-            messages.append("Combustor total pressure drop fraction exceeds safe limit of 6.0%, indicating potential thermal liner distortion, blockage in air diluent swirlers, or fuel nozzle misalignment.")
+            alerts.append("F03: HIGH_COMBUSTOR_PRESSURE_LOSS")
+            messages.append("Combustor pressure loss exceeds the 6% screening threshold. Check telemetry and operating conditions before assessment of restriction.")
 
-        status = "NOMINAL" if len(alerts) == 0 else "FAULT_DETECTED"
-        if status == "NOMINAL":
-            messages.append("All mechanical and aerodynamic components are operating within safe isentropic limits.")
+        status = "WITHIN_THRESHOLDS" if len(alerts) == 0 else "THRESHOLD_EXCEEDED"
+        if status == "WITHIN_THRESHOLDS":
+            messages.append("The calculated metrics are within the configured screening thresholds. This is not a safety or fault-isolation verdict.")
 
-        return {
+        result = {
             "eta_c": eta_c,
             "eta_t": eta_t,
             "dp_b": dp_b,
-            "status": status,
+            "status": "OUTSIDE_VALIDATED_DOMAIN",
+            "diagnostic_status": status,
+            "assurance": assurance('diagnostics', inputs,
+                warnings=['Thresholds are uncalibrated. Sensor uncertainty and operating-point baselines are unavailable.'],
+                assumptions=['Adiabatic components and constant supplied specific heat ratios.', 'Telemetry represents simultaneous stagnation states.']),
             "alerts": alerts,
             "messages": messages,
             "math_trace": math_trace
         }
+
+        if input_covariance is not None:
+            result['measurement_uncertainty']=propagate_telemetry_covariance(inputs,input_covariance)
+            result['assurance']['warnings']=['Thresholds are uncalibrated. Supplied measurement covariance excludes model-form uncertainty and operating-point baselines.']
+        return result

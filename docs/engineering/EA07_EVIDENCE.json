@@ -1,0 +1,86 @@
+{
+  "date": "2026-09-09",
+  "scope": "EA-07.1 through EA-07.5",
+  "status": "complete",
+  "runtime": {
+    "node": "v24.13.0",
+    "npm": "11.6.2"
+  },
+  "checks": {
+    "lint": "passed without warnings",
+    "unit_tests": {
+      "passed": 13
+    },
+    "build": "passed",
+    "chromium": {
+      "passed": 51,
+      "failed": 0,
+      "duration_minutes_rounded": 2.8
+    },
+    "git_diff_check": "passed",
+    "ea06_source_hashes": {
+      "unchanged": 26
+    }
+  },
+  "limits": [
+    "No new backend test run claimed",
+    "No independently validated model domain",
+    "Preset source provenance remains unverified",
+    "EA-08 release assurance pending"
+  ],
+  "source_sha256": {
+    "frontend/e2e/diagnostics.spec.js": "052289bbd40a58fa97e6390cf9b539bb30e8c53e63d94131d1e8902e1fe7ff4a",
+    "frontend/e2e/engineering_interfaces.spec.js": "edc3fe994abe3478315bf90cee910ff9e55ed8dc38fddcaa1dd3c8b779660b4c",
+    "frontend/e2e/methane_research.spec.js": "7a21b1314d8fa7a171dfc3ea165b609bb5f596b38847d71a1b46705c2d62eb13",
+    "frontend/e2e/mission_analysis.spec.js": "d389ef5977ea093c72d9a5013a8615411a10702ee703a2e860cbbed47b983bfb",
+    "frontend/e2e/mission_assurance.spec.js": "3c8552e6f44314c1f59c1333bee558ddc6f24afa71580cb2c164008ae9cc8fe8",
+    "frontend/e2e/navigation_and_shell.spec.js": "6474e2fc71e5c01365cc602d4a1e0ed5d32f020b3d4337f319e103099a0768e6",
+    "frontend/e2e/parametric_cycle.spec.js": "d83dbd3b2a40369f5f23fa3b44f674eb8a8d796f8addfa0dc2a2292fb1894c99",
+    "frontend/e2e/performance_map.spec.js": "4e0809be38e6b5aeebcaa7cf25d7819bc3d2106855d533348aa451a39f184b9f",
+    "frontend/e2e/rocket_analysis.spec.js": "336470958e74ddf06029203c98cb96dfb7590f80d9c89cbdb8e94e9b66cf664a",
+    "frontend/e2e/settings_and_errors.spec.js": "63114954cb2cb1aa095cf79a803889a0e4c00989e4cda2ee58603f6370fde5ba",
+    "frontend/e2e/solver_assurance.spec.js": "8f4df730f1db02933adf72b9f1e33165c07509ae7682996812d700108d318d26",
+    "frontend/package-lock.json": "1ddc3b520d50c629b9f6ffe543791cc3875c355b1ec90db0add5fe38e3d0638b",
+    "frontend/package.json": "672b418e71660816efb64f761e2974862eb160f4cc96df531bf295fbcb65a42d",
+    "frontend/playwright.config.js": "9474d2a3219bd43ab855249d8aa065c8dee3ece93e50c63bdd2471ee194414ca",
+    "frontend/src/api.js": "03fdcae326f225c7b00799d818a8925b101349a1f3cf215ecb03d701a711141d",
+    "frontend/src/apiCore.js": "a0b7616a6e40cce9c06dce3fbd3bd2424c06ddee7ab4d75fd90eac84e9f410d2",
+    "frontend/src/apiCore.test.js": "0e6bd6ae1095be07c3aca47d4fdee11ba0cc9c582f5408543cc7711a2f75f02c",
+    "frontend/src/App.jsx": "1d1b26b81fde6c84e684e4a623fdc94e35a50675e074a0d043151fb0cb833cf4",
+    "frontend/src/components/ChartPlaceholder.jsx": "946d9fd1922965d606f26b8f3cb541f8431eb76d5bf670b21fbcad5907462e36",
+    "frontend/src/components/EngineBlueprintDiagram.jsx": "dc7876c6562023dcbe7fc7c840d162e77afba6bd6c5d24f2904a32bd123af9b1",
+    "frontend/src/components/EngineeringPlot.jsx": "0989ababdb102a723be1b60b41ef3cda9c538ee02f6f1a14b2a666e93c8029ce",
+    "frontend/src/components/ErrorBanner.jsx": "0236bb01c008d6b750b78333c9d752efbade59ee94d7a3b2944409f583bb9af7",
+    "frontend/src/components/ErrorBoundary.jsx": "ca38dbcdcb559c1ab92553d4b86b1305474c1657c0afc23a7c841298e31bbbf3",
+    "frontend/src/components/HelpTooltip.jsx": "48cf36569fe8af9f855c825ae9e857b8b2f06b0c9bfbab33eb4c09654d1cd91f",
+    "frontend/src/components/KeyboardShortcutsModal.jsx": "343ce38700bd800054bb170777e1c4523e4e4bb07d9d741c05f33ac5c72c6d98",
+    "frontend/src/components/PresetSelectorModal.jsx": "2d5d30f93c41371a63d88c359dbdf8d64afb9dcb373b4107aa5ee34970fff8a9",
+    "frontend/src/components/ScenarioSource.jsx": "b252f479b82ef3449df0243bfb32e735fe29f01f4bb21548ea7d34183b79c790",
+    "frontend/src/components/SliderControl.jsx": "a34d66c02947a5a1ef3ffcefc2161d3947f9834b118581172437a2cd2af0ab3e",
+    "frontend/src/components/SolverStatus.jsx": "f65202aca8b77cc46df365df304e264c1f2a470fb5fe779e0bb02da07ee7d21a",
+    "frontend/src/components/StatPanel.jsx": "1e2dd1e8e0825d8d7c54c1612185990902d89cfb3d600f062e0f73e4f3996714",
+    "frontend/src/components/SweepStatus.jsx": "df2926066495449aa2f071f5f22232703ebc08633b51b03f7d1f460ff30ac7b7",
+    "frontend/src/context/SettingsContext.jsx": "8aae31dd179ce65d463786133b314bfc103073fd61a357ce1bb7199ac83a0f23",
+    "frontend/src/data/glossary.js": "2ebc5c7d062827071c8b24c71ff7485f1f9f7da677d5f942d5b275a2d75710c8",
+    "frontend/src/data/pageDefaults.js": "74cdfcd2b6e7f551ee66f9d21dd5ff1741998216e0fb577ed8b98f641915b1cb",
+    "frontend/src/data/presets.js": "d94071c9ff718ec037ab18908e9cc0bc2b99d81348cbce0546840645d3b4515e",
+    "frontend/src/hooks/useJsonScenario.js": "f754c5d2e321c6faabc02f515edd3ffd6700f2308a2ffb383500906a12585479",
+    "frontend/src/hooks/usePersistentState.js": "096c069a1ed1a889fa6bee2bba5668c2e573df6cb744cd0612a1aec4a13f79cf",
+    "frontend/src/main.jsx": "14b9919a05ad6726c86ba94a8ee3bad0432d6f1694c69bd1b0c5eda5addf3568",
+    "frontend/src/pages/Diagnostics.jsx": "ce8462659baf48fe4e813cd311fa36f9e48bebcb2aef1b93d51f65bd8eb36732",
+    "frontend/src/pages/MethaneRamjet.jsx": "b5d9a04036caca209742cc7e03df670b5a7e3f2f45c31e657918d9b084527d7d",
+    "frontend/src/pages/MissionAnalysis.jsx": "9bbcb9361cabc69dbb2098fb9e8727e428f958041ba9a8fe72e5733d39b64dfb",
+    "frontend/src/pages/ParametricCycle.jsx": "cf18bda6ba02671f7957d9eb40483666900c7be2d227c22db418924cd992b6a9",
+    "frontend/src/pages/PerformanceMap.jsx": "618d8799096d116394e36bc10083933c720d32f0299b863a7638f69ffbb6cf97",
+    "frontend/src/pages/RocketAnalysis.jsx": "a026a54b1d8a02b951cd0985840a49bc5e422b3c0281a7381b90b47c4bac5058",
+    "frontend/src/pages/Settings.jsx": "7eeebe526e07b88e4772d5d683c03cff90ec7516b4c9e318f54250db857917d0",
+    "frontend/src/utils/chartUtils.js": "ac0df298209eea41a0dc87c69d33fe5b00c8bf7ced2be5da9cc2951dbc29386a",
+    "frontend/src/utils/engineeringInterfaces.test.js": "107ea75815fec02b779aed232bba67b572ccf0717a25095c5b9fabcc3560e9c4",
+    "frontend/src/utils/presetApplication.js": "b3474e4b05f73348c669929446561e6804ffe0c6167718a53df2ce91efa3fe13",
+    "frontend/src/utils/resultExport.js": "4e3908d27f585a22a54399733089bdaf02cfdc3557f3209522ad4538aec0e3af",
+    "frontend/src/utils/scenario.js": "4bb2d0d451ccbc62e19b1d207b3826560c2941586b4feeaacd1616bc43f12f13",
+    "frontend/src/utils/scenario.test.js": "0c4f41c8bec2cba0859ed9710a08165085fc12cc77ee2442049694749a869106",
+    "frontend/src/utils/unitConversion.js": "4d23bfdd6a7dd7473ce18a5ea9a8c4776f0bb18d184a349a53132eb40ab133c8",
+    "frontend/src/version.js": "8246380649955c02f85004c52e97221cd8956293fb76616813da24d516f924be"
+  }
+}

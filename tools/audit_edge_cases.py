@@ -80,7 +80,8 @@ def audit_endpoint(name, path, payload, expect_status=200, expect_json=True):
         return True
     except requests.exceptions.ConnectionError:
         print(f"  [SKIP] {name}: backend not reachable at {BASE_URL}")
-        return None
+        _fail += 1
+        return False
     except Exception as e:
         print(f"  [ERROR] {name}: {e}")
         _fail += 1
@@ -102,9 +103,9 @@ audit_endpoint("Multispool Military TF", "/analyze/cycle/multispool",
     {"alt": 0, "mach": 0.0, "opr": 30.0, "bpr": 0.5, "fpr": 3.5, "lpc_pr": 4.0, "tit": 1850})
 
 audit_endpoint("Rocket H2/O2 Vacuum", "/analyze/rocket",
-    {"pc": 7.5e6, "of_ratio": 6.0, "pe": 100, "propellant": "H2/O2", "mode": "shifting"})
+    {"pc": 7.5e6, "of_ratio": 6.0, "pe": 100, "pa": 0, "propellant": "H2/O2", "mode": "shifting"})
 
-audit_endpoint("Rocket RP1/O2 SL", "/analyze/rocket",
+audit_endpoint("Rocket RP1/O2 propane surrogate", "/analyze/rocket",
     {"pc": 10e6, "of_ratio": 2.2, "pe": 101325, "propellant": "RP1/O2", "mode": "shifting"})
 
 audit_endpoint("Compressor Map", "/analyze/offdesign/map",
@@ -130,10 +131,21 @@ audit_endpoint("O/F Sweep", "/analyze/rocket/sweep",
 
 audit_endpoint("Altitude Performance", "/analyze/rocket/altitude",
     {"pc": 7.5e6, "of_ratio": 6.0, "propellant": "H2/O2", "mode": "shifting",
-     "alt_max_km": 100.0, "n_points": 10})
+     "alt_max_km": 47.0, "n_points": 10})
 
 audit_endpoint("Cycle PRC Sweep", "/analyze/cycle/sweep",
     {"alt": 10000, "mach": 0.8, "prc_min": 10, "prc_max": 40, "steps": 10, "tit": 1600})
+
+audit_endpoint("Breguet SI cruise", "/analyze/mission/breguet",
+    {"tsfc_kg_per_n_s": 15e-6, "mach": 0.78, "alt": 11000,
+     "w_initial": 735498.75, "w_final": 441299.25, "l_over_d": 16})
+
+audit_endpoint("Invalid diagnostic compressor", "/analyze/diagnostics",
+    {"pt2":101325,"tt2":300,"pt3":2026500,"tt3":280,
+     "pt4":1945440,"tt4":1600,"pt5":291816,"tt5":1047.57}, expect_status=422)
+
+audit_endpoint("Outside atmosphere domain", "/analyze/rocket/altitude",
+    {"pc":7.5e6,"of_ratio":6,"propellant":"H2/O2","alt_max_km":100}, expect_status=422)
 
 # ── Fuzz / validation cases ───────────────────────────────────────────────────
 if FUZZ_MODE:

@@ -32,12 +32,14 @@ export default function PresetSelectorModal({ isOpen, onClose, onSelectPreset, c
           </button>
         </div>
 
+        <p className="mt-4 text-sm">Illustrative starting points. Independent sources are not recorded. These presets do not validate named engines.</p>
         <div className="mt-4 grid grid-cols-1 gap-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
           {presets.map((preset) => (
             <button
               key={preset.id}
+              disabled={category === 'gas_turbine' && preset.engineType === 'ramjet'}
               onClick={() => {
-                onSelectPreset(preset);
+                onSelectPreset({ ...preset, category });
                 onClose();
               }}
               className="technical-card p-4 text-left border border-white/5 hover:border-accent-cyan/40 hover:bg-accent-cyan-dim transition-all group flex justify-between items-center"
@@ -52,7 +54,7 @@ export default function PresetSelectorModal({ isOpen, onClose, onSelectPreset, c
                   </span>
                 </div>
                 <p className="text-xs text-white/60 mt-1">
-                  {preset.description || "Real-world engineering baseline specification."}
+                  {category === 'gas_turbine' && preset.engineType === 'ramjet' ? 'Unavailable for this legacy page. Enter methane research inputs separately.' : 'Apply compatible fields. Review omitted fields and model limits on the analysis page.'}
                 </p>
               </div>
               <span className="material-symbols-outlined text-white/30 group-hover:text-accent-cyan group-hover:translate-x-1 transition-all">

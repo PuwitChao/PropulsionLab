@@ -2,6 +2,8 @@ import math
 from typing import Any
 import cantera as ct
 from ..units import R_AIR
+from ..errors import InputValidationError, PhysicalInfeasibilityError, ConvergenceError, DependencyError
+from ..solver_result import cycle_result
 from .thermo import poly_to_isen_comp, poly_to_isen_turb, nozzle_exit
 
 # ── Nozzle / afterburner loss model ──────────────────────────────────
@@ -14,14 +16,17 @@ AB_EXTRA_DP_FRAC = 0.03
 BYPASS_NOZZLE_DP_RATIO = 0.5
 
 # ── Thermodynamic constants ──────────────────────────────────────────
-# Cantera is used for high-fidelity real-gas properties.
+# Cantera supplies temperature-dependent ideal-gas mixture properties.
 # NOTE: A fresh ct.Solution is created per call to avoid state-mutation
 # race conditions under concurrent FastAPI async workers. ct.Solution
 # construction is lightweight (~0.3 ms for gri30).
 
 def _new_gas() -> ct.Solution:
     """Returns a fresh, isolated Cantera GRI30 solution object."""
-    return ct.Solution('gri30.yaml')
+    try:
+        return ct.Solution('gri30.yaml')
+    except ct.CanteraError as exc:
+        raise DependencyError('The GRI30 property mechanism is unavailable.') from exc
 
 def get_gas_props(t_k: float, p_pa: float, f: float = 0.0, species: str = 'CH4:1.0') -> tuple[float, float, float]:
     """
@@ -39,13 +44,15 @@ def get_gas_props(t_k: float, p_pa: float, f: float = 0.0, species: str = 'CH4:1
     Returns:
         tuple: (gamma, cp [J/kg/K], mean_molecular_weight [kg/kmol]).
     """
+    if not all(math.isfinite(v) for v in (t_k, p_pa, f)) or t_k <= 0 or p_pa <= 0 or f < 0:
+        raise PhysicalInfeasibilityError('Gas state requires positive temperature and pressure and nonnegative fuel.')
     gas = _new_gas()
     gas.TP = t_k, p_pa
     if f > 0:
         # Equivalence ratio from fuel-to-air ratio.
         # Stoichiometric f ≈ 0.068 for Jet-A/CH4 at standard conditions.
         phi = f / 0.068
-        phi = max(0.0, min(phi, 1.2))  # Bound for solver stability
+        # Use the requested property proxy ratio without clipping.
         gas.set_equivalence_ratio(phi, species, 'O2:1.0, N2:3.76')
         gas.TP = t_k, p_pa
     else:
@@ -90,7 +97,7 @@ class CycleAnalyzer:
     """
     Gas Turbine Cycle Analysis Core (v2.0.1-STABLE)
 
-    High-fidelity Brayton cycle solver using Cantera for real-gas thermodynamic properties.
+    Approximate Brayton cycle solver with Cantera property samples.
     Models on-design performance for turbojets and turbofans.
 
     Propulsion models are based on constant-pressure combustion and 
@@ -108,6 +115,8 @@ class CycleAnalyzer:
     """
 
     def __init__(self, p0_pa: float, t0_k: float, mach: float):
+        if not all(math.isfinite(v) for v in (p0_pa, t0_k, mach)) or p0_pa <= 0 or t0_k <= 0 or mach < 0:
+            raise InputValidationError('Ambient pressure and temperature must be positive. Mach must be nonnegative.')
         self.p0 = p0_pa
         self.t0 = t0_k
         self.m0 = mach
@@ -132,6 +141,37 @@ class CycleAnalyzer:
     # ─────────────────────────────────────────────────────────────────────────
     # Internal helpers
     # ─────────────────────────────────────────────────────────────────────────
+    @staticmethod
+    def _efficiencies(streams, v0, inlet_mass, fuel_mass, h_fuel, thrust):
+        """Include nozzle pressure work in the mechanical energy flux."""
+        jet_power = sum(0.5 * mass * velocity ** 2 + pressure_force * velocity
+                        for mass, velocity, pressure_force in streams) - 0.5 * inlet_mass * v0 ** 2
+        heat = fuel_mass * h_fuel
+        if heat <= 0:
+            raise PhysicalInfeasibilityError('Fuel energy must be positive.')
+        thermal = jet_power / heat
+        propulsive = thrust * v0 / jet_power if jet_power > 0 else 0.0
+        return thermal, propulsive
+
+    @staticmethod
+    def _architecture(opr, fpr, lpc_pr):
+        if opr < fpr * lpc_pr:
+            raise InputValidationError('OPR must be at least FPR times LPC pressure ratio.',
+                                       opr=opr, fpr=fpr, lpc_pr=lpc_pr)
+        return opr / (fpr * lpc_pr)
+
+    @staticmethod
+    def _heat_addition(t_in, t_out):
+        if t_out <= t_in:
+            raise PhysicalInfeasibilityError('An active combustor must increase total temperature.',
+                                             t_in=t_in, t_out=t_out)
+
+    @staticmethod
+    def _pressure_base(value):
+        if not math.isfinite(value) or value <= 0:
+            raise PhysicalInfeasibilityError('Turbine work demand exceeds the available expansion.', value=value)
+        return value
+
     def _poly_to_isen_comp(self, prc: float, eta_poly: float, g: float) -> float:
         """Compressor isentropic efficiency from polytropic efficiency."""
         return poly_to_isen_comp(prc, eta_poly, g)
@@ -147,6 +187,7 @@ class CycleAnalyzer:
     # ─────────────────────────────────────────────────────────────────────────
     # Public cycle solvers
     # ─────────────────────────────────────────────────────────────────────────
+    @cycle_result
     def solve_turbojet(
         self,
         prc: float,
@@ -209,6 +250,7 @@ class CycleAnalyzer:
         self.math_trace.append(f"Compression: Tt3={tt3:.1f} K, Work={w_comp/1e3:.1f} kJ/kg (η_is={eta_isen_c:.4f})")
 
         # ── Station 4: Turbine inlet ───────────────────────────────────────
+        self._heat_addition(tt3, tit)
         tt4 = tit
         pt4 = pt3 * (1.0 - burner_dp_frac)
         
@@ -217,7 +259,8 @@ class CycleAnalyzer:
         # (1+f)*h4 = h3 + f*h_fuel_eff  => f = (h4 - h3) / (h_fuel_eff - h4)
         _, cp4_0, _ = get_gas_props(tt4, pt4, f=0.02) # Guess f for props
         f = (cp4_0 * tt4 - cp_c_avg * tt3) / (burner_eta * h_fuel - cp4_0 * tt4)
-        f = max(f, 0.0)
+        if f <= 0:
+            raise PhysicalInfeasibilityError('The fuel balance has no positive solution.')
         
         # Refine with calculated f
         g4, cp4, mw4 = get_gas_props(tt4, pt4, f=f)
@@ -231,11 +274,14 @@ class CycleAnalyzer:
         tau_t = tt5 / tt4
         eta_isen_t = self._poly_to_isen_turb(tau_t, eta_t, g4)
         pt5_ratio  = (1.0 - (1.0 - tau_t) / eta_isen_t) if (eta_isen_t > 0 and abs(1-tau_t) > 1e-6) else 1.0
-        pt5        = pt4 * max(pt5_ratio, 1e-4) ** (g4 / (g4 - 1.0))
+        pt5        = pt4 * self._pressure_base(pt5_ratio) ** (g4 / (g4 - 1.0))
         
         # Refine tt5 with mid-point properties
         _, cp_t_avg, _ = get_gas_props(0.5*(tt4+tt5), 0.5*(pt4+pt5), f=f)
         tt5   = tt4 - w_comp / (cp_t_avg * (1.0 + f) * eta_mech_hp)
+        tau_t = tt5 / tt4
+        eta_isen_t = self._poly_to_isen_turb(tau_t, eta_t, g4)
+        pt5 = pt4 * self._pressure_base(1 - (1 - tau_t) / eta_isen_t) ** (g4 / (g4 - 1))
         self.stations[5] = EngineStation(t_total=tt5, p_total=pt5)
         self.math_trace.append(f"Turbine: Tt5={tt5:.1f} K, Pt5/Pt4={pt5/pt4:.3f}, η_is={eta_isen_t:.4f}")
 
@@ -244,11 +290,13 @@ class CycleAnalyzer:
         pt9_in = pt5 * (1.0 - nozzle_dp_frac)
         tt9_in = tt5
         if ab_enabled:
+            self._heat_addition(tt5, ab_temp)
             tt9_in = ab_temp
             pt9_in = pt5 * (1.0 - nozzle_dp_frac - AB_EXTRA_DP_FRAC)
             _, cp7, _ = get_gas_props(tt9_in, pt9_in, f=f+0.05)
             f_ab   = cp4 * (ab_temp - tt5) / (eta_ab * h_fuel - cp7 * ab_temp)
-            f_ab   = max(f_ab, 0.0)
+            if f_ab <= 0:
+                raise PhysicalInfeasibilityError('The afterburner fuel balance has no positive solution.')
             self.math_trace.append(f"Afterburner: Tt7={tt9_in:.1f} K, f_ab={f_ab:.4f}")
         self.stations[7] = EngineStation(t_total=tt9_in, p_total=pt9_in)
 
@@ -260,16 +308,13 @@ class CycleAnalyzer:
         
         v0 = self.m0 * math.sqrt(g2 * R_AIR * self.t0)
 
-        f_gross = (1.0 + f_total) * v9 + (ps9 - self.p0) * (rn * ts9 / ps9 * (1.0 + f_total) / max(v9, 1.0))
+        f_gross = (1.0 + f_total) * v9 + (ps9 - self.p0) * (rn * ts9 / ps9 * (1.0 + f_total) / v9)
         spec_thrust_installed = (f_gross * eta_install_nozzle) - v0 - (v0 * phi_inlet)
-        tsfc_installed = f_total / spec_thrust_installed if spec_thrust_installed > 0 else 0.0
+        tsfc_installed = f_total / spec_thrust_installed if spec_thrust_installed > 0 else None
         
-        # ── Efficiency ─────────────────────────────────────────────────────
-        q_in = f_total * h_fuel
-        # Ideal exhaust velocity for thermal efficiency (expanded to P0)
-        v9_fe = math.sqrt(max(0.0, 2.0 * cpn * tt9_in * (1.0 - (self.p0 / pt9_in) ** ((gn - 1.0) / gn))))
-        eta_thermal = (0.5 * (1.0 + f_total) * v9_fe**2 - 0.5 * v0**2) / q_in if q_in > 0 else 0.0
-        eta_prop = 2.0 * v0 / (v9 + v0) if (v9 + v0) > 1e-3 else 0.0
+        eta_thermal, eta_prop = self._efficiencies(
+            [(1 + f_total, v9, f_gross - (1 + f_total) * v9)],
+            v0, 1, f_total, h_fuel, spec_thrust_installed)
 
         return {
             'engine_type': 'turbojet',
@@ -285,6 +330,7 @@ class CycleAnalyzer:
         }
 
     # ─────────────────────────────────────────────────────────────────────────
+    @cycle_result
     def solve_turbofan(
         self,
         bpr: float,
@@ -339,6 +385,8 @@ class CycleAnalyzer:
         Returns:
             dict: Performance metrics including specific thrust and TSFC.
         """
+        if ab_enabled and not mixed_exhaust:
+            raise InputValidationError('Afterburner is supported only for mixed-exhaust turbofans.')
         # ── Station 2: Inlet exit ─────────────────────────────────────────
         pt2 = self.pt0 * inlet_recovery
         tt2 = self.tt0
@@ -365,8 +413,7 @@ class CycleAnalyzer:
         self.stations[25] = EngineStation(t_total=tt25, p_total=pt25)
 
         # ── HPC pressure ratio ────────────────────────────────────────────
-        hpc_pr = opr / (fpr * lpc_pr) if (fpr * lpc_pr) > 0 else opr
-        hpc_pr = max(hpc_pr, 1.0)
+        hpc_pr = self._architecture(opr, fpr, lpc_pr)
         
         # ── Station 3: HPC exit ───────────────────────────────────────────
         g25, cp25, _ = get_gas_props(tt25, pt25)
@@ -379,13 +426,15 @@ class CycleAnalyzer:
         self.stations[3] = EngineStation(t_total=tt3, p_total=pt3)
 
         # ── Station 4: HPT inlet ─────────────────────────────────────────
+        self._heat_addition(tt3, tit)
         tt4 = tit
         pt4 = pt3 * (1.0 - burner_dp_frac)
         # Fuel-to-air: h4 - h3 = f*(burner_eta*h_fuel - h4)
         # Use cp4 at T4 for hot-side enthalpy, cp_hpc_avg at T3 for cold-side
         _, cp4, mw4 = get_gas_props(tt4, pt4, f=0.04) # Initial guess
         f = (cp4 * tt4 - cp_hpc_avg * tt3) / (burner_eta * h_fuel - cp4 * tt4)
-        f = max(f, 0.0)
+        if f <= 0:
+            raise PhysicalInfeasibilityError('The fuel balance has no positive solution.')
         gh, cph, mwh = get_gas_props(tt4, pt4, f=f)
         self.stations[4] = EngineStation(t_total=tt4, p_total=pt4)
 
@@ -394,7 +443,7 @@ class CycleAnalyzer:
         tt45 = tt4 - w_comp_hp / (cph * (1.0 + f) * eta_mech_hp)
         tau_hpt = tt45 / tt4
         eta_isen_hpt = self._poly_to_isen_turb(tau_hpt, eta_t, gh)
-        pt45 = pt4 * max( (1.0 - (1.0-tau_hpt)/eta_isen_hpt), 1e-4)**(gh/(gh-1.0))
+        pt45 = pt4 * self._pressure_base(1.0 - (1.0-tau_hpt)/eta_isen_hpt)**(gh/(gh-1.0))
         self.stations[45] = EngineStation(t_total=tt45, p_total=pt45)
 
         # ── LPT (drives Fan & LPC) ───────────────────────────────────────
@@ -406,7 +455,7 @@ class CycleAnalyzer:
         tt5 = tt45 - w_lp_spool_total / (cph_avg_lp * (1.0 + f) * eta_mech_lp)
         tau_lpt = tt5 / tt45
         eta_isen_lpt = self._poly_to_isen_turb(tau_lpt, eta_t, gh)
-        pt5 = pt45 * max( (1.0 - (1.0-tau_lpt)/eta_isen_lpt), 1e-4)**(gh/(gh-1.0))
+        pt5 = pt45 * self._pressure_base(1.0 - (1.0-tau_lpt)/eta_isen_lpt)**(gh/(gh-1.0))
         self.stations[5] = EngineStation(t_total=tt5, p_total=pt5)
 
         # ── Nozzle / Exhaust Analysis ─────────────────────────────────────
@@ -436,11 +485,13 @@ class CycleAnalyzer:
             pt_mix = min(pt5, pt21) * 0.98
             
             if ab_enabled:
+                self._heat_addition(tt_mix, ab_temp)
                 tt9_in = ab_temp
                 pt9_in = pt_mix * (1.0 - nozzle_dp_frac - AB_EXTRA_DP_FRAC)
                 _, cp7, mw7 = get_gas_props(tt9_in, pt9_in, f=(f/m_total)+0.05)
                 f_ab = (m_total * cp7 * (ab_temp - tt_mix)) / (eta_ab * h_fuel)
-                f_ab = max(f_ab, 0.0)
+                if f_ab <= 0:
+                    raise PhysicalInfeasibilityError('The afterburner fuel balance has no positive solution.')
             else:
                 tt9_in = tt_mix
                 pt9_in = pt_mix
@@ -450,19 +501,14 @@ class CycleAnalyzer:
             rn = ct.gas_constant / mwn
             v9, ps9, ts9, m9 = self._nozzle_exit(pt9_in, tt9_in, self.p0, gn, rn)
 
-            fg_mix = (m_total) * v9 + (ps9 - self.p0) * (rn * ts9 / ps9 * m_total / max(v9, 1.0))
+            fg_mix = (m_total + f_ab) * v9 + (ps9 - self.p0) * (rn * ts9 / ps9 * (m_total + f_ab) / v9)
             spec_thrust = (fg_mix - (1.0 + bpr) * v0) / (1.0 + bpr)
             spec_thrust_installed = (fg_mix * eta_install_nozzle - (1.0 + bpr) * v0 - v0 * phi_inlet) / (1.0 + bpr)
-            tsfc_installed = (f + f_ab) / ((1.0 + bpr) * spec_thrust_installed) if spec_thrust_installed > 0 else 0.0
+            tsfc_installed = (f + f_ab) / ((1.0 + bpr) * spec_thrust_installed) if spec_thrust_installed > 0 else None
 
-            # Efficiency metrics (mixed exhaust)
-            q_in_m = (f + f_ab) * h_fuel
-            ke_out_m = 0.5 * m_total * v9 ** 2
-            ke_in_m  = 0.5 * (1.0 + bpr) * v0 ** 2
-            delta_ke_m = ke_out_m - ke_in_m
-            eta_thermal_m = max(0.0, delta_ke_m / q_in_m) if q_in_m > 0 else 0.0
-            thrust_power_m = spec_thrust_installed * (1.0 + bpr) * v0
-            eta_prop_m = max(0.0, min(thrust_power_m / max(delta_ke_m, 1.0), 1.0)) if delta_ke_m > 1.0 else 0.0
+            eta_thermal_m, eta_prop_m = self._efficiencies(
+                [(m_total + f_ab, v9, fg_mix - (m_total + f_ab) * v9)],
+                v0, 1 + bpr, f + f_ab, h_fuel, spec_thrust_installed * (1 + bpr))
 
             return {
                 'engine_type': 'turbofan_mixed',
@@ -486,20 +532,16 @@ class CycleAnalyzer:
             gn_b, cpn_b, mwn_b = get_gas_props(tt21, pt19_in)
             v19, ps19, ts19, m19 = self._nozzle_exit(pt19_in, tt21, self.p0, gn_b, ct.gas_constant/mwn_b)
             
-            f_gross_core = (1.0 + f) * v9 + (ps9 - self.p0) * (ct.gas_constant/mwn_c * ts9 / ps9 * (1.0+f) / max(v9, 1.0))
-            f_gross_byp = bpr * v19 + (ps19 - self.p0) * (ct.gas_constant/mwn_b * ts19 / ps19 * bpr / max(v19, 1.0))
+            f_gross_core = (1.0 + f) * v9 + (ps9 - self.p0) * (ct.gas_constant/mwn_c * ts9 / ps9 * (1.0+f) / v9)
+            f_gross_byp = bpr * v19 + (ps19 - self.p0) * (ct.gas_constant/mwn_b * ts19 / ps19 * bpr / v19)
 
             spec_thrust_installed = ( (f_gross_core + f_gross_byp) * eta_install_nozzle - (1.0 + bpr) * v0 - v0 * phi_inlet ) / (1.0 + bpr)
-            tsfc_installed = (f / (1.0 + bpr)) / spec_thrust_installed if spec_thrust_installed > 0 else 0.0
+            tsfc_installed = (f / (1.0 + bpr)) / spec_thrust_installed if spec_thrust_installed > 0 else None
 
-            # Efficiency metrics (separate exhaust)
-            q_in_s = f * h_fuel  # per kg core air
-            ke_out_s = 0.5 * ((1.0 + f) * v9 ** 2 + bpr * v19 ** 2)
-            ke_in_s  = 0.5 * (1.0 + bpr) * v0 ** 2
-            delta_ke_s = ke_out_s - ke_in_s
-            eta_thermal_s = max(0.0, delta_ke_s / q_in_s) if q_in_s > 0 else 0.0
-            thrust_power_s = spec_thrust_installed * (1.0 + bpr) * v0
-            eta_prop_s = max(0.0, min(thrust_power_s / max(delta_ke_s, 1.0), 1.0)) if delta_ke_s > 1.0 else 0.0
+            eta_thermal_s, eta_prop_s = self._efficiencies(
+                [(1 + f, v9, f_gross_core - (1 + f) * v9),
+                 (bpr, v19, f_gross_byp - bpr * v19)],
+                v0, 1 + bpr, f, h_fuel, spec_thrust_installed * (1 + bpr))
 
             return {
                 'engine_type': 'turbofan_separate',
@@ -516,6 +558,7 @@ class CycleAnalyzer:
     # ─────────────────────────────────────────────────────────────────────────
     # Multi-Spool Work Matching
     # ─────────────────────────────────────────────────────────────────────────
+    @cycle_result
     def solve_multispool(
         self,
         opr: float,
@@ -532,13 +575,16 @@ class CycleAnalyzer:
         eta_mech_lp: float = 0.99,
         h_fuel: float = 42.8e6,
         nozzle_dp_frac: float = 0.02,
+        max_iterations: int = 50,
+        relative_tolerance: float = 1e-6,
+        absolute_tolerance: float = 0.1,
     ) -> dict:
         """
-        High-fidelity multi-spool turbofan cycle with iterative HP/LP work matching.
+        Approximate multispool turbofan cycle with measured HP/LP work residuals.
 
         Architecture: FAN → LPC → HPC → COMBUSTOR → HPT → LPT → separate nozzles.
-        Converges to < 0.1% on turbine exit temperatures via 8-iteration fixed-point
-        with mid-point Cantera gas-property refinement at each iteration.
+        Uses bounded fixed-point updates with sampled Cantera properties.
+        Convergence requires work residuals and temperature changes within declared tolerances.
 
         Args:
             opr: Overall Pressure Ratio.
@@ -555,6 +601,10 @@ class CycleAnalyzer:
         Returns:
             dict with spec_thrust, tsfc, eta_thermal, eta_propulsive, station data.
         """
+        if not isinstance(max_iterations, int) or not 1 <= max_iterations <= 500:
+            raise InputValidationError('max_iterations must be an integer from 1 through 500.')
+        if not 0 < relative_tolerance <= 0.01 or not 0 < absolute_tolerance <= 100:
+            raise InputValidationError('Residual tolerances exceed the supported range.')
         inlet_recovery = 0.98
         burner_eta = 0.99
         burner_dp_frac = 0.04
@@ -586,7 +636,7 @@ class CycleAnalyzer:
         self.math_trace.append(f"Station 25 (LPC): Tt25={tt25:.1f} K, W_lpc={w_lpc/1e3:.2f} kJ/kg")
 
         # ── Station 3: HPC exit ───────────────────────────────────────────
-        hpc_pr = max(opr / (fpr * lpc_pr), 1.0)
+        hpc_pr = self._architecture(opr, fpr, lpc_pr)
         g25, cp25, _ = get_gas_props(tt25, pt25)
         eta_isen_hpc = self._poly_to_isen_comp(hpc_pr, eta_hpc, g25)
         tt3 = tt25 + tt25 * (hpc_pr ** ((g25 - 1.0) / g25) - 1.0) / eta_isen_hpc
@@ -597,11 +647,13 @@ class CycleAnalyzer:
         self.math_trace.append(f"Station 3 (HPC): Tt3={tt3:.1f} K, hpc_pr={hpc_pr:.2f}, W_hpc={w_hpc/1e3:.2f} kJ/kg")
 
         # ── Station 4: Combustor ──────────────────────────────────────────
+        self._heat_addition(tt3, tit)
         tt4 = tit
         pt4 = pt3 * (1.0 - burner_dp_frac)
         _, cp4_0, _ = get_gas_props(tt4, pt4, f=0.02)
         f = (cp4_0 * tt4 - cp_hpc_avg * tt3) / (burner_eta * h_fuel - cp4_0 * tt4)
-        f = max(f, 0.0)
+        if f <= 0:
+            raise PhysicalInfeasibilityError('The fuel balance has no positive solution.')
         g4, cp4, mw4 = get_gas_props(tt4, pt4, f=f)
         self.stations[4] = EngineStation(t_total=tt4, p_total=pt4)
         self.math_trace.append(f"Station 4 (Combustor): Tt4={tt4:.1f} K, f={f:.4f}")
@@ -615,13 +667,14 @@ class CycleAnalyzer:
         tt5 = tt45 - w_lp_req / (cp4 * (1.0 + f) * eta_mech_lp)
         pt45 = pt4 * 0.5  # initial pressure guess for mid-point evaluation
 
-        for _ in range(8):
+        converged = False
+        for iteration in range(1, max_iterations + 1):
             # HPT: refine with mid-point gas properties
             _, cp_hpt, _ = get_gas_props(0.5 * (tt4 + tt45), pt4, f=f)
             tt45_new = tt4 - w_hpc / (cp_hpt * (1.0 + f) * eta_mech_hp)
             tau_hpt = tt45_new / tt4
             eta_isen_hpt = self._poly_to_isen_turb(tau_hpt, eta_hpt, g4)
-            pt45_new = pt4 * max((1.0 - (1.0 - tau_hpt) / eta_isen_hpt), 1e-4) ** (g4 / (g4 - 1.0))
+            pt45_new = pt4 * self._pressure_base(1.0 - (1.0 - tau_hpt) / eta_isen_hpt) ** (g4 / (g4 - 1.0))
 
             # LPT: refine with mid-point gas properties
             g45, _, _ = get_gas_props(tt45_new, pt45_new, f=f)
@@ -633,14 +686,37 @@ class CycleAnalyzer:
             conv_lpt = abs(tt5_new - tt5) / max(abs(tt5), 1.0)
             tt45, pt45, tt5 = tt45_new, pt45_new, tt5_new
 
-            if conv_hpt < 1e-3 and conv_lpt < 1e-3:
+            # Evaluate final-state work independently of the update denominator.
+            _, cp_hp_final, _ = get_gas_props(0.5 * (tt4 + tt45), pt4, f=f)
+            _, cp_lp_final, _ = get_gas_props(0.5 * (tt45 + tt5), pt45, f=f)
+            hp_supply = cp_hp_final * (tt4 - tt45) * (1 + f) * eta_mech_hp
+            lp_supply = cp_lp_final * (tt45 - tt5) * (1 + f) * eta_mech_lp
+            hp_error, lp_error = hp_supply - w_hpc, lp_supply - w_lp_req
+            if (abs(hp_error) <= absolute_tolerance + relative_tolerance * abs(w_hpc)
+                    and abs(lp_error) <= absolute_tolerance + relative_tolerance * abs(w_lp_req)
+                    and conv_hpt <= relative_tolerance and conv_lpt <= relative_tolerance):
+                converged = True
                 break
+
+        convergence = {
+            'converged': converged, 'iterations': iteration, 'max_iterations': max_iterations,
+            'residuals': {'hp': hp_error, 'lp': lp_error}, 'residual_units': 'J/kg core air',
+            'relative_residuals': {'hp': hp_error / max(abs(w_hpc), absolute_tolerance),
+                                   'lp': lp_error / max(abs(w_lp_req), absolute_tolerance)},
+            'work_demand': {'hp': w_hpc, 'lp': w_lp_req},
+            'work_supply': {'hp': hp_supply, 'lp': lp_supply},
+            'temperature_residuals': {'hp': conv_hpt, 'lp': conv_lpt},
+            'tolerances': {'relative': relative_tolerance, 'absolute': absolute_tolerance},
+            'termination_reason': 'residual_tolerance' if converged else 'iteration_limit',
+        }
+        if not converged:
+            raise ConvergenceError('Spool work matching reached the iteration limit.', convergence=convergence)
 
         # Final LPT pressure from converged temperatures
         tau_lpt = tt5 / tt45
         g45_fin, _, _ = get_gas_props(tt45, pt45, f=f)
         eta_isen_lpt = self._poly_to_isen_turb(tau_lpt, eta_lpt, g45_fin)
-        pt5 = pt45 * max((1.0 - (1.0 - tau_lpt) / eta_isen_lpt), 1e-4) ** (g45_fin / (g45_fin - 1.0))
+        pt5 = pt45 * self._pressure_base(1.0 - (1.0 - tau_lpt) / eta_isen_lpt) ** (g45_fin / (g45_fin - 1.0))
 
         self.stations[45] = EngineStation(t_total=tt45, p_total=pt45)
         self.stations[5] = EngineStation(t_total=tt5, p_total=pt5)
@@ -661,19 +737,19 @@ class CycleAnalyzer:
 
         rn_c = ct.gas_constant / mwn_c
         rn_b = ct.gas_constant / mwn_b
-        fg_core = (1.0 + f) * v9 + (ps9 - self.p0) * (rn_c * ts9 / ps9 * (1.0 + f) / max(v9, 1.0))
-        fg_byp = bpr * v19 + (ps19 - self.p0) * (rn_b * ts19 / ps19 * bpr / max(v19, 1.0))
+        fg_core = (1.0 + f) * v9 + (ps9 - self.p0) * (rn_c * ts9 / ps9 * (1.0 + f) / v9)
+        fg_byp = bpr * v19 + (ps19 - self.p0) * (rn_b * ts19 / ps19 * bpr / v19)
 
         spec_thrust = (fg_core + fg_byp - (1.0 + bpr) * v0) / (1.0 + bpr)
-        tsfc = f / ((1.0 + bpr) * spec_thrust) if spec_thrust > 0 else 0.0
+        tsfc = f / ((1.0 + bpr) * spec_thrust) if spec_thrust > 0 else None
 
         # ── Efficiency metrics ────────────────────────────────────────────
-        q_in = f * h_fuel
-        v9_fe = math.sqrt(max(0.0, 2.0 * cpn_c * tt5 * (1.0 - (self.p0 / pt9_in) ** ((gn_c - 1.0) / gn_c))))
-        eta_thermal = (0.5 * (1.0 + f) * v9_fe ** 2 - 0.5 * v0 ** 2) / q_in if q_in > 0 else 0.0
-        eta_prop = 2.0 * v0 / (v9 + v0) if (v9 + v0) > 1e-3 else 0.0
+        eta_thermal, eta_prop = self._efficiencies(
+            [(1 + f, v9, fg_core - (1 + f) * v9), (bpr, v19, fg_byp - bpr * v19)],
+            v0, 1 + bpr, f, h_fuel, spec_thrust * (1 + bpr))
 
         return {
+            '_convergence': convergence,
             'engine_type'     : 'multispool_turbofan',
             'spec_thrust'     : spec_thrust,
             'tsfc'            : tsfc,
@@ -695,6 +771,7 @@ class CycleAnalyzer:
     # ─────────────────────────────────────────────────────────────────────────
     # Ramjet Cycle Solver
     # ─────────────────────────────────────────────────────────────────────────
+    @cycle_result
     def solve_ramjet(
         self,
         t4: float,
@@ -724,7 +801,9 @@ class CycleAnalyzer:
             dict: Performance metrics (spec_thrust, tsfc, efficiencies, stations).
         """
         # Ram recovery (MIL-E-5007D standard supersonic inlet recovery)
-        m0 = max(1.0, self.m0)
+        if not 1 <= self.m0 <= 5:
+            raise InputValidationError('The ramjet model supports Mach 1 through 5.')
+        m0 = self.m0
         if m0 <= 1.0:
             eta_ram = 1.0
         elif m0 <= 5.0:
@@ -738,13 +817,15 @@ class CycleAnalyzer:
         g2, cp2, _ = get_gas_props(tt2, pt2)
 
         # Combustor: Station 2 -> Station 4
+        self._heat_addition(tt2, t4)
         tt4 = t4
         pt4 = pt2 * (1.0 - burner_dp_frac)
 
         # Fuel-to-air ratio calculation
         _, cp4_0, _ = get_gas_props(tt4, pt4, f=0.04)
         f = (cp4_0 * tt4 - cp2 * tt2) / (eta_b * h_fuel - cp4_0 * tt4)
-        f = max(f, 0.0)
+        if f <= 0:
+            raise PhysicalInfeasibilityError('The fuel balance has no positive solution.')
 
         gn, cpn, mwn = get_gas_props(tt4, pt4, f=f)
         self.stations[4] = EngineStation(t_total=tt4, p_total=pt4)
@@ -756,14 +837,13 @@ class CycleAnalyzer:
         self.stations[9] = EngineStation(t_total=tt4, p_total=pt9_in, mach=m9)
 
         v0 = self.m0 * math.sqrt(g2 * R_AIR * self.t0)
-        f_gross = (1.0 + f) * v9 + (ps9 - self.p0) * (rn * ts9 / ps9 * (1.0 + f) / max(v9, 1.0))
+        f_gross = (1.0 + f) * v9 + (ps9 - self.p0) * (rn * ts9 / ps9 * (1.0 + f) / v9)
         spec_thrust_installed = (f_gross * eta_install_nozzle) - v0 - (v0 * phi_inlet)
-        tsfc_installed = f / spec_thrust_installed if spec_thrust_installed > 0 else 0.0
+        tsfc_installed = f / spec_thrust_installed if spec_thrust_installed > 0 else None
 
-        q_in = f * h_fuel
-        v9_fe = math.sqrt(max(0.0, 2.0 * cpn * tt4 * (1.0 - (self.p0 / pt9_in) ** ((gn - 1.0) / gn))))
-        eta_thermal = (0.5 * (1.0 + f) * v9_fe**2 - 0.5 * v0**2) / q_in if q_in > 0 else 0.0
-        eta_prop = 2.0 * v0 / (v9 + v0) if (v9 + v0) > 1e-3 else 0.0
+        eta_thermal, eta_prop = self._efficiencies(
+            [(1 + f, v9, f_gross - (1 + f) * v9)],
+            v0, 1, f, h_fuel, spec_thrust_installed)
 
         self.math_trace.append(f"Ramjet Cycle: M0={self.m0:.2f}, Ram Recovery={eta_ram:.4f}, Tt4={tt4:.1f} K, f={f:.4f}")
 

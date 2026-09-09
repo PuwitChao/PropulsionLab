@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import SolverStatus from '../components/SolverStatus'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchData } from '../api'
 import SliderControl from '../components/SliderControl'
 
@@ -16,11 +17,14 @@ export default function Diagnostics() {
     gamma_t: 1.33,
   })
 
+    const requestSequence = useRef(0)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const runDiagnostics = useCallback(async () => {
+        const sequence = ++requestSequence.current
+        setResult(null)
     setLoading(true)
     setError(null)
     try {
@@ -28,18 +32,18 @@ export default function Diagnostics() {
         method: 'POST',
         body: JSON.stringify(params),
       })
-      setResult(data)
+      if (sequence === requestSequence.current) setResult(data)
     } catch (e) {
       console.error(e)
-      setError('Diagnostics solver returned an error. Ensure parameters are physically valid.')
+      if (sequence === requestSequence.current) setError(e.message)
     }
-    setLoading(false)
+    if (sequence === requestSequence.current) setLoading(false)
   }, [params])
 
   // Run automatically when parameters change
   useEffect(() => {
     const t = setTimeout(runDiagnostics, 500)
-    return () => clearTimeout(t)
+    return () => { clearTimeout(t); requestSequence.current += 1 }
   }, [params, runDiagnostics])
 
   const fmtPercent = (v) => (v != null ? `${(v * 100).toFixed(2)}%` : '-')
@@ -51,15 +55,16 @@ export default function Diagnostics() {
         <div className="space-y-2">
           <h2 className="text-[14px] font-black tracking-[0.3em] text-white">REVERSE_ENGINE_DIAGNOSTICS</h2>
           <p className="mono text-[11px] text-white/30 uppercase tracking-widest">
-            MODEL-BASED THERMODYNAMIC FAULT ISOLATION TERMINAL
+            THERMODYNAMIC TELEMETRY SCREENING
           </p>
         </div>
         <div className="status-badge">
-          SYS_MONITOR: {loading ? 'ANALYZING...' : result?.status || 'READY'}
+          SYS_MONITOR: {loading ? 'ANALYZING...' : result?.diagnostic_status || 'READY'}
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-12">
+      <SolverStatus result={result} />
+            <div className="grid grid-cols-12 gap-12">
         {/* Left Side: Sensor Telemetry Controls */}
         <section className="col-span-12 lg:col-span-4 space-y-6">
           <div className="bg-surface-container-low border border-white/10 p-12 space-y-6">
@@ -175,7 +180,7 @@ export default function Diagnostics() {
               <div className="border-t border-white/10 pt-4 flex justify-between items-center text-[10px] font-mono text-white/40 uppercase">
                 <span>ISENTROPIC_WORK</span>
                 <span className={result?.eta_c < 0.84 ? 'warning-text font-bold' : 'text-white/60'}>
-                  {result?.eta_c < 0.84 ? 'CRITICAL' : 'NOMINAL'}
+                  {!result ? 'UNAVAILABLE' : result.eta_c < 0.84 ? 'THRESHOLD_EXCEEDED' : 'WITHIN_THRESHOLDS'}
                 </span>
               </div>
             </div>
@@ -191,7 +196,7 @@ export default function Diagnostics() {
               <div className="border-t border-white/10 pt-4 flex justify-between items-center text-[10px] font-mono text-white/40 uppercase">
                 <span>EXPANSION_WORK</span>
                 <span className={result?.eta_t < 0.86 ? 'warning-text font-bold' : 'text-white/60'}>
-                  {result?.eta_t < 0.86 ? 'CRITICAL' : 'NOMINAL'}
+                  {!result ? 'UNAVAILABLE' : result.eta_t < 0.86 ? 'THRESHOLD_EXCEEDED' : 'WITHIN_THRESHOLDS'}
                 </span>
               </div>
             </div>
@@ -207,7 +212,7 @@ export default function Diagnostics() {
               <div className="border-t border-white/10 pt-4 flex justify-between items-center text-[10px] font-mono text-white/40 uppercase">
                 <span>COMBUSTOR_LOSS</span>
                 <span className={result?.dp_b > 6.0 ? 'warning-text font-bold' : 'text-white/60'}>
-                  {result?.dp_b > 6.0 ? 'CRITICAL' : 'NOMINAL'}
+                  {!result ? 'UNAVAILABLE' : result.dp_b > 6.0 ? 'THRESHOLD_EXCEEDED' : 'WITHIN_THRESHOLDS'}
                 </span>
               </div>
             </div>
@@ -228,17 +233,17 @@ export default function Diagnostics() {
                   <span className="text-white/30 uppercase tracking-widest">SYSTEM_STATUS:</span>
                   <span
                     className={`font-black tracking-[0.2em] px-6 py-2 border uppercase text-[11px] ${
-                      result.status === 'NOMINAL'
+                      result.diagnostic_status === 'WITHIN_THRESHOLDS'
                         ? 'border-white bg-white/15 text-white'
                         : 'warning-panel'
                     }`}
                   >
-                    {result.status}
+                    {result.diagnostic_status}
                   </span>
                 </div>
 
                 <div className="space-y-4 pt-4 border-t border-white/5">
-                  <span className="text-white/30 uppercase tracking-widest block mb-2">FAULT_DIAGNOSTIC_CODES:</span>
+                  <span className="text-white/30 uppercase tracking-widest block mb-2">SCREENING_CODES:</span>
                   {result.alerts.length > 0 ? (
                     result.alerts.map((alt, i) => (
                       <div key={i} className="flex flex-col gap-2 p-6 warning-panel-soft">
@@ -248,7 +253,7 @@ export default function Diagnostics() {
                     ))
                   ) : (
                     <div className="p-6 border border-white/10 bg-white/5 text-white/70">
-                      <span className="font-bold tracking-widest text-[11px]">ALL_SYSTEMS_NOMINAL</span>
+                      <span className="font-bold tracking-widest text-[11px]">WITHIN_SCREENING_THRESHOLDS</span>
                       <p className="text-white/50 text-[11px] mt-2 uppercase tracking-[0.05em]">{result.messages[0]}</p>
                     </div>
                   )}

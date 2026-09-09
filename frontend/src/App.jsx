@@ -5,6 +5,7 @@ import './index.css'
 import ErrorBoundary from './components/ErrorBoundary'
 import PresetSelectorModal from './components/PresetSelectorModal'
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal'
+import { preparePreset } from './utils/presetApplication'
 import { UNIT_SYSTEMS } from './utils/unitConversion'
 
 // Page bundles are loaded on demand.
@@ -33,6 +34,8 @@ function App() {
   const [apiLatency, setApiLatency] = useState(null)
   const [unitSystem, setUnitSystem] = useState(UNIT_SYSTEMS.SI)
   const [presetsModalOpen, setPresetsModalOpen] = useState(false)
+  const [presetRevision, setPresetRevision] = useState(0)
+  const [presetError, setPresetError] = useState(null)
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false)
   const [sessionDuration, setSessionDuration] = useState('00:00:00')
   const [time, setTime] = useState(new Date().toLocaleTimeString('en-GB', { hour12: false }))
@@ -260,9 +263,15 @@ function App() {
         isOpen={presetsModalOpen}
         onClose={() => setPresetsModalOpen(false)}
         onSelectPreset={(preset) => {
-          if (preset.category === 'rocket') setActiveTab('rocket');
-          else if (preset.category === 'mission') setActiveTab('mission');
-          else setActiveTab('on-design');
+          try {
+            const selected = preparePreset(preset, preset.category)
+            localStorage.setItem(selected.key, JSON.stringify(selected.params))
+            localStorage.setItem(`${selected.model}_scenario_source`, JSON.stringify(selected.provenance))
+            if (selected.engine) localStorage.setItem('cycle_engine', JSON.stringify(selected.engine))
+            setActiveTab(selected.target)
+            setPresetRevision(value => value + 1)
+            setPresetError(null)
+          } catch (error) { setPresetError(error.message) }
         }}
         category={activeTab === 'rocket' ? 'rocket' : activeTab === 'mission' ? 'mission' : 'gas_turbine'}
       />
@@ -277,7 +286,8 @@ function App() {
 
       <main className="app-main ml-0 lg:ml-[280px] mt-20 p-6 lg:p-16 w-full lg:w-[calc(100%-280px)] h-[calc(100vh-80px)] overflow-y-auto scrollbar-hide grid-bg">
         <div className="max-w-[1400px] mx-auto">
-            <ErrorBoundary key={activeTab}>
+            {presetError && <p role="alert">{presetError}</p>}
+            <ErrorBoundary key={`${activeTab}-${presetRevision}`}>
                 {renderContent()}
             </ErrorBoundary>
         </div>
@@ -288,7 +298,7 @@ function App() {
         <div className="flex gap-6 lg:gap-16 items-center">
             <div className="flex gap-2 lg:gap-3 items-center">
                 <span className="text-[9px] font-mono text-white/18 uppercase tracking-[0.3em]">KERNEL</span>
-                <span className="font-mono text-[10px] text-white/35">CANTERA_V3.0.x</span>
+                <span className="font-mono text-[10px] text-white/35">CANTERA // SEE RESULT METADATA</span>
             </div>
             <div className="hidden md:flex gap-3 items-center">
                 <span className="text-[9px] font-mono text-white/18 uppercase tracking-[0.3em]">BUILD</span>
@@ -311,10 +321,10 @@ function App() {
 function Dashboard({ status, onNavigate }) {
   const features = [
     { id: 'on-design', title: 'CYCLE_SOLVER', specs: 'TURBOJET // TURBOFAN', code: 'MOD_01', desc: 'On-design parametric cycle decomposition with station-based property analysis.' },
-    { id: 'off-design', title: 'MAP_MATCHING', specs: 'THROTTLE // SURGE', code: 'MOD_02', desc: 'Non-linear component matching across the entire operating envelope.' },
+    { id: 'off-design', title: 'MAP_MATCHING', specs: 'THROTTLE // SURGE', code: 'MOD_02', desc: 'Generic normalized component maps and prescribed throttle schedules. Unvalidated.' },
     { id: 'rocket', title: 'CHAMBER_CEA', specs: 'ROCKET // MOC', code: 'MOD_03', desc: 'Propellant synthesis and method of characteristics nozzle contouring.' },
     { id: 'mission', title: 'SIZE_SYNTHESIS', specs: 'CONSTRAINT // MISSION', code: 'MOD_04', desc: 'Multi-point aircraft sizing and constraint visualization.' },
-    { id: 'diagnostics', title: 'FAULT_ISOLATION', specs: 'SENSORS // DIAGNOSTICS', code: 'MOD_05', desc: 'Model-based thermodynamic engine fault diagnostics and sensor isolation.' }
+    { id: 'diagnostics', title: 'FAULT_ISOLATION', specs: 'SENSORS // DIAGNOSTICS', code: 'MOD_05', desc: 'Thermodynamic telemetry checks with heuristic diagnostic indicators. Unvalidated.' }
   ]
 
   return (

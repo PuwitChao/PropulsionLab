@@ -1,0 +1,68 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "maplibre-gl": {
+      "name": "maplibre-gl",
+      "severity": "critical",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1193680,
+          "name": "maplibre-gl",
+          "dependency": "maplibre-gl",
+          "title": "MapLibre GL JS: XSS Sanitizer Bypass in DOM.sanitize() via Live NamedNodeMap Removal Skip",
+          "url": "https://github.com/advisories/GHSA-jrc7-96c5-q579",
+          "severity": "critical",
+          "cwe": [
+            "CWE-79"
+          ],
+          "cvss": {
+            "score": 10,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N"
+          },
+          "range": "<=6.4.0"
+        }
+      ],
+      "effects": [
+        "plotly.js"
+      ],
+      "range": "<=6.4.0",
+      "nodes": [
+        "node_modules/maplibre-gl"
+      ],
+      "fixAvailable": true
+    },
+    "plotly.js": {
+      "name": "plotly.js",
+      "severity": "critical",
+      "isDirect": false,
+      "via": [
+        "maplibre-gl"
+      ],
+      "effects": [],
+      "range": ">=2.35.0",
+      "nodes": [
+        "node_modules/plotly.js"
+      ],
+      "fixAvailable": true
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 2,
+      "total": 2
+    },
+    "dependencies": {
+      "prod": 276,
+      "dev": 210,
+      "optional": 57,
+      "peer": 12,
+      "peerOptional": 0,
+      "total": 489
+    }
+  }
+}

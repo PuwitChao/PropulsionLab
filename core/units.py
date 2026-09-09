@@ -1,12 +1,13 @@
 import math
-import logging
+from .errors import ModelDomainError, InputValidationError
 
-_isa_logger = logging.getLogger(__name__)
+
 
 # Physics Constants (SI Units)
 G = 9.80665  # Standard gravity (m/s^2)
 R_AIR = 287.05  # Gas constant for air (J/(kg*K))
 GAMMA_AIR = 1.4  # Heat capacity ratio for air
+GEOPOTENTIAL_RADIUS_M = 6356766.0  # US Standard Atmosphere 1976 reference radius [m]
 CP_AIR = 1004.5  # Specific heat capacity for air (J/(kg*K))
 
 # Unit Conversions (Always work in SI internally)
@@ -29,18 +30,20 @@ def n_to_lbf(n):
     return n / 4.44822
 
 # Atmospheric Model (ICAO Standard Atmosphere, 4-layer)
-def isa_atmosphere(altitude_m: float) -> tuple:
+def isa_atmosphere(altitude_m: float, *, altitude_kind: str = "geometric") -> tuple:
     """
     Returns (pressure_pa, temperature_k, density_kgm3) for a given altitude.
 
-    Implements the ICAO Standard Atmosphere (Doc 7488) across four layers:
+    Uses four standard-atmosphere layers in geopotential height:
       - Troposphere        :  0 - 11 000 m  (lapse -6.5 K/km)
       - Lower Stratosphere : 11 000 - 20 000 m (isothermal, 216.65 K)
       - Upper Stratosphere : 20 000 - 32 000 m (lapse +1.0 K/km)
       - Stratopause        : 32 000 - 47 000 m (lapse +2.8 K/km)
 
     Args:
-        altitude_m: Geometric altitude above sea-level [m].
+        altitude_m: Altitude [m], from 0 through 47000 in the selected convention.
+        altitude_kind: "geometric" (default) or "geopotential".
+            Geometric altitude z converts to H = r*z/(r+z), with r = 6356766 m.
 
     Returns:
         tuple: (pressure [Pa], temperature [K], density [kg/m3]).
@@ -50,13 +53,16 @@ def isa_atmosphere(altitude_m: float) -> tuple:
     P0 = 101325.0  # Sea-level pressure [Pa]
     L0 = -0.0065   # Troposphere lapse rate [K/m]
 
+    if altitude_kind not in ("geometric", "geopotential"):
+        raise InputValidationError("Altitude kind must be geometric or geopotential.")
     h = float(altitude_m)
 
-    if h > 47000.0:
-        _isa_logger.warning(
-            "Altitude %.0f m exceeds ICAO ISA model limit (47 000 m); "
-            "clamped to 47 000 m for stratopause layer calculation.", h
-        )
+    if not math.isfinite(h) or not 0 <= h <= 47000:
+        raise ModelDomainError('The atmosphere model supports altitudes from 0 through 47000 m.',
+                               altitude_m=h, minimum_m=0, maximum_m=47000)
+
+    if altitude_kind == "geometric":
+        h = GEOPOTENTIAL_RADIUS_M * h / (GEOPOTENTIAL_RADIUS_M + h)
 
     # Layer 1: Troposphere (0 - 11 000 m)
     T11 = T0 + L0 * 11000.0                            # 216.65 K
@@ -86,8 +92,8 @@ def isa_atmosphere(altitude_m: float) -> tuple:
         # Layer 4: Stratopause (32 000 - 47 000 m), lapse +2.8 K/km
         else:
             L3 = 0.0028                                     # +2.8 K/km
-            h_clamped = min(h, 47000.0)                     # clamp beyond spec
-            T = T32 + L3 * (h_clamped - 32000.0)
+            layer_height = h
+            T = T32 + L3 * (layer_height - 32000.0)
             P = P32 * (T / T32) ** (-G / (L3 * R_AIR))
 
     rho = P / (R_AIR * T)

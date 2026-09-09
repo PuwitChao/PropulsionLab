@@ -1,3 +1,37 @@
+# Engineering assurance handoff
+
+Updated: 2026-09-09. Branch: main. Upstream: origin/main.
+
+EA-00 through EA-07 selected gates are complete. EA-08 review and EA08-R01 remediation are complete locally.
+The chart runtime uses the official GL3D 3.7.0 npm alias. The full npm audit reports zero vulnerabilities.
+Independent investigation and candidate review found no concrete surviving bypass or compatibility regression.
+
+Verification:
+
+- 52 Chromium tests pass, including geographic-trace exclusion and retained scatter/mesh3d behavior.
+- 13 frontend unit tests, lint, and production build pass.
+- EA-08 backend evidence: 312 tests pass with 92% core statement coverage and 2 known warnings.
+- Reference evidence: 9 PASS and 1 INCOMPATIBLE cryogenic CEA case.
+- No backend/core calculation source changed during dependency remediation.
+
+Closeout: 146 scoped files are staged and locally verified. No commit or push occurred.
+Automatic approval review rejected the combined commit and push to main because the broad default-branch publication requires explicit user approval.
+Resume only after approval for this exact commit/push operation. Do not bypass the rejection with another branch or indirect command.
+Remote CI must pass for the immutable revision before the software release gate can pass.
+GitHub CLI lacks authentication. Git transport is available; public CI API access remains to be checked.
+
+Resume:
+
+1. Inspect the commit's remote CI result and address any actual failures.
+2. Retain exploratory-use limits. No complete model has an independently validated operating domain.
+3. Treat calibrated maps, advanced cooling, structural qualification, and full axisymmetric MoC as later model work.
+
+Evidence: `docs/engineering/EA08_REMEDIATION.md`, `EA08_FIX_EVIDENCE.json`, and `EA08_RELEASE_REVIEW.md`.
+The initial release review and audit JSON remain historical evidence of the resolved dependency finding.
+No deployment, tag, or operational qualification is included in this closeout.
+
+---
+
 # Handoff: Full Suite Audit & Playwright E2E
 
 **Generated**: 2026-08-16 23:24 (UTC+7)

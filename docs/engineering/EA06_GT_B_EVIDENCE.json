@@ -1,0 +1,111 @@
+{
+  "purpose": "GT-B numerical evidence, not independent engine validation",
+  "inlet": {
+    "total": {
+      "temperature_k": 787.0981132931782,
+      "pressure_pa": 3819751.505051222,
+      "mass_fractions": [
+        [
+          "O2",
+          0.23299971514004453
+        ],
+        [
+          "N2",
+          0.7670002848599555
+        ]
+      ],
+      "enthalpy_j_per_kg": 513067.06512701145,
+      "entropy_j_per_kg_k": 6850.9884986449615,
+      "cp_j_per_kg_k": 1102.0450915347822,
+      "cv_j_per_kg_k": 813.8585509171209,
+      "density_kg_per_m3": 16.83963002200817,
+      "molecular_weight_kg_per_kmol": 28.850974789915963,
+      "element_mass_fractions": [
+        [
+          "O",
+          0.23299971514004453
+        ],
+        [
+          "H",
+          0.0
+        ],
+        [
+          "C",
+          0.0
+        ],
+        [
+          "N",
+          0.7670002848599555
+        ],
+        [
+          "Ar",
+          0.0
+        ]
+      ]
+    },
+    "velocity_m_per_s": 1022.8600700027696,
+    "energy_residual_j_per_kg": 7.566995918750763e-10,
+    "ideal_total_pressure_pa": 3819751.5050512212
+  },
+  "nozzle": {
+    "exit": {
+      "temperature_k": 1943.0500090122223,
+      "pressure_pa": 551726.0580796918,
+      "mass_fractions": [
+        [
+          "O2",
+          0.22621331566994612
+        ],
+        [
+          "CH4",
+          0.029126213592233007
+        ],
+        [
+          "N2",
+          0.7446604707378209
+        ]
+      ],
+      "enthalpy_j_per_kg": 1927561.7855913294,
+      "entropy_j_per_kg_k": 8822.584660150156,
+      "cp_j_per_kg_k": 1400.8817076331072,
+      "cv_j_per_kg_k": 1105.9939666364448,
+      "density_kg_per_m3": 0.962903575454878,
+      "molecular_weight_kg_per_kmol": 28.19534847414137,
+      "element_mass_fractions": [
+        [
+          "O",
+          0.22621331566994612
+        ],
+        [
+          "H",
+          0.00732013296789151
+        ],
+        [
+          "C",
+          0.021806080624341497
+        ],
+        [
+          "N",
+          0.7446604707378209
+        ],
+        [
+          "Ar",
+          0.0
+        ]
+      ]
+    },
+    "velocity_m_per_s": 851.9119230925801,
+    "mach": 0.9999999880353909,
+    "choked": true,
+    "critical_pressure_pa": 551726.058079692,
+    "mass_flux_kg_per_m2_s": 820.3090367184865,
+    "energy_residual_j_per_kg": 5.820766091346741e-11,
+    "sonic_residual_j_per_kg": -0.008683362160809338,
+    "iterations": 24
+  },
+  "source_sha256": {
+    "core/gas_turbine/state.py": "80e57136270f89d94414dba0a10fe9892536d76c66c8a40f138af3ad9073b56c",
+    "core/gas_turbine/flow.py": "8f9ff56bdc613cf7b9096529b7fc4a511af4fafb04199cbfcc840093218b0d45",
+    "tests/test_frozen_flow.py": "3951bffd888602776a406faf19ede9bbb5d845541a659e1fb8ec49acb50749b7"
+  }
+}

@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import Plotly from 'plotly.js-dist-min'
-import _createPlotlyComponent from 'react-plotly.js/factory'
-const createPlotlyComponent = _createPlotlyComponent.default || _createPlotlyComponent
-const Plot = createPlotlyComponent(Plotly)
+import ScenarioSource from '../components/ScenarioSource'
+import { PAGE_DEFAULTS } from '../data/pageDefaults'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import Plot from '../components/EngineeringPlot'
 import { fetchData } from '../api'
+import SolverStatus from '../components/SolverStatus'
+import MethaneRamjet from './MethaneRamjet'
+import SweepStatus from '../components/SweepStatus'
 import StatPanel from '../components/StatPanel'
 import SliderControl from '../components/SliderControl'
 import EngineBlueprintDiagram from '../components/EngineBlueprintDiagram'
@@ -15,19 +17,11 @@ import useJsonScenario from '../hooks/useJsonScenario'
 export default function ParametricCycle({ unitSystem = 'si' }) {
   const { theme } = useSettings()
   const isLight = theme === 'light'
-  const [activeEngine, setActiveEngine] = useState('turbojet')
-  const [p, setP] = usePersistentState('cycle_params', {
-    alt: 10000, mach: 0.8, prc: 25, tit: 1650,
-    bpr: 6.0, fpr: 1.6, lpc_pr: 3.0,
-    eta_c: 0.88, eta_t: 0.92, burner_dp_frac: 0.04,
-    inlet_recovery: 0.98, phi_inlet: 0.0, eta_install_nozzle: 1.0,
-    ab_enabled: false, ab_temp: 2000
-  })
-  const { exportScenario, importScenario } = useJsonScenario({
-    filename: 'cycle_scenario.json',
-    data: { engine: activeEngine, params: p },
-    onImport: (d) => { if (d.params) setP(prev => ({ ...prev, ...d.params })) },
-  })
+  const [activeEngine, setActiveEngine] = usePersistentState('cycle_engine', 'turbojet')
+  const [p, setP] = usePersistentState('cycle_params', PAGE_DEFAULTS.cycle)
+
+  const requestSequence = useRef(0)
+  const sensitivitySequence = useRef(0)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -52,7 +46,17 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
   const [sensData, setSensData] = useState(null)
   const [sensLoading, setSensLoading] = useState(false)
 
+  const { exportScenario, importScenario, scenarioError, scenarioSource } = useJsonScenario({
+    filename: 'cycle_scenario.json',
+    data: { engine: activeEngine, params: p },
+    model: 'legacy_cycle', template: { engine: 'turbojet', params: PAGE_DEFAULTS.cycle },
+    validate: d => { if (!['turbojet', 'turbofan', 'mixed_flow', 'multispool_turbofan'].includes(d.engine)) throw new Error('Unsupported cycle architecture.') },
+    onInvalidate: () => { requestSequence.current += 1; sensitivitySequence.current += 1; setResult(null); setSensData(null); setLoading(false); setSensLoading(false); clearReference() },
+    onImport: d => { setP(d.params); setActiveEngine(d.engine) },
+  })
+
   const runSensitivity = useCallback(async () => {
+    const sequence = ++sensitivitySequence.current
     setSensLoading(true)
     setSensData(null)
     try {
@@ -60,21 +64,27 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
         method: 'POST',
         body: JSON.stringify(sensParams)
       })
+      if (sequence !== sensitivitySequence.current) return
       setSensData(data)
+      setError(null)
     } catch (e) {
+      if (sequence !== sensitivitySequence.current) return
       console.error('Sensitivity sweep error:', e)
+      setError(e.message)
     }
-    setSensLoading(false)
+    if (sequence === sensitivitySequence.current) setSensLoading(false)
   }, [sensParams])
 
   useEffect(() => {
     if (activeEngine === 'sensitivity') {
-      const t = setTimeout(runSensitivity, 700)
-      return () => clearTimeout(t)
+      const scheduled = sensitivitySequence.current
+        const t = setTimeout(() => { if (scheduled === sensitivitySequence.current) runSensitivity() }, 700)
+      return () => { clearTimeout(t); sensitivitySequence.current += 1 }
     }
   }, [sensParams, activeEngine, runSensitivity])
 
   const runAnalysis = useCallback(async () => {
+    const sequence = ++requestSequence.current
     setLoading(true)
     setResult(null)
     setError(null)
@@ -83,7 +93,7 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
       let body = p
       if (activeEngine === 'ramjet') {
         endpoint = '/analyze/cycle/ramjet'
-        body = { alt: p.alt, mach: Math.max(1.2, p.mach), t4: p.tit, eta_b: 0.98, burner_dp_frac: p.burner_dp_frac, nozzle_dp_frac: 0.02 }
+        body = { alt: p.alt, mach: p.mach, t4: p.tit, eta_b: 0.98, burner_dp_frac: p.burner_dp_frac, nozzle_dp_frac: 0.02 }
       } else if (activeEngine === 'multispool_turbofan') {
         endpoint = '/analyze/cycle/multispool'
         body = {
@@ -100,23 +110,27 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
         body = { ...p, opr: p.prc, mixed_exhaust: activeEngine === 'mixed_flow' }
       }
       const data = await fetchData(endpoint, { method: 'POST', body: JSON.stringify(body) })
+      if (sequence !== requestSequence.current) return
       setResult(data)
     } catch (e) {
       console.error(e)
-      setError('Solver kernel returned an error. Check backend connection and input parameters.')
+      if (sequence !== requestSequence.current) return
+      setError(`${e.solverStatus || e.code || 'SOLVER_ERROR'}: ${e.message}${e.detail?.convergence ? ` (${e.detail.convergence.termination_reason}; ${e.detail.convergence.iterations} iterations)` : ''}`)
     }
-    setLoading(false)
+    if (sequence === requestSequence.current) setLoading(false)
   }, [p, activeEngine])
 
 
   // Clear results when switching engine type, then re-run (debounced)
   useEffect(() => {
-    if (activeEngine === 'sensitivity') return
+    requestSequence.current += 1
+    if (activeEngine === 'sensitivity' || activeEngine === 'methane_research' || activeEngine.startsWith('methane_')) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setResult(null)
     setError(null)
-    const t = setTimeout(runAnalysis, 700)
-    return () => clearTimeout(t)
+    const scheduled = requestSequence.current
+        const t = setTimeout(() => { if (scheduled === requestSequence.current) runAnalysis() }, 700)
+    return () => { clearTimeout(t); requestSequence.current += 1 }
   }, [p, activeEngine, runAnalysis])
 
   // Build station display rows - returns empty array cleanly when no result
@@ -185,10 +199,12 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
 
   return (
     <div className="space-y-16 animate-in pb-20">
+      {scenarioError && <p role="alert">Scenario import/export: {scenarioError}</p>}
+      <ScenarioSource source={scenarioSource} />
       {/* Platform Controls */}
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between border-b border-white/10 pb-6">
         <div className="flex gap-4 sm:gap-10 items-center flex-wrap">
-            {['turbojet', 'turbofan', 'mixed_flow', 'multispool_turbofan', 'sensitivity'].map(mode => (
+            {['turbojet', 'turbofan', 'mixed_flow', 'multispool_turbofan', 'methane_research', 'methane_turbojet', 'methane_turbofan', 'methane_mixed_turbofan', 'methane_multispool', 'sensitivity'].map(mode => (
                 <button
                     key={mode}
                     id={`engine-tab-${mode}`}
@@ -197,7 +213,7 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
                         activeEngine === mode ? 'tab-active' : 'tab-inactive'
                     }`}
                 >
-                    {mode === 'sensitivity' ? 'SENSITIVITY' : mode === 'multispool_turbofan' ? 'MULTI-SPOOL' : mode.replace('_', ' ').toUpperCase()}
+                    {mode === 'methane_turbojet' ? 'METHANE RESEARCH TURBOJET' : mode === 'methane_research' ? 'METHANE RESEARCH RAMJET' : mode === 'sensitivity' ? 'SENSITIVITY' : mode === 'multispool_turbofan' ? 'MULTI-SPOOL' : mode.replace('_', ' ').toUpperCase()}
                 </button>
             ))}
         </div>
@@ -207,7 +223,9 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
       </div>
 
       {/* ── Main Engine View ── */}
-      {activeEngine !== 'sensitivity' && (
+      {activeEngine === 'methane_research' && <MethaneRamjet key="ramjet" />}
+      {['turbojet', 'turbofan', 'mixed_turbofan', 'multispool'].map(engine => activeEngine === `methane_${engine}` && <MethaneRamjet key={engine} engine={engine} />)}
+      {activeEngine !== 'sensitivity' && activeEngine !== 'methane_research' && !activeEngine.startsWith('methane_') && (
       <div className="grid grid-cols-12 gap-12">
         {/* Left Col: Params */}
         <section className="col-span-12 lg:col-span-3 space-y-4">
@@ -219,7 +237,7 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
 
              <div className="bg-surface-container-low border border-white/10 p-12 space-y-4">
                   <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-2">CYCLE_SPEC</h2>
-                  <SliderControl label="Core PR" value={Math.round(p.prc)} min={2} max={60} unit="" step={1} onChange={v => setP({...p, prc: v})} />
+                  <SliderControl label="Core PR" value={p.prc.toFixed(1)} min={2} max={60} unit="" step={0.1} onChange={v => setP({...p, prc: v})} />
                   <SliderControl label="Turbine Inlet T" value={Math.round(p.tit)} min={1000} max={2500} unit="K" step={10} onChange={v => setP({...p, tit: v})} />
              </div>
 
@@ -228,8 +246,8 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
                     <h2 className="text-[12px] font-black tracking-[0.3em] uppercase text-white mb-2">
                       {activeEngine === 'multispool_turbofan' ? 'DUAL_SPOOL_SPEC' : 'TURBOFAN_SPEC'}
                     </h2>
-                    <SliderControl label="Bypass Ratio" value={p.bpr.toFixed(1)} min={0.5} max={15.0} unit="" step={0.1} onChange={v => setP({...p, bpr: v})} />
-                    <SliderControl label="Fan Pressure Ratio" value={p.fpr.toFixed(2)} min={1.1} max={3.0} unit="" step={0.05} onChange={v => setP({...p, fpr: v})} />
+                    <SliderControl label="Bypass Ratio" value={p.bpr.toFixed(2)} min={0} max={15.0} unit="" step={0.01} onChange={v => setP({...p, bpr: v})} />
+                    <SliderControl label="Fan Pressure Ratio" value={p.fpr.toFixed(2)} min={1.1} max={4.0} unit="" step={0.01} onChange={v => setP({...p, fpr: v})} />
                     {activeEngine === 'multispool_turbofan' && (
                       <SliderControl label="LPC / Booster PR" value={(p.lpc_pr ?? 3.0).toFixed(2)} min={1.0} max={6.0} unit="" step={0.05} onChange={v => setP({...p, lpc_pr: v})} />
                     )}
@@ -303,6 +321,8 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
 
         {/* Right: Visualization */}
           <section className="col-span-12 lg:col-span-9 flex flex-col gap-12">
+              <SolverStatus result={result} />
+              <SweepStatus rows={activeEngine === 'sensitivity' ? sensData?.data : null} />
               <div className="h-auto lg:h-[650px] bg-surface-container-lowest border border-white/10 relative overflow-hidden group flex flex-col lg:block p-6 lg:p-0">
                   <div className="panel-accent"></div>
 
@@ -317,7 +337,7 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-16 w-full lg:w-auto">
                           <StatPanel
                             label="SPECIFIC THRUST"
-                            value={result ? (result.spec_thrust ?? 0).toFixed(1) : '-'}
+                            value={result?.assurance?.physical_valid !== false && result?.spec_thrust != null ? result.spec_thrust.toFixed(1) : '-'}
                             unit="Ns/kg"
                             sub="NET_AIR_FORCE"
                           />
@@ -539,6 +559,8 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
           </section>
 
           <section className="col-span-12 lg:col-span-9 flex flex-col gap-12">
+              <SolverStatus result={result} />
+              <SweepStatus rows={activeEngine === 'sensitivity' ? sensData?.data : null} />
             <div className="h-[650px] bg-surface-container-lowest border border-white/10 relative overflow-hidden group">
               <div className="panel-accent"></div>
               <div className="absolute top-12 left-12 z-20 space-y-3 pointer-events-none">
@@ -560,6 +582,7 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
                     data={[
                       {
                         x: sensData.data.map(d => d.sweep_value),
+                        connectgaps: false,
                         y: sensData.data.map(d => d.spec_thrust),
                         name: 'SPEC_THRUST',
                         type: 'scatter', mode: 'lines+markers',
@@ -570,7 +593,8 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
                       },
                       {
                         x: sensData.data.map(d => d.sweep_value),
-                        y: sensData.data.map(d => d.tsfc * 1e6),
+                        connectgaps: false,
+                        y: sensData.data.map(d => d.tsfc == null ? null : d.tsfc * 1e6),
                         name: 'TSFC [mg/Ns]',
                         type: 'scatter', mode: 'lines+markers',
                         line: { color: 'rgba(0, 240, 255, 0.40)', width: 2, dash: 'dot' },
@@ -580,7 +604,8 @@ export default function ParametricCycle({ unitSystem = 'si' }) {
                       },
                       {
                         x: sensData.data.map(d => d.sweep_value),
-                        y: sensData.data.map(d => (d.eta_thermal ?? 0) * 100),
+                        connectgaps: false,
+                        y: sensData.data.map(d => d.eta_thermal == null ? null : d.eta_thermal * 100),
                         name: 'eta_THERMAL [%]',
                         type: 'scatter', mode: 'lines',
                         line: { color: 'rgba(0, 240, 255, 0.20)', width: 1.5, dash: 'longdash' },

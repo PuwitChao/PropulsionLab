@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, master]
 
+permissions:
+  contents: read
+
 jobs:
   backend-tests:
     name: Backend — pytest
@@ -30,7 +33,19 @@ jobs:
         run: pip-audit -r backend/requirements.txt --strict
 
       - name: Run tests
-        run: pytest tests/ -v --cov=core --cov-report=term-missing
+        run: pytest tests/ -v --cov=core --cov-report=term-missing --junitxml=backend-results.xml
+
+      - name: Independent reference comparisons
+        run: python tools/validate_references.py --output docs/engineering/CI_COMPARISONS.json
+
+      - name: Retain backend evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-assurance
+          path: |
+            backend-results.xml
+            docs/engineering/CI_COMPARISONS.json
 
   frontend-lint-build:
     name: Frontend — lint + build
@@ -41,7 +56,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -51,7 +66,7 @@ jobs:
       - name: Lint
         run: cd frontend && npm run lint
 
-      - name: Test frontend request helpers
+      - name: Test frontend contracts
         run: cd frontend && npm run test
 
       - name: Build
@@ -61,3 +76,24 @@ jobs:
         run: cd frontend && npm audit --omit=dev --audit-level=high
         env:
           VITE_API_URL: http://localhost:8000
+
+      - name: Set up browser-test backend
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install browser-test dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Browser regression
+        run: cd frontend && npx playwright test
+
+      - name: Retain browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-assurance
+          path: frontend/test-results/

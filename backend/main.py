@@ -49,13 +49,21 @@ from fastapi.responses import PlainTextResponse
 
 from backend.errors import (
     http_exception_handler,
+    solver_exception_handler,
+    current_request_id,
     request_id_middleware,
     unhandled_exception_handler,
     validation_exception_handler,
 )
 
 # Local analytical modules
+from core.gas_turbine.engine_deck import cruise_with_deck
+from core.gas_turbine.turbofan import methane_turbofan
+from core.gas_turbine.methane import methane_ramjet, methane_turbojet
+
 from core.units import isa_atmosphere
+from core.errors import SolverError
+from core.solver_result import require_finite, failed_point, ACCEPTED_STATUSES
 from core.gas_turbine.cycle import CycleAnalyzer
 from core.gas_turbine.off_design import OffDesignSolver
 from core.rocket.analyzer import RocketAnalyzer
@@ -70,6 +78,10 @@ from backend.models import (
     MissionConstraint,
     MissionConstraintRequest,
     CycleRequest,
+    MethaneRamjetRequest,
+    MethaneTurbojetRequest,
+    MethaneTurbofanRequest,
+    DeckCruiseRequest,
     TurbofanRequest,
     CycleSweepRequest,
     OffDesignMapRequest,
@@ -95,6 +107,7 @@ app.middleware("http")(request_id_middleware)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
+app.add_exception_handler(SolverError, solver_exception_handler)
 
 
 def _sanitize(obj: Any) -> Any:
@@ -102,10 +115,23 @@ def _sanitize(obj: Any) -> Any:
     if isinstance(obj, float):
         return None if not math.isfinite(obj) else obj
     if isinstance(obj, dict):
+        if 'assurance' in obj:
+            require_finite(obj)
+            obj['assurance']['request_id'] = current_request_id.get()
+            obj['assurance']['app_version'] = APP_VERSION
         return {k: _sanitize(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_sanitize(v) for v in obj]
     return obj
+
+
+_CYCLE_METRICS = ('spec_thrust', 'tsfc', 'eta_thermal', 'eta_overall', 'eta_propulsive')
+
+
+def _cycle_point(result, inputs):
+    accepted = result['status'] in ACCEPTED_STATUSES
+    return {**inputs, **{key: result.get(key) if accepted else None for key in _CYCLE_METRICS},
+            'status': result['status'], 'assurance': result['assurance'], 'error': not accepted}
 
 
 # ── Security & Policy ────────────────────────────────────────────────────────
@@ -160,6 +186,8 @@ def get_diagnostics():
         ct.Solution('gri30.yaml')   # fast ~0.3 ms, confirms mechanism file accessible
         cantera_version = ct.__version__
         cantera_status = "connected"
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Cantera health probe failed: %s", e, exc_info=True)
         cantera_status = "error"
@@ -226,6 +254,8 @@ async def analyze_mission(request: MissionConstraintRequest):
         constraints = [c.model_dump() for c in request.constraints]
         result = analyzer.generate_constraint_data(ws_range, constraints)
         return _sanitize(result)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Mission analysis error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Mission analysis computation failed.")
@@ -240,11 +270,14 @@ async def calculate_breguet_range(request: BreguetRequest):
             mach=request.mach,
             altitude_m=request.alt,
             sfc_1_per_s=request.sfc_1_per_s,
+            tsfc_kg_per_n_s=request.tsfc_kg_per_n_s,
             l_over_d=request.l_over_d,
             w_initial=request.w_initial,
             w_final=request.w_final,
         )
         return _sanitize(result)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Breguet range calculation error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Breguet range calculation failed.")
@@ -278,6 +311,8 @@ async def analyze_cycle(request: CycleRequest):
             eta_mech_lp=request.eta_mech_lp,
         )
         return _sanitize(result)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Turbojet cycle error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Cycle analysis computation failed.")
@@ -309,6 +344,8 @@ async def analyze_turbofan(request: TurbofanRequest):
             lpc_pr=request.lpc_pr,
         )
         return _sanitize(result)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Turbofan cycle error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Turbofan cycle computation failed.")
@@ -327,6 +364,8 @@ async def analyze_ramjet(request: RamjetRequest):
             nozzle_dp_frac=request.nozzle_dp_frac,
         )
         return _sanitize(result)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Ramjet cycle analysis error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Ramjet computation failed.")
@@ -346,16 +385,16 @@ async def analyze_cycle_sweep(request: CycleSweepRequest):
             for i in range(request.steps + 1)
         ]
         for prc in prc_range:
-            ca  = CycleAnalyzer(p0, t0, request.mach)
-            res = ca.solve_turbojet(prc, request.tit)
-            results.append({
-                "prc":          prc,
-                "spec_thrust":  res["spec_thrust"],
-                "tsfc":         res["tsfc"],
-                "eta_thermal":  res.get("eta_thermal", 0),
-                "eta_overall":  res.get("eta_overall", 0),
-            })
+            inputs = {'prc': prc, 'tit': request.tit, 'alt': request.alt, 'mach': request.mach}
+            try:
+                ca = CycleAnalyzer(p0, t0, request.mach)
+                res = ca.solve_turbojet(prc, request.tit)
+                results.append(_cycle_point(res, inputs))
+            except SolverError as exc:
+                results.append(failed_point(exc, inputs, _CYCLE_METRICS))
         return _sanitize(results)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Cycle sweep error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Cycle sweep computation failed.")
@@ -380,6 +419,8 @@ async def offdesign_map(request: OffDesignMapRequest):
         # Add DP reference for visualization
         map_data['design_point'] = {'flow': 1.0, 'pr': solver.dp_pr}
         return _sanitize(map_data)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Off-design map error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Compressor map computation failed.")
@@ -399,6 +440,8 @@ async def offdesign_throttle(request: ThrottleSweepRequest):
         solver  = OffDesignSolver(dp)
         results = solver.sweep_throttle(p0, t0, request.mach, request.h_fuel, request.n_points)
         return _sanitize(results)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Throttle sweep error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Throttle sweep computation failed.")
@@ -431,8 +474,11 @@ async def analyze_rocket(request: RocketRequest):
             compute_heat_transfer=request.compute_heat_transfer,
             impurity_species=request.impurity_species,
             impurity_mass_frac=request.impurity_mass_frac,
+            p_ambient_pa=request.pa,
         )
         return _sanitize(result)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Rocket equilibrium error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Rocket equilibrium computation failed.")
@@ -454,9 +500,11 @@ async def analyze_rocket_sweep(request: RocketRequest):
             try:
                 res = analyzer.solve_equilibrium(
                     request.propellant, of, request.pe, request.mode,
-                    request.exit_half_angle_deg, compute_heat_transfer=False,
+                    request.exit_half_angle_deg, compute_heat_transfer=False, p_ambient_pa=request.pa,
+                    impurity_species=request.impurity_species, impurity_mass_frac=request.impurity_mass_frac,
                 )
                 results.append({
+                    "status": res["status"], "assurance": res["assurance"],
                     "of_ratio"      : of,
                     "isp"           : res["isp_delivered"],
                     "isp_vac"       : res["isp_vac"],
@@ -467,9 +515,11 @@ async def analyze_rocket_sweep(request: RocketRequest):
                     "gamma"         : res.get("gamma"),
                     "mw_chamber"    : res.get("mw_chamber"),
                 })
-            except Exception:
-                pass
+            except SolverError as exc:
+                results.append(failed_point(exc, {'of_ratio': of}, ('isp', 'isp_vac', 't_chamber', 'c_star', 'cf_delivered', 'epsilon')))
         return _sanitize(results)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Rocket sweep error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="O/F sweep computation failed.")
@@ -492,7 +542,9 @@ async def analyze_rocket_altitude(request: AltitudeRequest):
         altitudes = [i * request.alt_max_km * 1000.0 / (request.n_points - 1)
                      for i in range(request.n_points)]
         analyzer  = RocketAnalyzer(request.pc)
-        return _sanitize(analyzer.altitude_performance(request.propellant, request.of_ratio, altitudes, request.mode))
+        return _sanitize(analyzer.altitude_performance(request.propellant, request.of_ratio, altitudes, request.mode, request.pe, request.exit_half_angle_deg))
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Altitude performance error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Altitude performance computation failed.")
@@ -521,8 +573,9 @@ async def analyze_sizing(request: SizingRequest):
             thrust_target_N=request.thrust_N,
             compute_heat_transfer=True,
         )
-        # Return only sizing-relevant fields
+        # Preserve assurance when selecting sizing fields.
         return _sanitize({
+            'status': result['status'], 'assurance': result['assurance'],
             'thrust_N'    : request.thrust_N,
             'propellant'  : request.propellant,
             'pc_MPa'      : request.pc / 1e6,
@@ -544,6 +597,8 @@ async def analyze_sizing(request: SizingRequest):
             'heat_transfer': result.get('heat_transfer'),
             'math_trace': result.get('math_trace'),
         })
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Engine sizing error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Engine sizing computation failed.")
@@ -558,6 +613,8 @@ async def analyze_rocket_moc(request: MoCRequest):
         x, y     = designer.solve_contour()
         mesh     = designer.get_mesh_data()
         return _sanitize({"x": x, "y": y, "mesh": mesh})
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("MoC computation error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="MoC computation failed.")
@@ -573,6 +630,8 @@ async def export_rocket_stl(request: MoCRequest):
             media_type="application/sla",
             headers={"Content-Disposition": "attachment; filename=nozzle_moc.stl"}
         )
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("MoC STL export error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to generate STL mesh.")
@@ -614,6 +673,8 @@ async def export_rocket_csv(request: MoCRequest):
             media_type="text/csv",
             headers={"Content-Disposition": "attachment; filename=nozzle_contour.csv"}
         )
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("CSV export error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to generate CSV export.")
@@ -627,6 +688,8 @@ async def export_moc_obj(request: MoCRequest):
         obj_text = solver.generate_obj_mesh()
         filename = f"nozzle_moc_m{request.mach_exit:.1f}_g{request.gamma:.2f}.obj"
         return PlainTextResponse(content=obj_text, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("MoC OBJ export error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to generate OBJ mesh.")
@@ -662,17 +725,9 @@ async def analyze_cycle_sensitivity(request: SensitivityRequest):
                 p0, t0, _ = isa_atmosphere(alt)
                 ca = CycleAnalyzer(p0, t0, mach)
                 res = ca.solve_turbojet(prc=prc, tit=tit)
-                results.append({
-                    "sweep_value"  : round(val, 2),
-                    "spec_thrust"  : round(res["spec_thrust"],  4),
-                    "tsfc"         : round(res["tsfc"],         6),
-                    "eta_thermal"  : round(res.get("eta_thermal", 0),  4),
-                    "eta_overall"  : round(res.get("eta_overall", 0),  4),
-                    "eta_propulsive": round(res.get("eta_propulsive", 0), 4),
-                })
-            except Exception:
-                # Skip failed points without aborting the sweep
-                pass
+                results.append(_cycle_point(res, {'sweep_value': val, 'alt': alt, 'mach': mach, 'prc': prc, 'tit': tit}))
+            except SolverError as exc:
+                results.append(failed_point(exc, {'sweep_value': val, 'alt': alt, 'mach': mach, 'prc': prc, 'tit': tit}, _CYCLE_METRICS))
 
         _sweep_labels = {"t4": "TIT [K]", "alt": "Altitude [m]", "opr": "OPR [-]"}
         return _sanitize({
@@ -681,6 +736,8 @@ async def analyze_cycle_sensitivity(request: SensitivityRequest):
             "fixed_params" : {"alt": request.alt, "mach": request.mach, "prc": request.prc, "tit": request.tit},
             "data"         : results,
         })
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Sensitivity sweep error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Sensitivity sweep computation failed.")
@@ -693,10 +750,8 @@ async def analyze_cycle_sensitivity(request: SensitivityRequest):
 @app.post("/analyze/cycle/multispool")
 async def analyze_multispool(request: MultispoolRequest):
     """
-    Multi-spool high-fidelity turbofan cycle solver with iterative work matching.
-    Balances HP spool (HPT drives HPC) and LP spool (LPT drives Fan + LPC)
-    using separate per-component polytropic efficiencies. Converges to < 0.1 %
-    on turbine exit temperatures via mid-point Cantera gas-property refinement.
+    Solve the multispool cycle with measured work residuals and explicit termination.
+    HP drives HPC. LP drives the fan and LPC.
     """
     try:
         p0, t0, _ = isa_atmosphere(request.alt)
@@ -708,8 +763,13 @@ async def analyze_multispool(request: MultispoolRequest):
             lpc_pr=request.lpc_pr,
             tit=request.tit,
             nozzle_dp_frac=request.nozzle_dp_frac,
+            max_iterations=request.max_iterations,
+            relative_tolerance=request.relative_tolerance,
+            absolute_tolerance=request.absolute_tolerance,
         )
         return _sanitize(result)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Multispool cycle error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Multi-spool computation failed.")
@@ -739,8 +799,11 @@ async def analyze_diagnostics(request: DiagnosticsRequest):
             tt5=request.tt5,
             gamma_c=request.gamma_c,
             gamma_t=request.gamma_t,
+            input_covariance=request.input_covariance,
         )
         return _sanitize(result)
+    except SolverError:
+        raise
     except Exception as e:
         logger.error("Diagnostics engine failure: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Diagnostics calculations failed.")
@@ -768,6 +831,40 @@ def kill_port(port: int):
         pass
     except Exception as e:
         logger.warning(f"Failed to clear port {port}: {e}")
+
+@app.post("/analyze/cycle/methane-ramjet")
+async def analyze_methane_ramjet(request: MethaneRamjetRequest):
+    """Run the explicitly selected methane research ramjet."""
+    p0, t0, _ = isa_atmosphere(request.alt)
+    inputs = request.model_dump(exclude={'model', 'alt'})
+    result = methane_ramjet(p0, t0, **inputs)
+    result['assurance']['inputs_si']['altitude_m'] = request.alt
+    return _sanitize(result)
+
+
+@app.post("/analyze/cycle/methane-turbojet")
+async def analyze_methane_turbojet(request: MethaneTurbojetRequest):
+    """Run the explicitly selected single-shaft methane research turbojet."""
+    p0, t0, _ = isa_atmosphere(request.alt)
+    result = methane_turbojet(p0,t0,**request.model_dump(exclude={'model','alt'}))
+    result['assurance']['inputs_si']['altitude_m'] = request.alt
+    return _sanitize(result)
+
+
+@app.post('/analyze/cycle/methane-turbofan')
+async def analyze_methane_turbofan(request: MethaneTurbofanRequest):
+    """Run the selected methane turbofan research architecture."""
+    p0,t0,_=isa_atmosphere(request.alt)
+    result=methane_turbofan(p0,t0,**request.model_dump(exclude={'alt'}))
+    result['assurance']['inputs_si']['altitude_m']=request.alt
+    return _sanitize(result)
+
+
+@app.post('/analyze/mission/cruise-deck')
+async def analyze_deck_cruise(request: DeckCruiseRequest):
+    """Couple supplied installed-engine data to constant-condition cruise segments."""
+    return _sanitize(cruise_with_deck(**request.model_dump()))
+
 
 if __name__ == "__main__":
     import uvicorn

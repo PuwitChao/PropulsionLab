@@ -16,23 +16,13 @@ def _face_normal(v1, v2, v3):
 
 
 class MoCNozzle:
-    """Supersonic minimum-length nozzle contour via the Method of Characteristics.
+    """Planar characteristic contour with optional axisymmetric area mapping.
 
-    The divergent section is solved as a genuine characteristic net: a centered
-    Prandtl-Meyer expansion at the sharp throat seeds n characteristics, and the
-    standard minimum-length-nozzle topology (corner fan -> axis reflection ->
-    wall streamline) is marched with predictor-corrector geometry. This replaces
-    the previous quadratic-bell approximation with a real MoC solution; the
-    planar wall area schedule validates to within ~0.1% of the isentropic
-    area-Mach relation.
-
-    For an axisymmetric nozzle the validated planar area distribution A(x)/A* is
-    mapped to a radius via r(x) = rt * sqrt(A(x)/A*), so the exit area ratio
-    (and therefore the design exit Mach number) is reproduced exactly. A full
-    axisymmetric characteristic-net march (with the radial source term) is a
-    documented future refinement; the planar net is used as the basis here
-    because the source-term integration is numerically delicate at high area
-    ratios and the area mapping is exact in the quantity that matters.
+    The corner fan, axis reflection, and wall streamline form a planar net.
+    The optional radius mapping preserves the computed planar area schedule.
+    Finite resolution introduces area and length differences.
+    This does not solve axisymmetric radial source terms or establish flow accuracy.
+    See docs/engineering/EA05_REPORT.md for table and resolution comparisons.
     """
 
     def __init__(self, gamma=1.2, mach_exit=3.0, throat_radius=0.1, axisymmetric=True):
@@ -203,8 +193,8 @@ class MoCNozzle:
 
         if self.axisymmetric:
             # Map the planar area schedule A(x)/A* = h(x)/h_t to an axisymmetric
-            # radius: r = rt * sqrt(A/A*). This reproduces the exact exit area
-            # ratio (and hence the design exit Mach) for the revolved nozzle.
+            # radius: r = rt * sqrt(A/A*). This preserves the computed planar area.
+            # The finite-resolution contour does not reproduce the design area exactly.
             y_uniform = self.rt * np.sqrt(h_uniform / h_uniform[0])
         else:
             y_uniform = h_uniform

@@ -3,6 +3,7 @@ Shared gas turbine thermodynamic and isentropic/polytropic helper functions.
 """
 
 import math
+from ..errors import PhysicalInfeasibilityError, InputValidationError
 
 
 def poly_to_isen_comp(prc: float, eta_poly: float, g: float) -> float:
@@ -35,14 +36,12 @@ def poly_to_isen_turb(tau_t: float, eta_poly: float, g: float) -> float:
     Returns:
         float: Isentropic efficiency.
     """
+    if not 0 < tau_t <= 1 or not 0 < eta_poly <= 1:
+        raise PhysicalInfeasibilityError('Turbine temperature ratio must be in (0, 1].', tau_t=tau_t)
     if abs(1.0 - tau_t) < 1e-9:
         return eta_poly
-    try:
-        num = 1.0 - tau_t ** (1.0 / eta_poly)
-        den = 1.0 - tau_t
-        return num / den
-    except Exception:
-        return eta_poly
+    return (1.0 - tau_t) / (1.0 - tau_t ** (1.0 / eta_poly))
+
 
 
 def nozzle_exit(pt_in: float, tt_in: float, p_amb: float, g: float, r: float) -> tuple[float, float, float, float]:
@@ -59,7 +58,13 @@ def nozzle_exit(pt_in: float, tt_in: float, p_amb: float, g: float, r: float) ->
     Returns:
         tuple: (exit_velocity [m/s], static_pressure [Pa], static_temperature [K], Mach).
     """
+    if not all(math.isfinite(v) and v > 0 for v in (pt_in, tt_in, p_amb, r)) or not math.isfinite(g) or g <= 1:
+        raise InputValidationError('Nozzle inputs must be finite and positive, with gamma greater than one.')
     crit_pr = ((g + 1.0) / 2.0) ** (g / (g - 1.0))
+    if pt_in <= p_amb:
+        raise PhysicalInfeasibilityError('The nozzle has no pressure available for expansion.',
+                                        pt_in=pt_in, p_ambient=p_amb,
+                                        pressure_ratio=pt_in / p_amb, critical_pressure_ratio=crit_pr)
     if pt_in / p_amb >= crit_pr:
         # Choked
         m_exit  = 1.0
