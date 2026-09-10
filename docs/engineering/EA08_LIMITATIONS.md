@@ -70,3 +70,11 @@ The browser launcher reports a NO_COLOR/FORCE_COLOR environment warning. It does
 
 Optional independent reference regeneration requires backend/requirements-reference.txt and tools/generate_cea_reference.py.
 Review any generated reference changes before accepting them as a new baseline.
+
+## CI dependency correction
+
+Publication commit fbd7d29 triggered CI run 34436793510.
+Backend collection failed because Starlette 1.6.0 accessed the deprecated anyio.abc.BlockingPortal alias in newer AnyIO.
+The local 319-test run used AnyIO 4.14.2. The test requirements now pin that exact version.
+The correction preserves warnings-as-errors and does not change solver behavior.
+The original evidence manifest remains the record for the first publication. Remote CI must verify this follow-up commit.

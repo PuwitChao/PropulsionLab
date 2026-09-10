@@ -253,3 +253,5 @@ The API retains rejected sweep points as typed domain failures with null perform
 The reference runner compares three gas-reactant chamber cases with frozen NASA CEA 3.3.4 results.
 The separate reference generator does not import application code. These comparisons do not qualify a physical operating domain.
 CI installs backend/requirements-test.txt and treats backend warnings as errors.
+
+The test dependency gate pins AnyIO 4.14.2 for Starlette 1.6.0 compatibility. Runtime solver interfaces do not change.

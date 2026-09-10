@@ -1,3 +1,13 @@
+## CI dependency follow-up (2026-09-10)
+
+Commit fbd7d29 was pushed to origin/main. CI run 34436793510 failed during backend test collection.
+Starlette 1.6.0 accesses anyio.abc.BlockingPortal, which newer AnyIO deprecates.
+The test requirements now pin AnyIO 4.14.2, matching the environment that passed all 319 tests.
+Warnings remain fatal. Repeat CI after this dependency correction.
+The next engineering task remains high-temperature thermochemistry review.
+
+---
+
 ## 2026-09-10 limitation follow-up
 
 The TestClient dependency and cold rocket-state handling are corrected locally.

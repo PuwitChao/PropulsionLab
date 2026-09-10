@@ -1,3 +1,8 @@
+## 2026-09-10 - CI test dependency correction
+
+- Pin test AnyIO to the verified 4.14.2 release for Starlette 1.6.0 compatibility.
+- Retain warnings-as-errors after remote CI identified dependency drift.
+
 ## 2026-09-10 - Engineering assurance limitations
 
 - Replace the deprecated TestClient fallback with a pinned httpx2 test dependency.
