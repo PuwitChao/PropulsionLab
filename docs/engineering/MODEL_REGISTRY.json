@@ -76,6 +76,12 @@
       "locator": "Thrust-to-weight master constraint equation",
       "retrieved": "2026-09-07",
       "kind": "primary_publication"
+    },
+    {
+      "id": "REF-CEA-GAS",
+      "title": "NASA CEA 3.3.4 matched gas-reactant chamber calculations",
+      "url": "https://github.com/nasa/cea",
+      "local_evidence": "docs/engineering/CEA_GAS_REFERENCE.json"
     }
   ],
   "models": [
@@ -266,10 +272,11 @@
       ],
       "references": [
         "REF-CEA8",
-        "REF-THRUST"
+        "REF-THRUST",
+        "REF-CEA-GAS"
       ],
       "description": "GRI30 HP/SP equilibrium with prescribed nozzle losses. Reactants use exact stream mass ratios, including fuel impurity mass. Results expose the initial composition and enthalpy.",
-      "limits": "300 K gas reactants, propane surrogate for RP1. Frozen sonic throat solved; shifting throat pressure remains approximate. Throat mass and sizing use a consistent c-star.",
+      "limits": "300 K gas reactants, propane surrogate for RP1. Frozen sonic throat solved; shifting throat pressure remains approximate. Throat mass and sizing use a consistent c-star. States below the common mechanism temperature floor are rejected. Upper-temperature extrapolation is not qualified.",
       "validation_level": "unvalidated",
       "validated_domains": [],
       "calibration_cases": [],
@@ -282,7 +289,10 @@
       },
       "required_evidence": "Matched reactant phase, enthalpy, species, pressure, mixture mass ratio, and loss conventions.",
       "reference_comparisons": [
-        "CEA8-COMPATIBILITY"
+        "CEA8-COMPATIBILITY",
+        "CEA-GAS-1",
+        "CEA-GAS-2",
+        "CEA-GAS-3"
       ],
       "verification_tests": [
         "tests/test_solver_assurance.py",

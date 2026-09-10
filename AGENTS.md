@@ -19,7 +19,7 @@ All physical quantities are SI units throughout backend and core modules unless 
 
 ```bash
 pip install -r backend/requirements.txt
-pip install pytest pytest-cov httpx
+pip install -r backend/requirements-test.txt
 python -m uvicorn backend.main:app --reload
 pytest tests/ -v
 pytest tests/test_core.py::test_turbojet_sls -v

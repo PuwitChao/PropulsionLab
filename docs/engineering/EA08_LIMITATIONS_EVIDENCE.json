@@ -1,0 +1,32 @@
+{
+  "date": "2026-09-10",
+  "backend": {
+    "passed": 319,
+    "seconds": 345.58,
+    "warnings_as_errors": true
+  },
+  "reference_tests": 19,
+  "browser_tests": 1,
+  "comparisons": {
+    "PASS": 12,
+    "INCOMPATIBLE": 1
+  },
+  "physical_qualification": false,
+  "source_sha256": {
+    "core/rocket/analyzer.py": "4c7135e94bb3081cb1b34555c325379c075a0491016c8746f2c4d53c07ec1a2b",
+    "tools/validate_references.py": "51219fcd4710dddaa278839d8076d83b60f9d70fdd0cabb83c166ad1cf482736",
+    "tools/generate_cea_reference.py": "569a5d4d587afaf8fc19094fb4b0be297cb27906644dc4879511deb6c88dc367",
+    "tests/test_api.py": "5e8c0476e26f7627c26429d2f705b1984906b9fd715d544c87c133e09167826a",
+    "tests/test_rocket_reactants.py": "90f5ce60f767a0c17fd57f4162f6ab8a072c87f809e41278d27362c1447f51ba",
+    "tests/test_reference_validation.py": "ce69c19b62c927e4794fa68621ab455d7a2ec0de33a95bfae311043f9a93ac27",
+    "backend/requirements-test.txt": "7693a851d2153f2d57dbcaad5d41468d06a66d561d66621d2db5f13f0c27a32d",
+    "backend/requirements-reference.txt": "fd2c6332c3d10f22956c93f3d40e8fac58dfe6b8cb9fb7763d5d25285aca45b3",
+    ".github/workflows/ci.yml": "100f96aab5034b15710af88b8b94a0eb7de19b923ac9952d110ed7d59f684af2",
+    "docs/engineering/REFERENCE_CASES.json": "1d48e5bdf1d3bce3c5754cd183a5c6161337dced8666662cafeefb6e52621d64",
+    "docs/engineering/CEA_GAS_REFERENCE.json": "0143cccbf0908b5a658997d7e048018a256c604ef15fe1f069aad8cd05b66dbb",
+    "docs/engineering/MODEL_REGISTRY.json": "7edcd714499b520a3403fe811e57b4f4eccfe1d9795b2f8e07499680724b41bf",
+    "docs/engineering/EA08_LIMITATIONS_TEST_RESULTS.xml": "a53837535f1887928792ed60f609d4df7c6eccdc44eca3a04951bd46782ab965",
+    "docs/engineering/EA08_LIMITATIONS_COMPARISONS.json": "b64ff3a3400bdf751af6016639add0b278c3b4339bf788e714ee5be9be705860",
+    "docs/engineering/EA08_LIMITATIONS_PYTHON_AUDIT.json": "f010de82cafb1cef7da89c072e43022860b3fe5a873f15f2f92db7a3878f4151"
+  }
+}

@@ -288,6 +288,90 @@
       "tolerance_basis": "No accuracy tolerance applies because reactant phase and enthalpy do not match.",
       "purpose": "Prevent incorrect validation against cryogenic liquid inputs.",
       "reason": "The application fixes reactants to 300 K gas states and cannot reproduce the reference enthalpy. Product database and loss conventions also require review."
+    },
+    {
+      "id": "CEA-GAS-1",
+      "model": "rocket_equilibrium",
+      "kind": "independent_code",
+      "reference": "REF-CEA-GAS",
+      "locator": "CEA_GAS_REFERENCE.json row 1; NASA CEA 3.3.4",
+      "inputs": {
+        "pc_pa": 1000000.0,
+        "of_ratio": 2.0
+      },
+      "adapter": "rocket_chamber",
+      "expected": {
+        "temperature_k": 2072.4400081122512,
+        "mw_kg_per_kmol": 6.04537645128463
+      },
+      "tolerances": {
+        "temperature_k": {
+          "absolute": 0,
+          "relative": 0.01
+        },
+        "mw_kg_per_kmol": {
+          "absolute": 0,
+          "relative": 0.01
+        }
+      },
+      "tolerance_basis": "Preselected 1 percent code-comparison screen for distinct thermodynamic databases. Not an experimental accuracy bound.",
+      "purpose": "Compare gas-reactant chamber chemistry only. No nozzle or physical-domain qualification."
+    },
+    {
+      "id": "CEA-GAS-2",
+      "model": "rocket_equilibrium",
+      "kind": "independent_code",
+      "reference": "REF-CEA-GAS",
+      "locator": "CEA_GAS_REFERENCE.json row 2; NASA CEA 3.3.4",
+      "inputs": {
+        "pc_pa": 5000000.0,
+        "of_ratio": 4.0
+      },
+      "adapter": "rocket_chamber",
+      "expected": {
+        "temperature_k": 3120.7460533984095,
+        "mw_kg_per_kmol": 9.920159982225243
+      },
+      "tolerances": {
+        "temperature_k": {
+          "absolute": 0,
+          "relative": 0.01
+        },
+        "mw_kg_per_kmol": {
+          "absolute": 0,
+          "relative": 0.01
+        }
+      },
+      "tolerance_basis": "Preselected 1 percent code-comparison screen for distinct thermodynamic databases. Not an experimental accuracy bound.",
+      "purpose": "Compare gas-reactant chamber chemistry only. No nozzle or physical-domain qualification."
+    },
+    {
+      "id": "CEA-GAS-3",
+      "model": "rocket_equilibrium",
+      "kind": "independent_code",
+      "reference": "REF-CEA-GAS",
+      "locator": "CEA_GAS_REFERENCE.json row 3; NASA CEA 3.3.4",
+      "inputs": {
+        "pc_pa": 10000000.0,
+        "of_ratio": 6.0
+      },
+      "adapter": "rocket_chamber",
+      "expected": {
+        "temperature_k": 3636.4014811752654,
+        "mw_kg_per_kmol": 13.317440750559111
+      },
+      "tolerances": {
+        "temperature_k": {
+          "absolute": 0,
+          "relative": 0.01
+        },
+        "mw_kg_per_kmol": {
+          "absolute": 0,
+          "relative": 0.01
+        }
+      },
+      "tolerance_basis": "Preselected 1 percent code-comparison screen for distinct thermodynamic databases. Not an experimental accuracy bound.",
+      "purpose": "Compare gas-reactant chamber chemistry only. No nozzle or physical-domain qualification."
     }
   ]
 }

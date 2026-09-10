@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest
+pytest-cov
+httpx2==2.12.0

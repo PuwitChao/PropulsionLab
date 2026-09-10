@@ -46,3 +46,33 @@ Mission and diagnostic validation requires aircraft/engine data and calibrated s
 These gaps prevent an independent operational validation claim. They do not prevent completion of the EA-05 evidence records.
 EA-06 selections and benchmark dispositions are recorded in EA06_CLOSEOUT.md.
 Repeat reference comparisons after any change to the model, constants, units, or source data.
+
+## Matched chamber comparison and qualification sequence (2026-09-10)
+
+Three frozen NASA CEA gas-reactant cases now supplement the original ten cases.
+CEA_GAS_REFERENCE.json records the product species, inputs, version, binary hashes, and database hashes.
+The generator uses no application output. The comparison uses a preselected 1% screen for chamber temperature and molecular weight.
+This screen measures code agreement. It does not provide experimental uncertainty or a validated domain.
+
+1. Reproduce the frozen chamber references with the optional backend/requirements-reference.txt environment.
+2. Run tools/generate_cea_reference.py only when an intentional reference refresh is required.
+3. Review reference changes separately from solver changes.
+4. Run tools/validate_references.py against the frozen values.
+5. Acquire independent measurements before any physical qualification decision.
+
+For chamber chemistry, acquire measured temperature and composition with pressure, exact stream mass ratios, phase, inlet enthalpy, and uncertainty.
+For nozzle performance, also match geometry, frozen or shifting chemistry, ambient pressure, and loss definitions.
+Keep CEA Example 8 as an incompatible cryogenic negative control. Do not replace its liquid inputs with gas inputs under the same identifier.
+
+| Validation work | Evidence required before domain approval |
+| --- | --- |
+| Gas turbine, multispool, ramjet | Independent station states, fuel definition, shaft loads, thrust, mass flow, and measurement uncertainty |
+| Rocket chamber and nozzle | Matched measurements, thermodynamic data ranges, geometry, reaction convention, and uncertainty |
+| Rocket thermal and structure | Local heat flux, wall state, geometry, material allowables, loads, and independent assessment |
+| Off-design | Dimensional compressor and turbine maps, station definitions, geometry, and measured matching points |
+| Atmosphere and MoC | Extended reference coverage, contour coordinates, refinement studies, and bounded error for the declared use |
+| Mission and diagnostics | Aircraft polar, engine deck, flight records, calibrated telemetry, covariance, and labeled fault data |
+
+An intended-use owner must specify outputs, allowed error, and operating limits before the independent validation review.
+No such measurement package or intended-use acceptance limits exist in the current workspace.
+The current request therefore closes software warnings and adds code-comparison evidence. Operational qualification remains open.

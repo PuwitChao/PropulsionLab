@@ -1,3 +1,10 @@
+## 2026-09-10 - Engineering assurance limitations
+
+- Replace the deprecated TestClient fallback with a pinned httpx2 test dependency.
+- Reject rocket states below the mechanism temperature floor and preserve failed sweep points.
+- Add three independent NASA CEA gas-reactant chamber references and provenance checks.
+- Define the remaining measurement and qualification requirements in VALIDATION_PLAN.md.
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

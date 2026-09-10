@@ -245,3 +245,11 @@ No calculation behavior changes in this review.
 The npm alias replaces both the full distribution and the full-source peer dependency. Geographic map traces are excluded.
 `chart_bundle.spec.js` checks retained engineering traces and absent map trace registration.
 See `docs/engineering/EA08_REMEDIATION.md` for the security boundary and artifact evidence.
+
+## EA-08 limitation follow-up (2026-09-10)
+
+RocketAnalyzer rejects chamber, exit, and throat states below the common GRI30 temperature floor.
+The API retains rejected sweep points as typed domain failures with null performance values.
+The reference runner compares three gas-reactant chamber cases with frozen NASA CEA 3.3.4 results.
+The separate reference generator does not import application code. These comparisons do not qualify a physical operating domain.
+CI installs backend/requirements-test.txt and treats backend warnings as errors.

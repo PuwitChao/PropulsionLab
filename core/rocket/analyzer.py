@@ -41,6 +41,16 @@ class RocketAnalyzer:
         except ct.CanteraError as exc:
             raise DependencyError('The GRI30 thermochemistry mechanism is unavailable.') from exc
 
+    @staticmethod
+    def _check_temperature_floor(gas, station):
+        """Reject states below the common mechanism temperature floor."""
+        if gas.T < gas.min_temp:
+            raise ModelDomainError(
+                'Rocket state is below the mechanism temperature floor.',
+                station=station, temperature_k=float(gas.T),
+                minimum_temperature_k=float(gas.min_temp),
+            )
+
     def __init__(self, chamber_p_pa: float) -> None:
         """
         Initialize the analyzer with design chamber pressure.
@@ -275,6 +285,7 @@ class RocketAnalyzer:
 
         # ── Chamber ──────────────────────────────────────────────────────
         gas.equilibrate('HP')
+        self._check_temperature_floor(gas, 'chamber')
         t_chamber    = gas.T
         h_chamber    = gas.h
         math_trace.append(f"Chamber Equilibrium (HP): T={t_chamber:.1f} K, h={h_chamber/1e6:.3f} MJ/kg")
@@ -299,6 +310,7 @@ class RocketAnalyzer:
         # ── Nozzle exit ───────────────────────────────────────────────────
         if mode == 'shifting':
             gas.SP = s_chamber, p_exit_pa
+            self._check_temperature_floor(gas, 'nozzle exit')
             try:
                 gas.equilibrate('SP')
             except ct.CanteraError as exc:
@@ -306,7 +318,9 @@ class RocketAnalyzer:
         else:
             gas.X = frozen_X
             gas.SP = s_chamber, p_exit_pa
+            self._check_temperature_floor(gas, 'nozzle exit')
 
+        self._check_temperature_floor(gas, 'nozzle exit')
         t_exit   = gas.T
         h_exit   = gas.h
         rho_exit = gas.density
@@ -338,6 +352,7 @@ class RocketAnalyzer:
         if mode == 'shifting':
             gas.TP = t_chamber * (2 / (g + 1)), self.pc * (2 / (g + 1)) ** (g / (g - 1))
             gas.SP = s_chamber, gas.P
+            self._check_temperature_floor(gas, 'throat')
             try:
                 gas.equilibrate('SP')
             except ct.CanteraError as exc:
@@ -346,6 +361,7 @@ class RocketAnalyzer:
             gas.X = frozen_X
             gas.SP = s_chamber, critical_pe
 
+        self._check_temperature_floor(gas, 'throat')
         rho_star = gas.density
         if h_chamber <= gas.h:
             raise PhysicalInfeasibilityError('No positive enthalpy drop is available at the throat.')

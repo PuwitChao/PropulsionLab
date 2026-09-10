@@ -1,3 +1,16 @@
+## 2026-09-10 limitation follow-up
+
+The TestClient dependency and cold rocket-state handling are corrected locally.
+Three matched NASA CEA chamber comparisons pass. Physical operating domains remain unqualified.
+See docs/engineering/EA08_LIMITATIONS.md for evidence and remaining requirements.
+Final backend regression: 319 passed with warnings treated as errors.
+Reference report: 12 PASS and 1 incompatible cryogenic negative control.
+The targeted rocket browser check and Python dependency audit pass.
+Publication authorized on 2026-09-10: commit and push this verified change set to origin/main.
+Check remote CI for the resulting commit. The next engineering task is the high-temperature thermochemistry review.
+
+---
+
 # Engineering assurance handoff
 
 Updated: 2026-09-09. Branch: main. Upstream: origin/main.

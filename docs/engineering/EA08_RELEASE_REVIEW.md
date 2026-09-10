@@ -1,6 +1,9 @@
 # EA-08 release assurance review
 
-Date: 2026-09-09. Current decision: dependency blocker remediated locally; immutable remote CI still pending.
+Date: 2026-09-09. Historical release review. Update: 2026-09-10.
+The published b131d2d revision passed every remote CI step in run 34365025805.
+The local limitation follow-up remains unpublished. See EA08_LIMITATIONS.md for its verification and remaining physical qualification gaps.
+The initial hold evidence below describes the earlier workspace state.
 See EA08_REMEDIATION.md for the current fix. The initial audit below remains historical evidence.
 Review status: completed. The release gate is not passed.
 

@@ -486,6 +486,12 @@ def test_rocket_sweep_basic():
     for pt in data:
         assert "of_ratio" in pt
         assert "isp" in pt
+    cold = data[0]
+    assert cold['of_ratio'] == 0.5
+    assert cold['status'] == 'OUTSIDE_MODEL_DOMAIN'
+    assert cold['isp'] is None
+    assert cold['isp_vac'] is None
+    assert any(pt['isp'] is not None for pt in data)
 
 
 def test_rocket_sweep_invalid_propellant():

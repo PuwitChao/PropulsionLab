@@ -40,3 +40,14 @@ Explicit methane models now cover ramjet, turbojet with optional reheat, separat
 They use enthalpy, mass, element, and shaft residuals. Efficiencies remain unavailable pending pressure-energy review.
 These numerical checks do not validate an engine. Legacy approximate models remain separately accessible and retain failure screens.
 Installed-deck cruise and measurement covariance are optional supplied-data paths. See EA06_CLOSEOUT.md.
+
+## September 10 evidence update
+
+Three matched NASA CEA gas-reactant chamber cases pass the declared code-comparison screen.
+The original liquid-reactant case remains an incompatible negative control.
+The solver rejects temperatures below the common GRI30 floor before it reports rocket performance.
+This conservative floor also rejects an initial frozen entropy state below 300 K before shifting equilibrium.
+A broader low-temperature model requires a reviewed species set and thermodynamic data.
+High-temperature extrapolation remains unqualified. In particular, the hottest chamber comparison exceeds some GRI30 species temperature ranges.
+Agreement between codes at that condition does not validate the extrapolated properties.
+See VALIDATION_PLAN.md and EA08_LIMITATIONS.md for the remaining qualification evidence.

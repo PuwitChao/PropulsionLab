@@ -8,7 +8,7 @@ from tools import validate_references as validation
 ROOT = Path(__file__).resolve().parents[1]
 RECORDS = ROOT / 'docs' / 'engineering'
 CASES = json.loads((RECORDS / 'REFERENCE_CASES.json').read_text(encoding='utf-8'))['cases']
-MATCHED = [c for c in CASES if c['kind'] == 'published_table']
+MATCHED = [c for c in CASES if c['kind'] in {'published_table', 'independent_code'}]
 
 
 @pytest.mark.parametrize('case', MATCHED, ids=lambda c: c['id'])
@@ -79,3 +79,16 @@ def test_empty_reference_cannot_pass():
     case = dict(next(c for c in CASES if c['adapter'] == 'prandtl_meyer'))
     case['expected'] = {}
     assert validation.compare(case)['status'] == 'ERROR'
+
+
+def test_cea_cases_match_independent_frozen_artifact():
+    artifact = json.loads((RECORDS / 'CEA_GAS_REFERENCE.json').read_text())
+    assert artifact['generator'] == 'NASA CEA'
+    assert artifact['reactants']['temperature_k'] == 300
+    assert artifact['reactants']['phase'] == 'gas'
+    assert artifact['artifact_sha256']
+    for index, row in enumerate(artifact['rows'], 1):
+        case = next(c for c in CASES if c['id'] == f'CEA-GAS-{index}')
+        assert case['inputs'] == {k: row[k] for k in ('pc_pa', 'of_ratio')}
+        assert case['expected'] == {k: row[k] for k in ('temperature_k', 'mw_kg_per_kmol')}
+        assert all(t['relative'] == artifact['relative_tolerance'] for t in case['tolerances'].values())

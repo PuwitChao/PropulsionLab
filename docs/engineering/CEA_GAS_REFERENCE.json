@@ -1,0 +1,55 @@
+{
+  "generator": "NASA CEA",
+  "version": "3.3.4",
+  "generated_utc": "2026-09-10T03:02:42.021310+00:00",
+  "source": "https://github.com/nasa/cea",
+  "reactants": {
+    "fuel": "H2",
+    "oxidizer": "O2",
+    "phase": "gas",
+    "temperature_k": 300.0
+  },
+  "products": [
+    "H2",
+    "H",
+    "O",
+    "O2",
+    "OH",
+    "H2O",
+    "HO2",
+    "H2O2"
+  ],
+  "method": "HP chamber only",
+  "tolerance_basis": "Preselected 1 percent code-comparison screen for distinct thermodynamic databases. Not an experimental accuracy bound.",
+  "relative_tolerance": 0.01,
+  "artifact_sha256": {
+    "data\\thermo.lib": "8e5df1cca92d4a48663d1ee5a1372e6508c59cddc2247ceeca32f041a03ec52a",
+    "data\\trans.lib": "c203d9330746405e1b57008cd697354745ab991694b4ca11ed556b18cb834111",
+    "lib\\cea_bindc.lib": "9c1e45e0ac2f13bba890f1379884c8b883f68294c71756fbd3a298abc72bac9d",
+    "lib\\cea_core.lib": "bdb8e15ef99a17aeeaa3e960a8c2d051994fcdbbd930d0830c7e42e5ee8ec818",
+    "lib\\fbasics_core.lib": "93e64f920a4d5dde03d87d625e3e40a94afc90817153f01e59018df25605e678",
+    "lib\\libcea.cp313-win_amd64.pyd": "d5460f6c48393ade724d4eca73a1ef7968d30ce500708c94358cbe539382dee7",
+    "share\\cea\\thermo.lib": "8e5df1cca92d4a48663d1ee5a1372e6508c59cddc2247ceeca32f041a03ec52a",
+    "share\\cea\\trans.lib": "c203d9330746405e1b57008cd697354745ab991694b4ca11ed556b18cb834111"
+  },
+  "rows": [
+    {
+      "pc_pa": 1000000.0,
+      "of_ratio": 2.0,
+      "temperature_k": 2072.4400081122512,
+      "mw_kg_per_kmol": 6.04537645128463
+    },
+    {
+      "pc_pa": 5000000.0,
+      "of_ratio": 4.0,
+      "temperature_k": 3120.7460533984095,
+      "mw_kg_per_kmol": 9.920159982225243
+    },
+    {
+      "pc_pa": 10000000.0,
+      "of_ratio": 6.0,
+      "temperature_k": 3636.4014811752654,
+      "mw_kg_per_kmol": 13.317440750559111
+    }
+  ]
+}

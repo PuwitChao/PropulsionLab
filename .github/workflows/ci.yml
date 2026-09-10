@@ -24,7 +24,7 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
-        run: pip install -r backend/requirements.txt pytest pytest-cov httpx pip-audit
+        run: pip install -r backend/requirements-test.txt pip-audit
 
       - name: Verify Python dependency consistency
         run: pip check
@@ -33,7 +33,7 @@ jobs:
         run: pip-audit -r backend/requirements.txt --strict
 
       - name: Run tests
-        run: pytest tests/ -v --cov=core --cov-report=term-missing --junitxml=backend-results.xml
+        run: pytest tests/ -v -W error --cov=core --cov-report=term-missing --junitxml=backend-results.xml
 
       - name: Independent reference comparisons
         run: python tools/validate_references.py --output docs/engineering/CI_COMPARISONS.json

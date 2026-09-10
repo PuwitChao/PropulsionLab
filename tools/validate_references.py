@@ -24,6 +24,10 @@ RECORDS = ROOT / 'docs' / 'engineering'
 
 def evaluate(case):
     inputs = case['inputs']
+    if case['adapter'] == 'rocket_chamber':
+        from core.rocket.analyzer import RocketAnalyzer
+        result = RocketAnalyzer(inputs['pc_pa']).solve_equilibrium('H2/O2', inputs['of_ratio'], compute_heat_transfer=False)
+        return {'temperature_k': result['t_chamber'], 'mw_kg_per_kmol': result['mw_chamber']}
     if case['adapter'] == 'atmosphere':
         p, t, rho = isa_atmosphere(inputs['altitude_m'], altitude_kind=case['reference_convention'])
         return dict(pressure_pa=p, temperature_k=t, density_kg_m3=rho)
@@ -98,7 +102,8 @@ def build_report():
     paths = {model['owner'] for model in registry['models']}
     paths.update({'core/gas_turbine/thermo.py', 'core/solver_result.py',
                   'tools/validate_references.py', 'docs/engineering/REFERENCE_CASES.json',
-                  'docs/engineering/MODEL_REGISTRY.json'})
+                  'docs/engineering/MODEL_REGISTRY.json', 'docs/engineering/CEA_GAS_REFERENCE.json',
+                  'tools/generate_cea_reference.py'})
     for relative in sorted(paths):
         hashes[relative] = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
     import cantera

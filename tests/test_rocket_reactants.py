@@ -33,3 +33,19 @@ def test_impurity_uses_fuel_stream_mass_and_adds_overlapping_species(species):
 def test_nonzero_impurity_requires_species():
     with pytest.raises(InputValidationError):
         RocketAnalyzer(10e6).solve_equilibrium('H2/O2', 6., impurity_mass_frac=.1)
+
+
+@pytest.mark.parametrize('mode', ['shifting', 'frozen'])
+def test_cold_exit_rejected_before_performance(mode):
+    from core.errors import ModelDomainError
+    with pytest.raises(ModelDomainError) as caught:
+        RocketAnalyzer(10e6).solve_equilibrium('H2/O2', .5, mode=mode)
+    assert caught.value.details['station'] == 'nozzle exit'
+    assert caught.value.details['temperature_k'] < 300
+    assert caught.value.details['minimum_temperature_k'] == 300
+
+
+def test_temperature_floor_includes_boundary():
+    gas = ct.Solution('gri30.yaml')
+    gas.TP = 300, 101325
+    RocketAnalyzer._check_temperature_floor(gas, 'test boundary')

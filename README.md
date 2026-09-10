@@ -81,7 +81,7 @@ See the [interface guide](docs/engineering/EA07_INTERFACE_GUIDE.md) for migratio
 ## Verification
 
 ```powershell
-.venv\Scripts\python.exe -m pip install pytest pytest-cov httpx
+.venv\Scripts\python.exe -m pip install -r backend/requirements-test.txt
 .venv\Scripts\python.exe -m pytest tests/ -q --cov=core
 .venv\Scripts\python.exe tools/validate_references.py
 cd frontend
