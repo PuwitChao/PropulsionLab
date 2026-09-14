@@ -1,3 +1,10 @@
+## 2026-09-14 - Rocket temperature domain
+
+- Use gri30_highT.yaml for rocket thermodynamic calculations.
+- Preserve the dataset through frozen-throat state reconstruction.
+- Enforce the common 300-5000 K interval and report the actual mechanism.
+- Retain the gas-turbine default dataset and independent CEA reference values.
+
 ## 2026-09-10 - CI test dependency correction
 
 - Pin test AnyIO to the verified 4.14.2 release for Starlette 1.6.0 compatibility.

@@ -1,0 +1,517 @@
+{
+  "schema_version": "1.0",
+  "generated_utc": "2026-09-14T07:43:35.837891+00:00",
+  "runtime": {
+    "python": "3.13.3",
+    "cantera": "3.2.0"
+  },
+  "source_sha256": {
+    "core/diagnostics.py": "d9a1951adec15244d76602ae36a60ccaf0daff28bc78ce53290182fb64b1a55c",
+    "core/gas_turbine/cycle.py": "9c655aa48db496c51dd1760c7225e98f8d80bf32c545d85121dd765267d37768",
+    "core/gas_turbine/mission.py": "7f3e2279adfb8cf62cd3fea3289944d1a81f29e08a4478c741d642044207b101",
+    "core/gas_turbine/off_design.py": "3fe660fb3cbf2306e1deae703dd77d3ec30a83d87504b0065ddb0286ccf20f1a",
+    "core/gas_turbine/thermo.py": "e35d1496fc0634f356732aeb353a00a84cab213cd7faa948a4dca1c846c4aaf0",
+    "core/rocket/analyzer.py": "6fcbcf9728d08fe5c25c823033c4b0ce487b41697ce6ee0914326ee6a1d174d3",
+    "core/rocket/moc.py": "a12a3bb08f3708cefcf87355396acecdbb434446ea45e1dfee8852c22e48e7df",
+    "core/solver_result.py": "908f8c53734d221f88833e0d8254d28dc8d77d79d6f6bd8c2b4c068d7dd907f2",
+    "core/units.py": "9fee82534489fb45d9db83ad09379b1b8ceeb5fbbe3744023368c97b0580b22f",
+    "docs/engineering/CEA_GAS_REFERENCE.json": "0143cccbf0908b5a658997d7e048018a256c604ef15fe1f069aad8cd05b66dbb",
+    "docs/engineering/MODEL_REGISTRY.json": "dfa19679a0ad76d22d2ba90fdb15af0ca89c6ffc8c5becd2af5e67395e0c0b24",
+    "docs/engineering/REFERENCE_CASES.json": "1d48e5bdf1d3bce3c5754cd183a5c6161337dced8666662cafeefb6e52621d64",
+    "tools/generate_cea_reference.py": "569a5d4d587afaf8fc19094fb4b0be297cb27906644dc4879511deb6c88dc367",
+    "tools/validate_references.py": "51219fcd4710dddaa278839d8076d83b60f9d70fdd0cabb83c166ad1cf482736"
+  },
+  "summary": {
+    "PASS": 12,
+    "INCOMPATIBLE": 1
+  },
+  "results": [
+    {
+      "id": "ATM-H-0",
+      "model": "atmosphere",
+      "reference": "REF-US1976",
+      "kind": "published_table",
+      "locator": "Table I, printed page 52, geopotential H=0 m",
+      "inputs": {
+        "altitude_m": 0
+      },
+      "tolerance_basis": "Temperature table rounding. Pressure/density allow printed precision and the rounded application gas constant. No flight-weather uncertainty.",
+      "purpose": "Layer-equation comparison only. The API altitude convention is assessed separately.",
+      "status": "PASS",
+      "metrics": {
+        "pressure_pa": {
+          "expected": 101325,
+          "actual": 101325.0,
+          "difference": 0.0,
+          "relative_difference": 0.0,
+          "absolute_limit": 20.275000000000002,
+          "within_tolerance": true
+        },
+        "temperature_k": {
+          "expected": 288.15,
+          "actual": 288.15,
+          "difference": 0.0,
+          "relative_difference": 0.0,
+          "absolute_limit": 0.001,
+          "within_tolerance": true
+        },
+        "density_kg_m3": {
+          "expected": 1.225,
+          "actual": 1.2250122659906946,
+          "difference": 1.2265990694482198e-05,
+          "relative_difference": 1.0013053628148733e-05,
+          "absolute_limit": 0.00025000000000000006,
+          "within_tolerance": true
+        }
+      }
+    },
+    {
+      "id": "ATM-H-10000",
+      "model": "atmosphere",
+      "reference": "REF-US1976",
+      "kind": "published_table",
+      "locator": "Table I, printed page 56, geopotential H=10000 m",
+      "inputs": {
+        "altitude_m": 10000
+      },
+      "tolerance_basis": "Temperature table rounding. Pressure/density allow printed precision and the rounded application gas constant. No flight-weather uncertainty.",
+      "purpose": "Layer-equation comparison only. The API altitude convention is assessed separately.",
+      "status": "PASS",
+      "metrics": {
+        "pressure_pa": {
+          "expected": 26436,
+          "actual": 26435.887460311165,
+          "difference": -0.11253968883465859,
+          "relative_difference": -4.257061916880715e-06,
+          "absolute_limit": 5.2972,
+          "within_tolerance": true
+        },
+        "temperature_k": {
+          "expected": 223.15,
+          "actual": 223.14999999999998,
+          "difference": -2.842170943040401e-14,
+          "relative_difference": -1.2736593963882593e-16,
+          "absolute_limit": 0.001,
+          "within_tolerance": true
+        },
+        "density_kg_m3": {
+          "expected": 0.41271,
+          "actual": 0.4127047353692698,
+          "difference": -5.264630730195119e-06,
+          "relative_difference": -1.2756247074689536e-05,
+          "absolute_limit": 8.754200000000001e-05,
+          "within_tolerance": true
+        }
+      }
+    },
+    {
+      "id": "ATM-H-30000",
+      "model": "atmosphere",
+      "reference": "REF-US1976",
+      "kind": "published_table",
+      "locator": "Table I, printed page 62, geopotential H=30000 m",
+      "inputs": {
+        "altitude_m": 30000
+      },
+      "tolerance_basis": "Temperature table rounding. Pressure/density allow printed precision and the rounded application gas constant. No flight-weather uncertainty.",
+      "purpose": "Layer-equation comparison only. The API altitude convention is assessed separately.",
+      "status": "PASS",
+      "metrics": {
+        "pressure_pa": {
+          "expected": 1171.8,
+          "actual": 1171.8105698525096,
+          "difference": 0.01056985250966136,
+          "relative_difference": 9.020184766736098e-06,
+          "absolute_limit": 0.24436000000000002,
+          "within_tolerance": true
+        },
+        "temperature_k": {
+          "expected": 226.65,
+          "actual": 226.64999999999998,
+          "difference": -2.842170943040401e-14,
+          "relative_difference": -1.2539911506906688e-16,
+          "absolute_limit": 0.001,
+          "within_tolerance": true
+        },
+        "density_kg_m3": {
+          "expected": 0.018012,
+          "actual": 0.018011261699596673,
+          "difference": -7.38300403327341e-07,
+          "relative_difference": -4.098936283185326e-05,
+          "absolute_limit": 8.602400000000001e-06,
+          "within_tolerance": true
+        }
+      }
+    },
+    {
+      "id": "ATM-Z-10000",
+      "model": "atmosphere",
+      "reference": "REF-US1976",
+      "kind": "published_table",
+      "locator": "Table I, printed page 57, geometric Z=10000 m",
+      "inputs": {
+        "altitude_m": 10000
+      },
+      "tolerance_basis": "Same transcription/constant tolerance as geopotential cases. Do not widen it to conceal the convention mismatch.",
+      "purpose": "Assess the API-documented geometric altitude contract.",
+      "status": "PASS",
+      "metrics": {
+        "pressure_pa": {
+          "expected": 26499,
+          "actual": 26499.517772589465,
+          "difference": 0.5177725894645846,
+          "relative_difference": 1.95393256147245e-05,
+          "absolute_limit": 5.3098,
+          "within_tolerance": true
+        },
+        "temperature_k": {
+          "expected": 223.252,
+          "actual": 223.25209264797857,
+          "difference": 9.264797856189944e-05,
+          "relative_difference": 4.1499282676929853e-07,
+          "absolute_limit": 0.001,
+          "within_tolerance": true
+        },
+        "density_kg_m3": {
+          "expected": 0.41351,
+          "actual": 0.41350891895081887,
+          "difference": -1.0810491811175105e-06,
+          "relative_difference": -2.614324154476338e-06,
+          "absolute_limit": 8.7702e-05,
+          "within_tolerance": true
+        }
+      }
+    },
+    {
+      "id": "ATM-Z-30000",
+      "model": "atmosphere",
+      "reference": "REF-US1976",
+      "kind": "published_table",
+      "locator": "Table I, printed page 63, geometric Z=30000 m",
+      "inputs": {
+        "altitude_m": 30000
+      },
+      "tolerance_basis": "Same transcription/constant tolerance as geopotential cases. Do not widen it to conceal the convention mismatch.",
+      "purpose": "Assess the API-documented geometric altitude contract.",
+      "status": "PASS",
+      "metrics": {
+        "pressure_pa": {
+          "expected": 1197.0,
+          "actual": 1196.9747811905818,
+          "difference": -0.02521880941822019,
+          "relative_difference": -2.1068345378630066e-05,
+          "absolute_limit": 0.2494,
+          "within_tolerance": true
+        },
+        "temperature_k": {
+          "expected": 226.509,
+          "actual": 226.50908361133003,
+          "difference": 8.361133004086696e-05,
+          "relative_difference": 3.6913027756454256e-07,
+          "absolute_limit": 0.001,
+          "within_tolerance": true
+        },
+        "density_kg_m3": {
+          "expected": 0.01841,
+          "actual": 0.018409492917358456,
+          "difference": -5.070826415431995e-07,
+          "relative_difference": -2.7543869719891338e-05,
+          "absolute_limit": 8.682000000000001e-06,
+          "within_tolerance": true
+        }
+      }
+    },
+    {
+      "id": "PM-1.5",
+      "model": "moc",
+      "reference": "REF-NACA1135",
+      "kind": "published_table",
+      "locator": "Table II printed page 634, Mach 1.5, gamma=7/5",
+      "inputs": {
+        "gamma": 1.4,
+        "mach": 1.5
+      },
+      "tolerance_basis": "Half the last printed 0.001 degree. No additional model uncertainty.",
+      "purpose": "Verify only the perfect-gas expansion-angle helper.",
+      "status": "PASS",
+      "metrics": {
+        "angle_deg": {
+          "expected": 11.905,
+          "actual": 11.905208826739662,
+          "difference": 0.00020882673966227117,
+          "relative_difference": 1.7541095309724584e-05,
+          "absolute_limit": 0.0005,
+          "within_tolerance": true
+        }
+      }
+    },
+    {
+      "id": "MOC-AREA-1.5",
+      "model": "moc",
+      "reference": "REF-NACA1135",
+      "kind": "published_table",
+      "locator": "Table II printed page 634, area ratio at Mach 1.5",
+      "inputs": {
+        "gamma": 1.4,
+        "mach_exit": 1.5,
+        "throat_radius": 0.1,
+        "subdivisions": 48
+      },
+      "tolerance_basis": "Provisional 0.5% numerical contour-area screen plus table rounding. Not a physical validation criterion.",
+      "purpose": "Compare the mapped contour exit area with the independent perfect-gas area table.",
+      "status": "PASS",
+      "metrics": {
+        "area_ratio": {
+          "expected": 1.176,
+          "actual": 1.1757779897770304,
+          "difference": -0.00022201022296952644,
+          "relative_difference": -0.00018878420320537963,
+          "absolute_limit": 0.00638,
+          "within_tolerance": true
+        }
+      }
+    },
+    {
+      "id": "PM-2.0",
+      "model": "moc",
+      "reference": "REF-NACA1135",
+      "kind": "published_table",
+      "locator": "Table II printed page 634, Mach 2.0, gamma=7/5",
+      "inputs": {
+        "gamma": 1.4,
+        "mach": 2.0
+      },
+      "tolerance_basis": "Half the last printed 0.001 degree. No additional model uncertainty.",
+      "purpose": "Verify only the perfect-gas expansion-angle helper.",
+      "status": "PASS",
+      "metrics": {
+        "angle_deg": {
+          "expected": 26.38,
+          "actual": 26.379760813416457,
+          "difference": -0.00023918658354205036,
+          "relative_difference": -9.06696677566529e-06,
+          "absolute_limit": 0.0005,
+          "within_tolerance": true
+        }
+      }
+    },
+    {
+      "id": "MOC-AREA-2.0",
+      "model": "moc",
+      "reference": "REF-NACA1135",
+      "kind": "published_table",
+      "locator": "Table II printed page 634, area ratio at Mach 2.0",
+      "inputs": {
+        "gamma": 1.4,
+        "mach_exit": 2.0,
+        "throat_radius": 0.1,
+        "subdivisions": 48
+      },
+      "tolerance_basis": "Provisional 0.5% numerical contour-area screen plus table rounding. Not a physical validation criterion.",
+      "purpose": "Compare the mapped contour exit area with the independent perfect-gas area table.",
+      "status": "PASS",
+      "metrics": {
+        "area_ratio": {
+          "expected": 1.688,
+          "actual": 1.6859043521335362,
+          "difference": -0.002095647866463768,
+          "relative_difference": -0.0012414975512226114,
+          "absolute_limit": 0.00894,
+          "within_tolerance": true
+        }
+      }
+    },
+    {
+      "id": "CEA8-COMPATIBILITY",
+      "model": "rocket_equilibrium",
+      "reference": "REF-CEA8",
+      "kind": "incompatible_reference",
+      "locator": "Reactant inputs and chamber output",
+      "inputs": {
+        "pc_pa": 5331720,
+        "of_ratio": 5.55157,
+        "reference_fuel": "H2(L)",
+        "reference_oxidizer": "O2(L)",
+        "reference_temperatures_k": [
+          20.27,
+          90.17
+        ]
+      },
+      "tolerance_basis": "No accuracy tolerance applies because reactant phase and enthalpy do not match.",
+      "purpose": "Prevent incorrect validation against cryogenic liquid inputs.",
+      "status": "INCOMPATIBLE",
+      "reason": "The application fixes reactants to 300 K gas states and cannot reproduce the reference enthalpy. Product database and loss conventions also require review.",
+      "reference_values": {
+        "chamber_temperature_k": 3383.845,
+        "cstar_m_s": 2332.34
+      },
+      "metrics": {}
+    },
+    {
+      "id": "CEA-GAS-1",
+      "model": "rocket_equilibrium",
+      "reference": "REF-CEA-GAS",
+      "kind": "independent_code",
+      "locator": "CEA_GAS_REFERENCE.json row 1; NASA CEA 3.3.4",
+      "inputs": {
+        "pc_pa": 1000000.0,
+        "of_ratio": 2.0
+      },
+      "tolerance_basis": "Preselected 1 percent code-comparison screen for distinct thermodynamic databases. Not an experimental accuracy bound.",
+      "purpose": "Compare gas-reactant chamber chemistry only. No nozzle or physical-domain qualification.",
+      "status": "PASS",
+      "metrics": {
+        "temperature_k": {
+          "expected": 2072.4400081122512,
+          "actual": 2071.9708454967667,
+          "difference": -0.46916261548449256,
+          "relative_difference": -0.00022638175949510087,
+          "absolute_limit": 20.724400081122514,
+          "within_tolerance": true
+        },
+        "mw_kg_per_kmol": {
+          "expected": 6.04537645128463,
+          "actual": 6.045742365210342,
+          "difference": 0.00036591392571150294,
+          "relative_difference": 6.052789742047362e-05,
+          "absolute_limit": 0.0604537645128463,
+          "within_tolerance": true
+        }
+      }
+    },
+    {
+      "id": "CEA-GAS-2",
+      "model": "rocket_equilibrium",
+      "reference": "REF-CEA-GAS",
+      "kind": "independent_code",
+      "locator": "CEA_GAS_REFERENCE.json row 2; NASA CEA 3.3.4",
+      "inputs": {
+        "pc_pa": 5000000.0,
+        "of_ratio": 4.0
+      },
+      "tolerance_basis": "Preselected 1 percent code-comparison screen for distinct thermodynamic databases. Not an experimental accuracy bound.",
+      "purpose": "Compare gas-reactant chamber chemistry only. No nozzle or physical-domain qualification.",
+      "status": "PASS",
+      "metrics": {
+        "temperature_k": {
+          "expected": 3120.7460533984095,
+          "actual": 3123.1772414100474,
+          "difference": 2.4311880116379143,
+          "relative_difference": 0.0007790406428585931,
+          "absolute_limit": 31.207460533984094,
+          "within_tolerance": true
+        },
+        "mw_kg_per_kmol": {
+          "expected": 9.920159982225243,
+          "actual": 9.92198555526955,
+          "difference": 0.0018255730443073048,
+          "relative_difference": 0.00018402657291599454,
+          "absolute_limit": 0.09920159982225243,
+          "within_tolerance": true
+        }
+      }
+    },
+    {
+      "id": "CEA-GAS-3",
+      "model": "rocket_equilibrium",
+      "reference": "REF-CEA-GAS",
+      "kind": "independent_code",
+      "locator": "CEA_GAS_REFERENCE.json row 3; NASA CEA 3.3.4",
+      "inputs": {
+        "pc_pa": 10000000.0,
+        "of_ratio": 6.0
+      },
+      "tolerance_basis": "Preselected 1 percent code-comparison screen for distinct thermodynamic databases. Not an experimental accuracy bound.",
+      "purpose": "Compare gas-reactant chamber chemistry only. No nozzle or physical-domain qualification.",
+      "status": "PASS",
+      "metrics": {
+        "temperature_k": {
+          "expected": 3636.4014811752654,
+          "actual": 3641.135094009738,
+          "difference": 4.733612834472751,
+          "relative_difference": 0.0013017299819553679,
+          "absolute_limit": 36.364014811752654,
+          "within_tolerance": true
+        },
+        "mw_kg_per_kmol": {
+          "expected": 13.317440750559111,
+          "actual": 13.324547863354105,
+          "difference": 0.007107112794994208,
+          "relative_difference": 0.0005336695637032083,
+          "absolute_limit": 0.13317440750559112,
+          "within_tolerance": true
+        }
+      }
+    }
+  ],
+  "studies": {
+    "moc_resolution": {
+      "inputs": {
+        "gamma": 1.4,
+        "mach_exit": 2,
+        "throat_radius_m": 0.1
+      },
+      "rows": [
+        {
+          "subdivisions": 12,
+          "length_m": 0.4814234371832618,
+          "exit_area_ratio": 1.6777628770955015
+        },
+        {
+          "subdivisions": 24,
+          "length_m": 0.482412582313036,
+          "exit_area_ratio": 1.6835365357858771,
+          "length_change_fraction": 0.002054626038901608,
+          "area_change_fraction": 0.003441284086801888
+        },
+        {
+          "subdivisions": 48,
+          "length_m": 0.4828066238867517,
+          "exit_area_ratio": 1.6859043521335362,
+          "length_change_fraction": 0.0008168144616509387,
+          "area_change_fraction": 0.0014064537937419352
+        },
+        {
+          "subdivisions": 96,
+          "length_m": 0.48296293783056604,
+          "exit_area_ratio": 1.6868615662785933,
+          "length_change_fraction": 0.00032376097609421173,
+          "area_change_fraction": 0.0005677748822736639
+        }
+      ],
+      "interpretation": "Successive resolution differences only. No validated discretization or physical error bound."
+    },
+    "breguet_sensitivity": {
+      "rows": [
+        {
+          "tsfc_factor": 0.99,
+          "range_km": 12920.699649842905
+        },
+        {
+          "tsfc_factor": 1,
+          "range_km": 12791.492653344476
+        },
+        {
+          "tsfc_factor": 1.01,
+          "range_km": 12664.844211232154
+        }
+      ],
+      "interpretation": "The 1% input perturbation is illustrative, not measured input uncertainty."
+    }
+  },
+  "validated_domains": {
+    "gas_turbine": [],
+    "multispool": [],
+    "ramjet": [],
+    "rocket_equilibrium": [],
+    "rocket_thermal": [],
+    "rocket_structure": [],
+    "off_design": [],
+    "atmosphere": [],
+    "moc": [],
+    "mission": [],
+    "diagnostics": []
+  },
+  "release_validation_ready": false,
+  "release_reason": "Independent operational validation and justified output uncertainty are absent. See MODEL_REGISTRY.json."
+}

@@ -1,0 +1,8 @@
+{
+  "cantera_version": "3.2.0",
+  "mechanism": "gri30_highT.yaml",
+  "sha256": "840f5d412cb8c0a1874ce48efed47ffb53a57225a61daca129e661cc4a4f9c14",
+  "minimum_temperature_k": 300,
+  "maximum_temperature_k": 5000,
+  "physical_validation": false
+}

@@ -1,3 +1,13 @@
+## Rocket high-temperature update (2026-09-14)
+
+Rocket calculations now use gri30_highT.yaml with a common 300-5000 K interval.
+Frozen throat states retain the same dataset. Gas-turbine defaults remain unchanged.
+Focused tests, independent CEA comparisons, and the rocket browser check pass. Full regression: 326 passed with warnings treated as errors.
+See docs/engineering/HIGH_T_REVIEW.md. The user authorized commit and push on 2026-09-14. Check remote CI for the resulting revision.
+Next: review shifting-throat sonic behavior before CEA nozzle comparisons. Physical qualification remains open.
+
+---
+
 ## CI dependency follow-up (2026-09-10)
 
 Commit fbd7d29 was pushed to origin/main. CI run 34436793510 failed during backend test collection.

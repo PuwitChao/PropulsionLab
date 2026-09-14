@@ -110,3 +110,10 @@ See [LICENSE](LICENSE).
 
 The chart runtime uses the official Plotly GL3D bundle. Geographic map traces are intentionally excluded.
 See [EA08-R01 remediation](docs/engineering/EA08_REMEDIATION.md) for the dependency boundary.
+
+### Rocket thermodynamic data
+
+Rocket calculations use Cantera gri30_highT.yaml with a common species temperature interval of 300-5000 K.
+Checked states outside that interval return a domain error. Frozen throat calculations retain the same dataset.
+Reactants remain ideal gases at 300 K. This interval does not establish physical validation.
+See docs/engineering/HIGH_T_REVIEW.md for verification and remaining limits.

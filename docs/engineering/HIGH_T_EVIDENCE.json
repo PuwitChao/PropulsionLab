@@ -1,0 +1,25 @@
+{
+  "date": "2026-09-14",
+  "backend": {
+    "passed": 326,
+    "seconds": 359.22,
+    "warnings_as_errors": true
+  },
+  "browser_passed": 1,
+  "comparisons": {
+    "PASS": 12,
+    "INCOMPATIBLE": 1
+  },
+  "physical_validation": false,
+  "sha256": {
+    "core/gas_turbine/state.py": "34054d7b4c0269cc96c87a3d985001a492a694fc91131d66bd3056dc7207a3e0",
+    "core/rocket/analyzer.py": "6fcbcf9728d08fe5c25c823033c4b0ce487b41697ce6ee0914326ee6a1d174d3",
+    "core/solver_result.py": "908f8c53734d221f88833e0d8254d28dc8d77d79d6f6bd8c2b4c068d7dd907f2",
+    "tests/test_rocket_reactants.py": "dbec56f5214ac244736654b1b55b95c22b28ba775fb0d99231c9218f483f9447",
+    "tests/test_rocket_temperature_domain.py": "49d8c637d3aec836d2676fc5f23e0724e49d3f64add5db3360c60fffbc042355",
+    "docs/engineering/MODEL_REGISTRY.json": "dfa19679a0ad76d22d2ba90fdb15af0ca89c6ffc8c5becd2af5e67395e0c0b24",
+    "docs/engineering/HIGH_T_COMPARISONS.json": "a057a8775bed837f3ff37c079f5b2db385798a7012ec0abe9e387698e408a7ea",
+    "docs/engineering/HIGH_T_DATASET.json": "01c1ec57f4c6c5f5f3532ca84531d551a2ae9bb545f826041d6768900d1e6c0d",
+    "docs/engineering/HIGH_T_TEST_RESULTS.xml": "9248d2626e73467ae70513dcd76a6ab2b923409301fc2cccd2552f8562bc03a1"
+  }
+}

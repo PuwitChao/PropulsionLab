@@ -15,7 +15,7 @@ import math
 from typing import Any, Optional
 import cantera as ct
 from ..units import G
-from ..gas_turbine.state import _snapshot
+from ..gas_turbine.state import _snapshot, check_temperature_domain
 from ..gas_turbine.flow import convergent_nozzle
 from ..errors import InputValidationError, DependencyError, UnsupportedModelError, ModelDomainError, PhysicalInfeasibilityError, SolverError, ThermochemistryError
 from ..solver_result import rocket_result, assurance, failed_point
@@ -37,19 +37,12 @@ class RocketAnalyzer:
     def _new_gas(self) -> ct.Solution:
         """Returns a fresh, isolated Cantera GRI30 solution object for thread safety."""
         try:
-            return ct.Solution('gri30.yaml', transport_model='mixture-averaged')
+            return ct.Solution(self.mechanism, transport_model='mixture-averaged')
         except ct.CanteraError as exc:
             raise DependencyError('The GRI30 thermochemistry mechanism is unavailable.') from exc
 
-    @staticmethod
-    def _check_temperature_floor(gas, station):
-        """Reject states below the common mechanism temperature floor."""
-        if gas.T < gas.min_temp:
-            raise ModelDomainError(
-                'Rocket state is below the mechanism temperature floor.',
-                station=station, temperature_k=float(gas.T),
-                minimum_temperature_k=float(gas.min_temp),
-            )
+    mechanism = 'gri30_highT.yaml'
+    _check_temperature_domain = staticmethod(check_temperature_domain)
 
     def __init__(self, chamber_p_pa: float) -> None:
         """
@@ -267,12 +260,13 @@ class RocketAnalyzer:
         reactant_mass = dict(fuel_mix)
         reactant_mass[prop['ox']] = reactant_mass.get(prop['ox'], 0.0) + of_ratio
         gas.TPY = 300.0, self.pc, reactant_mass
+        self._check_temperature_domain(gas, 'reactants')
         phi = float(gas.equivalence_ratio(fuel_mix, prop['ox'], basis='mass'))
         reactants = {
             'temperature_k': float(gas.T),
             'pressure_pa': float(gas.P),
             'phase': 'ideal-gas',
-            'mechanism': 'gri30.yaml',
+            'mechanism': self.mechanism,
             'of_ratio': of_ratio,
             'of_basis': 'oxidizer_stream_mass / total_fuel_stream_mass',
             'fuel_stream_mass_fractions': fuel_mix,
@@ -285,7 +279,7 @@ class RocketAnalyzer:
 
         # ── Chamber ──────────────────────────────────────────────────────
         gas.equilibrate('HP')
-        self._check_temperature_floor(gas, 'chamber')
+        self._check_temperature_domain(gas, 'chamber')
         t_chamber    = gas.T
         h_chamber    = gas.h
         math_trace.append(f"Chamber Equilibrium (HP): T={t_chamber:.1f} K, h={h_chamber/1e6:.3f} MJ/kg")
@@ -299,7 +293,7 @@ class RocketAnalyzer:
         r_spec_chamber = ct.gas_constant / mw_chamber
 
         frozen_X = gas.X.copy() if mode == 'frozen' else None
-        frozen_throat = convergent_nozzle(_snapshot(gas), self.pc*.1) if mode == 'frozen' else None
+        frozen_throat = convergent_nozzle(_snapshot(gas, self.mechanism), self.pc*.1) if mode == 'frozen' else None
 
         critical_pe = self.pc * (2 / (gamma_chamber + 1)) ** (gamma_chamber / (gamma_chamber - 1))
         if frozen_throat is not None:
@@ -310,7 +304,7 @@ class RocketAnalyzer:
         # ── Nozzle exit ───────────────────────────────────────────────────
         if mode == 'shifting':
             gas.SP = s_chamber, p_exit_pa
-            self._check_temperature_floor(gas, 'nozzle exit')
+            self._check_temperature_domain(gas, 'nozzle exit')
             try:
                 gas.equilibrate('SP')
             except ct.CanteraError as exc:
@@ -318,9 +312,9 @@ class RocketAnalyzer:
         else:
             gas.X = frozen_X
             gas.SP = s_chamber, p_exit_pa
-            self._check_temperature_floor(gas, 'nozzle exit')
+            self._check_temperature_domain(gas, 'nozzle exit')
 
-        self._check_temperature_floor(gas, 'nozzle exit')
+        self._check_temperature_domain(gas, 'nozzle exit')
         t_exit   = gas.T
         h_exit   = gas.h
         rho_exit = gas.density
@@ -352,7 +346,7 @@ class RocketAnalyzer:
         if mode == 'shifting':
             gas.TP = t_chamber * (2 / (g + 1)), self.pc * (2 / (g + 1)) ** (g / (g - 1))
             gas.SP = s_chamber, gas.P
-            self._check_temperature_floor(gas, 'throat')
+            self._check_temperature_domain(gas, 'throat')
             try:
                 gas.equilibrate('SP')
             except ct.CanteraError as exc:
@@ -361,7 +355,7 @@ class RocketAnalyzer:
             gas.X = frozen_X
             gas.SP = s_chamber, critical_pe
 
-        self._check_temperature_floor(gas, 'throat')
+        self._check_temperature_domain(gas, 'throat')
         rho_star = gas.density
         if h_chamber <= gas.h:
             raise PhysicalInfeasibilityError('No positive enthalpy drop is available at the throat.')

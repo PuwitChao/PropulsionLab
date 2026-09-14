@@ -7,12 +7,12 @@ from dataclasses import dataclass
 import math
 from collections.abc import Mapping
 import cantera as ct
-from ..errors import InputValidationError, DependencyError, ThermochemistryError
+from ..errors import InputValidationError, DependencyError, ThermochemistryError, ModelDomainError
 
 
-def _solution():
+def _solution(mechanism="gri30.yaml"):
     try:
-        return ct.Solution('gri30.yaml')
+        return ct.Solution(mechanism)
     except ct.CanteraError as exc:
         raise DependencyError('The GRI30 state mechanism is unavailable.') from exc
 
@@ -36,6 +36,8 @@ class GasState:
     molecular_weight_kg_per_kmol: float
     element_mass_fractions: tuple[tuple[str, float], ...]
 
+    mechanism: str = "gri30.yaml"
+
     @property
     def gas_constant_j_per_kg_k(self):
         return ct.gas_constant / self.molecular_weight_kg_per_kmol
@@ -45,12 +47,25 @@ class GasState:
         return self.cp_j_per_kg_k / self.cv_j_per_kg_k
 
 
-def _snapshot(gas):
+def check_temperature_domain(gas, station):
+    """Reject a state outside the common species temperature interval."""
+    if not gas.min_temp <= gas.T <= gas.max_temp:
+        raise ModelDomainError(
+            'Thermodynamic state is outside the mechanism temperature interval.',
+            station=station, temperature_k=float(gas.T),
+            minimum_temperature_k=float(gas.min_temp),
+            maximum_temperature_k=float(gas.max_temp),
+        )
+
+
+def _snapshot(gas, mechanism="gri30.yaml"):
+    if mechanism == "gri30_highT.yaml":
+        check_temperature_domain(gas, 'frozen state')
     return GasState(float(gas.T), float(gas.P),
         tuple((name, float(y)) for name, y in zip(gas.species_names, gas.Y) if y > 0),
         float(gas.enthalpy_mass), float(gas.entropy_mass), float(gas.cp_mass),
         float(gas.cv_mass), float(gas.density), float(gas.mean_molecular_weight),
-        tuple((name, float(gas.elemental_mass_fraction(name))) for name in gas.element_names))
+        tuple((name, float(gas.elemental_mass_fraction(name))) for name in gas.element_names), mechanism)
 
 
 def state_tp(temperature_k: float, pressure_pa: float, species_masses: Mapping[str, float]) -> GasState:
@@ -100,7 +115,7 @@ def frozen_state(state: GasState, pressure_pa: float, *, temperature_k=None,
             _finite(value, 'State coordinate')
     if temperature_k is not None and temperature_k <= 0:
         raise InputValidationError('Temperature must be positive.')
-    gas = _solution()
+    gas = _solution(state.mechanism)
     try:
         gas.TPY = state.temperature_k, state.pressure_pa, dict(state.mass_fractions)
         if temperature_k is not None:
@@ -109,6 +124,6 @@ def frozen_state(state: GasState, pressure_pa: float, *, temperature_k=None,
             gas.HP = enthalpy_j_per_kg, pressure_pa
         else:
             gas.SP = entropy_j_per_kg_k, pressure_pa
-        return _snapshot(gas)
+        return _snapshot(gas, state.mechanism)
     except ct.CanteraError as exc:
         raise ThermochemistryError('The frozen state inversion did not converge.') from exc

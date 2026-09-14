@@ -149,10 +149,10 @@ def rocket_result(function):
         require_finite(result)
         meta = assurance('rocket_equilibrium', inputs,
                          warnings=result.pop('_warnings', []),
-                         assumptions=['RK-01: Cantera GRI30 reactants at 300 K; surrogate fuel definitions',
+                         assumptions=['RK-01: Cantera GRI30 high-temperature data; 300 K reactants; surrogate fuels',
                                       'RK-02: frozen sonic root or approximate shifting throat pressure; mass-consistent c-star; fixed nozzle geometry',
                                       'RK-03: prescribed divergence/friction and conceptual thermal/structural estimates'])
-        meta['solver'].update(module=function.__module__, method='HP chamber / SP exit', mechanism='gri30.yaml', cantera_version=ct.__version__)
+        meta['solver'].update(module=function.__module__, method='HP chamber / SP exit', mechanism=self.mechanism, cantera_version=ct.__version__)
         if result['regime'] == 'Separation Warning':
             meta['status'] = 'OUTSIDE_MODEL_DOMAIN'
             meta['applicability']['within_model_domain'] = False

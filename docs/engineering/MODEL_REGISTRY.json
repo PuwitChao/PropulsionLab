@@ -275,8 +275,8 @@
         "REF-THRUST",
         "REF-CEA-GAS"
       ],
-      "description": "GRI30 HP/SP equilibrium with prescribed nozzle losses. Reactants use exact stream mass ratios, including fuel impurity mass. Results expose the initial composition and enthalpy.",
-      "limits": "300 K gas reactants, propane surrogate for RP1. Frozen sonic throat solved; shifting throat pressure remains approximate. Throat mass and sizing use a consistent c-star. States below the common mechanism temperature floor are rejected. Upper-temperature extrapolation is not qualified.",
+      "description": "GRI30 high-temperature HP/SP equilibrium with prescribed nozzle losses. Reactants use exact stream mass ratios and record inlet composition and enthalpy.",
+      "limits": "300 K gas reactants, propane surrogate for RP1. Rocket states use gri30_highT.yaml with a common 300-5000 K interval. Outside states are rejected. Frozen sonic throat retains that dataset. Shifting throat pressure remains approximate. This interval is not a physically validated domain.",
       "validation_level": "unvalidated",
       "validated_domains": [],
       "calibration_cases": [],
@@ -297,7 +297,8 @@
       "verification_tests": [
         "tests/test_solver_assurance.py",
         "tests/test_rocket_reactants.py",
-        "tests/test_rocket_throat.py"
+        "tests/test_rocket_throat.py",
+        "tests/test_rocket_temperature_domain.py"
       ],
       "model_upgrade_proposal": "docs/engineering/EA06_ROCKET_UPGRADES.md"
     },

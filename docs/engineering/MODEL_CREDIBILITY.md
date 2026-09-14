@@ -51,3 +51,12 @@ A broader low-temperature model requires a reviewed species set and thermodynami
 High-temperature extrapolation remains unqualified. In particular, the hottest chamber comparison exceeds some GRI30 species temperature ranges.
 Agreement between codes at that condition does not validate the extrapolated properties.
 See VALIDATION_PLAN.md and EA08_LIMITATIONS.md for the remaining qualification evidence.
+
+## September 14 temperature-domain correction
+
+Rocket calculations now use gri30_highT.yaml for chamber, exit, and frozen-throat states.
+Both temperature bounds are enforced at checked states. The common species interval is 300-5000 K.
+Earlier high-temperature extrapolation findings describe the previous gri30.yaml implementation.
+This data interval does not establish a physically validated operating domain or qualify transport correlations.
+Frozen gas-turbine states retain gri30.yaml. Shifting-throat pressure remains approximate.
+See HIGH_T_REVIEW.md for the correction and verification record.

@@ -255,3 +255,10 @@ The separate reference generator does not import application code. These compari
 CI installs backend/requirements-test.txt and treats backend warnings as errors.
 
 The test dependency gate pins AnyIO 4.14.2 for Starlette 1.6.0 compatibility. Runtime solver interfaces do not change.
+
+## Rocket high-temperature dataset (2026-09-14)
+
+RocketAnalyzer uses gri30_highT.yaml and checks the common 300-5000 K species interval.
+GasState retains its mechanism identifier through frozen_state and convergent_nozzle.
+Rocket throat reconstruction uses the same thermodynamic data as the chamber.
+Gas-turbine state defaults remain gri30.yaml. Assurance exports identify the actual rocket mechanism.

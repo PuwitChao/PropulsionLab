@@ -14,7 +14,7 @@ def test_requested_mass_ratio_enters_chemistry(propellant, ratio):
     y = state['mass_fractions']
     assert y[prop['ox']] / y[prop['fuel']] == pytest.approx(ratio, rel=1e-12)
     assert result['mdot_ox'] / result['mdot_fuel'] == pytest.approx(ratio)
-    gas = ct.Solution('gri30.yaml')
+    gas = ct.Solution('gri30_highT.yaml')
     gas.TPY = state['temperature_k'], state['pressure_pa'], y
     assert gas.enthalpy_mass == pytest.approx(state['specific_enthalpy_j_per_kg'])
     assert result['h_chamber'] == pytest.approx(gas.enthalpy_mass, abs=1.)
@@ -46,6 +46,6 @@ def test_cold_exit_rejected_before_performance(mode):
 
 
 def test_temperature_floor_includes_boundary():
-    gas = ct.Solution('gri30.yaml')
+    gas = ct.Solution('gri30_highT.yaml')
     gas.TP = 300, 101325
-    RocketAnalyzer._check_temperature_floor(gas, 'test boundary')
+    RocketAnalyzer._check_temperature_domain(gas, 'test boundary')
